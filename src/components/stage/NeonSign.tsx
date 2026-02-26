@@ -1,25 +1,35 @@
-import { Text } from '@react-three/drei'
+import { useTexture } from '@react-three/drei'
 import { useControls } from 'leva'
+import * as THREE from 'three'
 
 export function NeonSign() {
     const neonColor = "#00f0ff"
 
-    const neonProps = useControls('🚥 Neon (Napis)', {
+    // Zaktualizowane leve controls dla obrazka
+    const neonProps = useControls('🚥 Neon (Logo)', {
         swiatloMoc: { value: 20, min: 0, max: 200, step: 1, label: 'Moc Światła na Ścianę' },
-        tekstMoc: { value: 1.2, min: 0, max: 10, step: 0.1, label: 'Siła Emisji Tekstu' },
+        logoMoc: { value: 2.0, min: 0, max: 10, step: 0.1, label: 'Siła Podświetlenia Logo' },
+        width: { value: 10, min: 1, max: 20, step: 0.1, label: 'Szerokość Logo' },
+        height: { value: 5, min: 1, max: 20, step: 0.1, label: 'Wysokość Logo' }
     })
+
+    const texture = useTexture('/logo.png')
+    // Zapewniamy ładne renderowanie kolorów SRGB
+    texture.colorSpace = THREE.SRGBColorSpace
 
     return (
         <group position={[0, 6, -7.8]}>
-
-            <Text
-                fontSize={1.5}
-                letterSpacing={-0.05}
-                color={neonColor}
-            >
-                THREESTYLE
-                <meshStandardMaterial emissive={neonColor} emissiveIntensity={neonProps.tekstMoc} toneMapped={false} />
-            </Text>
+            <mesh>
+                <planeGeometry args={[neonProps.width, neonProps.height]} />
+                <meshStandardMaterial
+                    map={texture}
+                    transparent={true}
+                    emissive={neonColor}
+                    emissiveMap={texture}
+                    emissiveIntensity={neonProps.logoMoc}
+                    toneMapped={false}
+                />
+            </mesh>
 
             <pointLight
                 intensity={neonProps.swiatloMoc}
@@ -30,3 +40,5 @@ export function NeonSign() {
         </group>
     )
 }
+
+useTexture.preload('/logo.png')
