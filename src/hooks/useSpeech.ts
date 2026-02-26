@@ -5,31 +5,37 @@ interface UseSpeechProps {
     language?: string
 }
 
+// Web Speech API nie jest w standardowych typach TS — definiujemy interfejs
+type SpeechRecognitionType = typeof window extends { SpeechRecognition: infer T } ? T : never
+
 export function useSpeech({ onTranscript, language = 'pl-PL' }: UseSpeechProps) {
     const [isListening, setIsListening] = useState(false)
     const [transcript, setTranscript] = useState('')
     const [error, setError] = useState<string | null>(null)
 
-    // Definiujemy instancję recognition w ref albo state (tu użyjemy zewnętrznej by przetrwała re-rendery)
-    const [recognition, setRecognition] = useState<any>(null)
-
+    // SpeechRecognition to obiekt imperatywny — ref zamiast state (nie wywołuje re-renderów)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const recognitionRef = useRef<any>(null)
     const onTranscriptRef = useRef(onTranscript)
     onTranscriptRef.current = onTranscript
 
     useEffect(() => {
         if (typeof window === 'undefined') return
 
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-        if (!SpeechRecognition) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+
+        if (!SpeechRecognitionAPI) {
             setError("Twoja przeglądarka nie obsługuje Web Speech API. Użyj Chrome.")
             return
         }
 
-        const rec = new SpeechRecognition()
+        const rec = new SpeechRecognitionAPI()
         rec.continuous = true
         rec.interimResults = true
         rec.lang = language
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         rec.onresult = (event: any) => {
             let currentTranscript = ''
             for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -39,10 +45,11 @@ export function useSpeech({ onTranscript, language = 'pl-PL' }: UseSpeechProps) 
             }
             if (currentTranscript.trim()) {
                 setTranscript(currentTranscript)
-                onTranscriptRef.current(currentTranscript) // Wyślij finalny fragment do rodzica
+                onTranscriptRef.current(currentTranscript)
             }
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         rec.onerror = (event: any) => {
             console.error('Speech recognition error', event.error)
             if (event.error !== 'no-speech') {
@@ -55,37 +62,39 @@ export function useSpeech({ onTranscript, language = 'pl-PL' }: UseSpeechProps) 
             setIsListening(false)
         }
 
-        setRecognition(rec)
+        recognitionRef.current = rec
 
         return () => {
             rec.stop()
         }
-    }, [language]) // Removed onTranscript from dependencies
+    }, [language])
 
     const startListening = useCallback(() => {
         setError(null)
         setTranscript('')
-        if (recognition) {
+        const rec = recognitionRef.current
+        if (rec) {
             try {
-                recognition.start()
+                rec.start()
                 setIsListening(true)
             } catch (e) {
                 console.error(e)
             }
         }
-    }, [recognition])
+    }, [])
 
     const stopListening = useCallback(() => {
-        if (recognition) {
-            recognition.stop()
+        const rec = recognitionRef.current
+        if (rec) {
+            rec.stop()
             setIsListening(false)
         }
-    }, [recognition])
+    }, [])
 
-    const toggleListening = () => {
+    const toggleListening = useCallback(() => {
         if (isListening) stopListening()
         else startListening()
-    }
+    }, [isListening, startListening, stopListening])
 
     return {
         isListening,

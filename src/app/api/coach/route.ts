@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Inicjalizacja SDK odbywa się serwerowo ukrywając klucz w procesie Node
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_KEY || '');
+// Klucz wyłącznie serwerowy — NIGDY nie używaj NEXT_PUBLIC_ dla kluczy API
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+    console.warn('[ThreeStyle] ⚠️ Brak GEMINI_API_KEY w zmiennych środowiskowych');
+}
+const genAI = new GoogleGenerativeAI(apiKey || '');
 
 export async function POST(req: Request) {
     try {

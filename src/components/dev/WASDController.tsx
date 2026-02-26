@@ -14,6 +14,12 @@ export function WASDController({ speed = 5 }: { speed?: number }) {
     const keys = useRef<Record<string, boolean>>({})
     const { controls, camera } = useThree()
 
+    // Prealokowane wektory — unikamy alokacji w useFrame (60x/s)
+    const forward = useRef(new THREE.Vector3())
+    const right = useRef(new THREE.Vector3())
+    const move = useRef(new THREE.Vector3())
+    const up = useRef(new THREE.Vector3(0, 1, 0))
+
     useEffect(() => {
         const onDown = (e: KeyboardEvent) => {
             keys.current[e.key.toLowerCase()] = true
@@ -36,34 +42,31 @@ export function WASDController({ speed = 5 }: { speed?: number }) {
         if (!k['w'] && !k['s'] && !k['a'] && !k['d'] && !k['q'] && !k['e']) return
 
         // Kierunek "przód" kamery SPŁASZCZONY na XZ (ignorujemy pitch)
-        const forward = new THREE.Vector3()
-        camera.getWorldDirection(forward)
-        forward.y = 0
-        forward.normalize()
+        camera.getWorldDirection(forward.current)
+        forward.current.y = 0
+        forward.current.normalize()
 
         // Kierunek "prawo" — prostopadły do forward na XZ
-        const right = new THREE.Vector3()
-        right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize()
+        right.current.crossVectors(forward.current, up.current).normalize()
 
         // Obliczamy wektor przesunięcia
-        const move = new THREE.Vector3(0, 0, 0)
+        move.current.set(0, 0, 0)
 
-        if (k['w']) move.add(forward)      // przód
-        if (k['s']) move.sub(forward)      // tył
-        if (k['d']) move.add(right)        // prawo
-        if (k['a']) move.sub(right)        // lewo
-        if (k['e']) move.y += 1            // góra
-        if (k['q']) move.y -= 1            // dół
+        if (k['w']) move.current.add(forward.current)
+        if (k['s']) move.current.sub(forward.current)
+        if (k['d']) move.current.add(right.current)
+        if (k['a']) move.current.sub(right.current)
+        if (k['e']) move.current.y += 1
+        if (k['q']) move.current.y -= 1
 
-        move.normalize().multiplyScalar(speed * delta)
+        move.current.normalize().multiplyScalar(speed * delta)
 
-        // KLUCZOWE: Przesuwamy JEDNOCZEŚNIE kamerę i target OrbitControls
-        camera.position.add(move)
+        // Przesuwamy JEDNOCZEŚNIE kamerę i target OrbitControls
+        camera.position.add(move.current)
 
-        // OrbitControls przechowuje target jako .target (Vector3)
-        const orbitControls = controls as any
+        const orbitControls = controls as unknown as { target?: THREE.Vector3 }
         if (orbitControls?.target) {
-            orbitControls.target.add(move)
+            orbitControls.target.add(move.current)
         }
     })
 

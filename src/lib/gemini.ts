@@ -1,4 +1,6 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const apiKey = process.env.NEXT_PUBLIC_GEMINI_KEY || "";
-export const genAI = new GoogleGenerativeAI(apiKey);
+// Ten plik jest przestarzały i nie jest już używany.
+// Gemini SDK jest inicjalizowany bezpośrednio w /api/coach/route.ts
+// z użyciem zmiennej GEMINI_API_KEY (serwerowej, bezpiecznej).
+//
+// UWAGA: NIE używaj NEXT_PUBLIC_GEMINI_KEY — klucz API
+// nigdy nie powinien trafiać do klienta (przeglądarki).
