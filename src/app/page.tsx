@@ -25,24 +25,24 @@ export default function Home() {
   }, [getRhymesAndTopics]);
   // --- DEV PANEL: OŚWIETLENIE (LEVA) ---
   const light = useControls('💡 Oświetlenie Sceny', {
-    envMoc: { value: 0.5, min: 0, max: 2, step: 0.05, label: 'Siła Otoczenia' },
-    ambientMoc: { value: 0.1, min: 0, max: 2, step: 0.05, label: 'Ambient' },
-    spotMoc: { value: 800, min: 0, max: 2000, step: 10, label: 'Spot Moc' },
-    spotKat: { value: 0.6, min: 0.1, max: 1.5, step: 0.05, label: 'Spot Kąt' },
-    spotMiekkosc: { value: 1, min: 0, max: 1, step: 0.1, label: 'Spot Miękkość' },
+    envMoc: { value: 0.15, min: 0, max: 2, step: 0.05, label: 'Siła Otoczenia' },
+    ambientMoc: { value: 0.45, min: 0, max: 2, step: 0.05, label: 'Ambient' },
+    spotMoc: { value: 1700, min: 0, max: 2000, step: 10, label: 'Spot Moc' },
+    spotKat: { value: 0.7, min: 0.1, max: 1.5, step: 0.05, label: 'Spot Kąt' },
+    spotMiekkosc: { value: 0, min: 0, max: 1, step: 0.1, label: 'Spot Miękkość' },
     spotKolor: { value: '#cceeff', label: 'Spot Kolor' },
-    spotWysokosc: { value: 8, min: 0, max: 15, step: 0.5, label: 'Spot Y' },
-    spotOsZ: { value: 4, min: -10, max: 10, step: 0.5, label: 'Spot Z' },
-    fillMoc: { value: 50, min: 0, max: 200, step: 5, label: 'Fill Moc' },
+    spotWysokosc: { value: 4, min: 0, max: 15, step: 0.5, label: 'Spot Y' },
+    spotOsZ: { value: 9, min: -10, max: 10, step: 0.5, label: 'Spot Z' },
+    fillMoc: { value: 0, min: 0, max: 200, step: 5, label: 'Fill Moc' },
     fillKolor: { value: '#00f0ff', label: 'Fill Kolor' },
   })
 
   // --- DEV PANEL: LED STRIPS ---
   const led = useControls('🔦 Paski LED (Progi)', {
-    lewyKolor: { value: '#00f0ff', label: 'Lewy Kolor' },
+    lewyKolor: { value: '#ff0030', label: 'Lewy Kolor' },
     prawyKolor: { value: '#ff00aa', label: 'Prawy Kolor' },
-    ledMoc: { value: 80, min: 0, max: 300, step: 5, label: 'Moc' },
-    ledWysokosc: { value: -1.8, min: -3, max: 2, step: 0.1, label: 'Wysokość' },
+    ledMoc: { value: 25, min: 0, max: 300, step: 5, label: 'Moc' },
+    ledWysokosc: { value: -2.0, min: -3, max: 2, step: 0.1, label: 'Wysokość' },
   })
 
   const nav = useControls('🎮 Nawigacja WASD', {
@@ -50,14 +50,14 @@ export default function Home() {
   })
 
   const ui = useControls('🖥️ UI / HUD', {
-    ukryjHUD: { value: false, label: 'Ukryj HUD' },
+    ukryjHUD: { value: true, label: 'Ukryj HUD' },
   })
 
   const post = useControls('🌌 Post-Processing', {
     wlaczGlebie: { value: false, label: 'Włącz Ostrość (DoF)' },
-    bloomMoc: { value: 1.5, min: 0, max: 5, step: 0.1, label: 'Bloom Moc' },
-    bloomProg: { value: 1.0, min: 0, max: 2, step: 0.1, label: 'Bloom Próg' },
-    bloomWygladzenie: { value: 0.9, min: 0, max: 1, step: 0.05, label: 'Wygładzanie' },
+    bloomMoc: { value: 0, min: 0, max: 5, step: 0.1, label: 'Bloom Moc' },
+    bloomProg: { value: 0, min: 0, max: 2, step: 0.1, label: 'Bloom Próg' },
+    bloomWygladzenie: { value: 0, min: 0, max: 1, step: 0.05, label: 'Wygładzanie' },
   })
 
   return (
@@ -65,7 +65,7 @@ export default function Home() {
 
       {/* WARSTWA 1: Canvas 3D */}
       <div className="absolute inset-0 z-0">
-        <Canvas shadows camera={{ position: [0, 2, 10], fov: 45 }} gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}>
+        <Canvas shadows camera={{ position: [0.56, 3.58, 8.85], fov: 45 }} gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}>
           <color attach="background" args={['#020202']} />
 
           <Suspense fallback={null}>
