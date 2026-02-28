@@ -44,18 +44,18 @@ export function Arena() {
 
     const deskControls = useControls('🛠️ Biurko GLB', {
         biurkoX: { value: -2.20, min: -8, max: 8, step: 0.05, label: 'Pozycja X' },
-        biurkoY: { value: -1.70, min: -3, max: 3, step: 0.05, label: 'Pozycja Y' },
-        biurkoZ: { value: -1.70, min: -8, max: 8, step: 0.05, label: 'Pozycja Z' },
+        biurkoY: { value: -1.40, min: -3, max: 3, step: 0.05, label: 'Pozycja Y' },
+        biurkoZ: { value: -4.40, min: -8, max: 8, step: 0.05, label: 'Pozycja Z' },
         biurkoRotY: { value: 0.00, min: -Math.PI, max: Math.PI, step: 0.01, label: 'Obrót Y' },
         biurkoScale: { value: 1.05, min: 0.1, max: 2, step: 0.05, label: 'Skala' }
     })
 
     const micControls = useControls('🎤 Mikrofon', {
         mikrofonX: { value: 0.30, min: -8, max: 8, step: 0.01, label: 'Pozycja X' },
-        mikrofonY: { value: 0.45, min: -3, max: 3, step: 0.01, label: 'Pozycja Y' },
-        mikrofonZ: { value: 3.05, min: -8, max: 8, step: 0.01, label: 'Pozycja Z' },
-        mikrofonRotY: { value: -1.40, min: -Math.PI, max: Math.PI, step: 0.01, label: 'Obrót Y' },
-        mikrofonScale: { value: 0.8, min: 0.1, max: 50, step: 0.05, label: 'Skala' }
+        mikrofonY: { value: 0.75, min: -3, max: 3, step: 0.01, label: 'Pozycja Y' },
+        mikrofonZ: { value: 0.40, min: -8, max: 8, step: 0.01, label: 'Pozycja Z' },
+        mikrofonRotY: { value: -0.90, min: -Math.PI, max: Math.PI, step: 0.01, label: 'Obrót Y' },
+        mikrofonScale: { value: 0.80, min: 0.1, max: 50, step: 0.05, label: 'Skala' }
     })
 
     return (

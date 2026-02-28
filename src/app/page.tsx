@@ -47,9 +47,9 @@ export default function Home() {
   })
 
   const ui = useControls('🖥️ UI / HUD', {
-    ukryjHUD: { value: true, label: 'Ukryj HUD' },
-    hudY: { value: -1.0, min: -5, max: 5, step: 0.1, label: 'Pozycja Y' },
-    hudZ: { value: 5.0, min: -10, max: 10, step: 0.1, label: 'Pozycja Z' },
+    ukryjHUD: { value: false, label: 'Ukryj HUD' },
+    hudY: { value: -5.0, min: -20, max: 20, step: 0.1, label: 'Pozycja Y' },
+    hudZ: { value: -10.0, min: -20, max: 20, step: 0.1, label: 'Pozycja Z' },
   })
 
   const post = useControls('🌌 Post-Processing', {
