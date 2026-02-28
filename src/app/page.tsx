@@ -61,7 +61,7 @@ export default function Home() {
 
       {/* WARSTWA 1: Canvas 3D */}
       <div className="absolute inset-0 z-0">
-        <Canvas shadows camera={{ position: [0.56, 1.5, 8.85], fov: 45 }} gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}>
+        <Canvas shadows camera={{ position: [0.3, 0.8, 7.5], fov: 55 }} gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}>
           <color attach="background" args={['#020202']} />
 
           <Suspense fallback={null}>
