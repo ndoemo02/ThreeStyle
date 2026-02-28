@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+/Model sandbox/
+/LOGO 3s/
 
 # debug
 npm-debug.log*

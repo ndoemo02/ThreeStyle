@@ -51,8 +51,14 @@ export function useSpeech({ onTranscript, language = 'pl-PL' }: UseSpeechProps) 
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         rec.onerror = (event: any) => {
-            console.error('Speech recognition error', event.error)
-            if (event.error !== 'no-speech') {
+            if (event.error !== 'no-speech' && event.error !== 'network') {
+                console.error('Speech recognition error', event.error)
+            }
+            if (event.error === 'network') {
+                setError('Brak HTTPS / Sieć.')
+                setIsListening(false)
+            }
+            else if (event.error !== 'no-speech') {
                 setError(event.error)
                 setIsListening(false)
             }
