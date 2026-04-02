@@ -3,6 +3,7 @@ import { useControls } from 'leva'
 import * as THREE from 'three'
 import { EditingTable } from './EditingTable'
 import { StandingMic } from './StandingMic'
+import { MonitorSetup } from './MonitorSetup'
 
 export function Arena() {
     // 1. Load Concrete Textures
@@ -43,19 +44,27 @@ export function Arena() {
     brickNormal.wrapS = brickNormal.wrapT = THREE.RepeatWrapping; brickNormal.repeat.set(4.5, 1.5)
 
     const deskControls = useControls('🛠️ Biurko GLB', {
-        biurkoX: { value: -2.20, min: -8, max: 8, step: 0.05, label: 'Pozycja X' },
-        biurkoY: { value: -1.40, min: -3, max: 3, step: 0.05, label: 'Pozycja Y' },
-        biurkoZ: { value: -4.40, min: -8, max: 8, step: 0.05, label: 'Pozycja Z' },
-        biurkoRotY: { value: 0.00, min: -Math.PI, max: Math.PI, step: 0.01, label: 'Obrót Y' },
-        biurkoScale: { value: 1.05, min: 0.1, max: 2, step: 0.05, label: 'Skala' }
+        biurkoX: { value: -1.70, min: -15, max: 15, step: 0.05, label: '↔️ Lewo/Prawo' },
+        biurkoY: { value: -1.45, min: -5, max: 5, step: 0.05, label: '↕️ Góra/Dół' },
+        biurkoZ: { value: -4.40, min: -15, max: 15, step: 0.05, label: '↗️ Przód/Tył' },
+        biurkoRotY: { value: 0.00, min: -Math.PI, max: Math.PI, step: 0.1, label: '🔄 Obrót Y' },
+        biurkoScale: { value: 1.35, min: 0.1, max: 5, step: 0.05, label: '📏 Skala' }
     })
 
     const micControls = useControls('🎤 Mikrofon', {
-        mikrofonX: { value: 0.30, min: -8, max: 8, step: 0.01, label: 'Pozycja X' },
-        mikrofonY: { value: 0.75, min: -3, max: 3, step: 0.01, label: 'Pozycja Y' },
-        mikrofonZ: { value: 0.40, min: -8, max: 8, step: 0.01, label: 'Pozycja Z' },
-        mikrofonRotY: { value: -0.90, min: -Math.PI, max: Math.PI, step: 0.01, label: 'Obrót Y' },
-        mikrofonScale: { value: 0.80, min: 0.1, max: 50, step: 0.05, label: 'Skala' }
+        mikrofonX: { value: 2.54, min: -15, max: 15, step: 0.01, label: '↔️ Lewo/Prawo' },
+        mikrofonY: { value: 0.75, min: -5, max: 5, step: 0.01, label: '↕️ Góra/Dół' },
+        mikrofonZ: { value: 0.40, min: -15, max: 15, step: 0.01, label: '↗️ Przód/Tył' },
+        mikrofonRotY: { value: -0.90, min: -Math.PI, max: Math.PI, step: 0.01, label: '🔄 Obrót Y' },
+        mikrofonScale: { value: 0.80, min: 0.1, max: 50, step: 0.05, label: '📏 Skala' }
+    })
+
+    const monitorControls = useControls('🖥️ Monitory (Panoramiczne)', {
+        monX: { value: -1.82, min: -15, max: 15, step: 0.01, label: '↔️ Lewo/Prawo' },
+        monY: { value: -0.40, min: -5, max: 5, step: 0.01, label: '↕️ Góra/Dół' },
+        monZ: { value: -5.42, min: -15, max: 15, step: 0.01, label: '↗️ Przód/Tył' },
+        monRotY: { value: -1.41, min: -Math.PI, max: Math.PI, step: 0.01, label: '🔄 Obrót Y' },
+        monScale: { value: 0.75, min: 0.05, max: 5.0, step: 0.05, label: '📏 Skala' }
     })
 
     return (
@@ -113,6 +122,13 @@ export function Arena() {
                 position={[micControls.mikrofonX, micControls.mikrofonY, micControls.mikrofonZ]}
                 rotation={[0, micControls.mikrofonRotY, 0]}
                 scale={micControls.mikrofonScale}
+            />
+
+            {/* Panoramic Monitors (Independent) */}
+            <MonitorSetup 
+                position={[monitorControls.monX, monitorControls.monY, monitorControls.monZ]}
+                rotation={[0, monitorControls.monRotY, 0]}
+                scale={monitorControls.monScale}
             />
 
             {/* Tall Speakers: Right (2.8, 0, -2.5) */}
