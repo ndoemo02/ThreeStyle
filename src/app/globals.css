@@ -192,3 +192,13 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   overflow: hidden;
 }
+
+/* Fix Leva panel @use-gesture setPointerCapture InvalidStateError on mobile */
+[class*="leva-"] * {
+  touch-action: none;
+}
+/* Also ensure Leva root doesn't interfere with pointer lock */
+[class*="leva-"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
