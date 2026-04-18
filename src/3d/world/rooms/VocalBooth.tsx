@@ -1,42 +1,56 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useRef, useLayoutEffect } from 'react';
 import { useControls } from 'leva';
 import * as THREE from 'three';
+import { useTexture } from '@react-three/drei';
 
 // ─── Procedural wood-plank texture ─────────────────────────────────────────
-function makeWoodTexture(): THREE.CanvasTexture {
+function makeWedgeBumpMap(): THREE.CanvasTexture {
+  const size = 1024;
   const canvas = document.createElement('canvas');
-  canvas.width = 512; canvas.height = 512;
+  canvas.width = size; canvas.height = size;
   const ctx = canvas.getContext('2d')!;
-  const planks = ['#6b3f20','#7a4f2e','#855a35','#6f4525','#7d5030','#8a5c38'];
-  const pH = 512 / planks.length;
-  planks.forEach((c, i) => {
-    ctx.fillStyle = c; ctx.fillRect(0, i * pH, 512, pH - 2);
-    ctx.strokeStyle = 'rgba(0,0,0,0.07)'; ctx.lineWidth = 1;
-    for (let x = 0; x < 512; x += 16) {
-      ctx.beginPath(); ctx.moveTo(x, i * pH); ctx.lineTo(x + 5, (i + 1) * pH - 2); ctx.stroke();
-    }
-  });
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(2, 1);
-  return tex;
-}
+  const imgData = ctx.createImageData(size, size);
+  const data = imgData.data;
 
-// ─── Procedural foam texture ────────────────────────────────────────────────
-function makeFoamTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256; canvas.height = 256;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#c8bfa8'; ctx.fillRect(0, 0, 256, 256);
-  const s = 28;
-  for (let x = 0; x < 256; x += s) for (let y = 0; y < 256; y += s) {
-    const g = ctx.createRadialGradient(x+s/2,y+s/2,2,x+s/2,y+s/2,s/2);
-    g.addColorStop(0,'rgba(255,255,255,0.20)'); g.addColorStop(1,'rgba(0,0,0,0.15)');
-    ctx.fillStyle = g; ctx.fillRect(x, y, s-1, s-1);
+  // Let 1 tile be 256x256, meaning a 4x4 checker grid.
+  // Each tile contains 4 wedges.
+  const tileSize = 256;
+  const wedgesPerTile = 4;
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const tx = Math.floor(x / tileSize);
+      const ty = Math.floor(y / tileSize);
+      const isHoriz = (tx + ty) % 2 === 0;
+
+      let val = 0;
+      if (isHoriz) {
+        // Wedges form horizontal ridges -> height varies along Y
+        const p = ((y % (tileSize / wedgesPerTile)) / (tileSize / wedgesPerTile));
+        // Easing to make wedges look slightly rounded at the bottom, pointy at the top
+        val = p < 0.5 ? Math.pow(p * 2, 0.8) : Math.pow((1 - p) * 2, 0.8);
+      } else {
+        // Vertical ridges -> height varies along X
+        const p = ((x % (tileSize / wedgesPerTile)) / (tileSize / wedgesPerTile));
+        val = p < 0.5 ? Math.pow(p * 2, 0.8) : Math.pow((1 - p) * 2, 0.8);
+      }
+
+      const i = (y * size + x) * 4;
+      // High contrast for strong normal map reaction, plus slight noise for foam texture
+      const noise = Math.random() * 6;
+      const c = Math.min(255, Math.floor(val * 240 + 5 + noise));
+
+      data[i] = c;
+      data[i + 1] = c;
+      data[i + 2] = c;
+      data[i + 3] = 255;
+    }
   }
+  ctx.putImageData(imgData, 0, 0);
   const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(3, 2);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   return tex;
 }
 
@@ -87,9 +101,50 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
   const D = 3.6;
   const T = 0.10;
 
-  const woodTex = useMemo(() => makeWoodTexture(), []);
-  const foamTex = useMemo(() => makeFoamTexture(), []);
-  const foamMat = { color: '#cabfad' as THREE.ColorRepresentation, roughness: 0.92, metalness: 0.0 };
+  const [sonomaTex, filcTex] = useTexture([
+    '/textures/Lamele/Veneer/Veneer/Tekstury/LAM_P3_SONOMA.jpg',
+    '/textures/Lamele/Veneer/Veneer/Tekstury/LAM_P3_FILC_CZARNY.jpg'
+  ]);
+
+  const wedgeBumpTex = useMemo(() => makeWedgeBumpMap(), []);
+
+  useLayoutEffect(() => {
+    sonomaTex.wrapS = sonomaTex.wrapT = THREE.RepeatWrapping;
+    filcTex.wrapS = filcTex.wrapT = THREE.RepeatWrapping;
+    filcTex.repeat.set(W, H); // ~1 unit per meter for density
+
+    wedgeBumpTex.wrapS = wedgeBumpTex.wrapT = THREE.RepeatWrapping;
+    const wallRepeatX = D / 1.2; // 4 tiles in bump map, ~1.2m per repeat
+    const wallRepeatY = H / 1.2;
+    wedgeBumpTex.repeat.set(wallRepeatX, wallRepeatY);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [W, H, D]);
+
+  
+  const foamMat = { 
+    color: '#1a1816' as THREE.ColorRepresentation, 
+    roughness: 0.95, 
+    metalness: 0.0,
+    bumpMap: wedgeBumpTex,
+    bumpScale: 0.08
+  };
+
+  const slatCount = 104; // 5.2m wide, each is 0.03m wide with 0.02m gap -> 0.05m pitch
+  const slatMatrix = useMemo(() => new THREE.Matrix4(), []);
+  const instancedSlatsRef = useRef<THREE.InstancedMesh>(null);
+
+  useLayoutEffect(() => {
+    if (instancedSlatsRef.current) {
+      for (let i = 0; i < slatCount; i++) {
+        const x = -W / 2 + (i + 0.5) * 0.05;
+        // Position at Z = -D - T/2 + 0.02 (slightly recessed / inset from wall max bounds)
+        // Actually, back wall felt face is at -D. Slat thickness is 0.03. Center is -D + 0.015.
+        slatMatrix.setPosition(x, H / 2, -D + 0.015);
+        instancedSlatsRef.current.setMatrixAt(i, slatMatrix);
+      }
+      instancedSlatsRef.current.instanceMatrix.needsUpdate = true;
+    }
+  }, [W, H, D, slatCount, slatMatrix]);
 
   const light = useControls('Vocal Booth Lighting', {
     mainIntensity:   { value: 38, min: 0, max: 100, step: 1, label: 'Main (overhead)' },
@@ -115,56 +170,49 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
       {/* Booth ambient */}
       <ambientLight intensity={light.ambientIntensity} color="#fff8ee" />
 
-      {/* ── Floor (wood) ── */}
+      {/* ── Floor (dark carpet for vocal booth) ── */}
       <mesh position={[0, 0.02, -D / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[W, D]} />
-        <meshStandardMaterial map={woodTex} roughness={0.55} metalness={0.04} side={THREE.DoubleSide} />
+        <meshStandardMaterial map={filcTex} roughness={0.9} color="#666" side={THREE.DoubleSide} />
       </mesh>
 
       {/* ── Ceiling ── */}
       <mesh position={[0, H, -D / 2]} rotation={[Math.PI / 2, 0, 0]}>
         <planeGeometry args={[W, D]} />
-        <meshStandardMaterial color="#e8e0d4" roughness={0.9} side={THREE.DoubleSide} />
+        <meshStandardMaterial color="#0e0e0e" roughness={0.95} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* ── Walls (box = double-sided automatically) ── */}
-      {/* Back wall */}
-      <mesh position={[0, H / 2, -D - T / 2]}>
-        <boxGeometry args={[W, H, T]} />
-        <meshStandardMaterial map={foamTex} {...foamMat} />
+      {/* ── Walls ── */}
+      {/* Back wall - Acoustic Felt Base */}
+      <mesh position={[0, H / 2, -D - 0.01]}> 
+        {/* Flat plane is enough to house the felt texture safely behind lamellas */}
+        <planeGeometry args={[W, H]} />
+        <meshStandardMaterial map={filcTex} roughness={0.95} color="#111" />
       </mesh>
-      {/* Left wall */}
+
+      {/* Back wall - Wooden Slats (Lamellas) via InstancedMesh */}
+      <instancedMesh ref={instancedSlatsRef} args={[undefined, undefined, slatCount]}>
+        <boxGeometry args={[0.03, H, 0.03]} />
+        <meshStandardMaterial map={sonomaTex} roughness={0.65} />
+      </instancedMesh>
+
+      {/* Left wall - Wedge Acoustic Foam */}
       <mesh position={[-W / 2 - T / 2, H / 2, -D / 2]}>
-        <boxGeometry args={[T, H, D + T]} />
-        <meshStandardMaterial map={foamTex} {...foamMat} />
+        <boxGeometry args={[T, H, D]} />
+        <meshStandardMaterial 
+          {...foamMat} 
+          bumpMap={wedgeBumpTex} // Clone map per material instance to adjust repeat
+          onBeforeCompile={() => {
+            // Apply scale explicitly if map object reuse causes conflicts, but here we just use native map repeat.
+          }} 
+        />
       </mesh>
-      {/* Right wall */}
+
+      {/* Right wall - Wedge Acoustic Foam */}
       <mesh position={[W / 2 + T / 2, H / 2, -D / 2]}>
-        <boxGeometry args={[T, H, D + T]} />
-        <meshStandardMaterial map={foamTex} {...foamMat} />
+        <boxGeometry args={[T, H, D]} />
+        <meshStandardMaterial {...foamMat} />
       </mesh>
-
-      {/* ── Wood wainscoting (lower ~0.6m strip on three walls) ── */}
-      {[
-        { pos: [0, 0.3, -D - T + 0.02] as [number,number,number], args: [W - 0.02, 0.6, 0.04] as [number,number,number], rotY: 0 },
-        { pos: [-W / 2 + 0.06, 0.3, -D / 2] as [number,number,number], args: [D, 0.6, 0.04] as [number,number,number], rotY: Math.PI / 2 },
-        { pos: [W / 2 - 0.06, 0.3, -D / 2] as [number,number,number], args: [D, 0.6, 0.04] as [number,number,number], rotY: Math.PI / 2 },
-      ].map((w, i) => (
-        <mesh key={i} position={w.pos} rotation={[0, w.rotY, 0]}>
-          <boxGeometry args={w.args} />
-          <meshStandardMaterial map={woodTex} roughness={0.45} metalness={0.05} />
-        </mesh>
-      ))}
-
-      {/* ── Acoustic panel tiles (back wall decoration) ── */}
-      {[-1.5, 0, 1.5].flatMap((x, i) =>
-        [0.95, 1.75, 2.55].map((y, j) => (
-          <mesh key={`p${i}${j}`} position={[x, y, -D + 0.05]}>
-            <boxGeometry args={[0.88, 0.62, 0.07]} />
-            <meshStandardMaterial color="#b5a98a" roughness={1} />
-          </mesh>
-        ))
-      )}
 
       {/* ── Mic stand ── */}
       {/* Base */}
