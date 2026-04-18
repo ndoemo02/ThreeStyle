@@ -5,6 +5,11 @@ export function HudOverlay() {
   const { isOpen, closeHud, activeScreenId, isPlaying, setIsPlaying } = useHudStore();
   const setMasterVideoRef = useHudStore(s => s.setMasterVideoRef);
   const [isMobile, setIsMobile] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Stable ref callback – called once when video mounts / null when unmounts
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -141,19 +146,22 @@ function HudContent({ activeScreenId, isPlaying, currentTime, duration, formatTi
       
       {/* Video Viewport Area */}
       <div className="flex-1 min-h-0 flex flex-col justify-start w-full relative mb-6">
-        <div className="w-full aspect-video bg-black/60 rounded-xl overflow-hidden shadow-xl border border-white/10 relative group" suppressHydrationWarning>
-          <video 
-            id="room-master-video"
-            ref={videoCallbackRef}
-            src="/media/video/Veo3 Generated Video.mp4"
-            playsInline
-            loop
-            onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-            onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-            onEnded={() => setIsPlaying(false)}
-            className="w-full h-full object-cover transition-opacity duration-500"
-            suppressHydrationWarning
-          ></video>
+        <div className="w-full aspect-video bg-black/60 rounded-xl overflow-hidden shadow-xl border border-white/10 relative group">
+          {mounted ? (
+            <video 
+              id="room-master-video"
+              ref={videoCallbackRef}
+              src="/media/video/Veo3 Generated Video.mp4"
+              playsInline
+              loop
+              onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+              onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+              onEnded={() => setIsPlaying(false)}
+              className="w-full h-full object-cover transition-opacity duration-500"
+            ></video>
+          ) : (
+            <div className="w-full h-full bg-black flex items-center justify-center font-mono text-[10px] text-white/20">LOADING VIEWPORT...</div>
+          )}
           {/* Play/Pause Overlay */}
           <div 
             className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
@@ -209,7 +217,7 @@ function HudContent({ activeScreenId, isPlaying, currentTime, duration, formatTi
               <div 
                 key={i} 
                 className="w-1 bg-orange-500 rounded-t-sm transition-all duration-300"
-                style={{ height: isPlaying ? `${20 + Math.random() * 80}%` : '20%' }}
+                style={{ height: isPlaying ? `${20 + (i % 5) * 15}%` : '20%' }}
               />
             ))}
           </div>

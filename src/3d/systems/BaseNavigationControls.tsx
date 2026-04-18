@@ -4,6 +4,7 @@ import { PointerLockControls, OrbitControls, Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
+import { useHudStore } from '../stores/useHudStore';
 
 export function BaseNavigationControls() {
   const controlsRef = useRef<any>(null);
@@ -12,6 +13,7 @@ export function BaseNavigationControls() {
   const [isLocked, setIsLocked] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const { camera } = useThree();
+  const isHudOpen = useHudStore(s => s.isOpen);
 
   useEffect(() => {
     // Suppress Next.js error overlay for expected Pointer Lock errors
@@ -176,8 +178,8 @@ export function BaseNavigationControls() {
     }
   });
 
-  if (isMobile) {
-    return null; // Custom touch controls are active via effect above
+  if (isMobile || isHudOpen) {
+    return null; // Custom touch controls are active via effect above, or HUD is open
   }
 
   return (

@@ -289,13 +289,19 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     buttonPosZ: { value: -2.9, min: -10, max: 10, step: 0.1 },
     buttonRotY: { value: 80, min: -180, max: 180, step: 1 },
     buttonScale: { value: 1.0, min: 0.1, max: 10, step: 0.1 },
+
+    laptopPosX: { value: 6.0, min: -10, max: 10, step: 0.1 },
+    laptopPosY: { value: 1.1, min: -5, max: 5, step: 0.05 },
+    laptopPosZ: { value: -2.0, min: -10, max: 10, step: 0.1 },
+    laptopRotY: { value: -157, min: -180, max: 180, step: 1 },
+    laptopScale: { value: 0.16, min: 0.01, max: 1, step: 0.01 },
   });
 
   const logoControls = useControls('Wall Logo', {
-    logoPosX: { value: 3.5, min: -10, max: 10, step: 0.1 },
-    logoPosY: { value: 3.5, min: 0, max: 10, step: 0.1 },
-    logoPosZ: { value: -5.74, min: -15, max: 10, step: 0.01 },
-    logoScale: { value: 0.8, min: 0.1, max: 5, step: 0.1 },
+    logoPosX: { value: 0.1, min: -10, max: 10, step: 0.1 },
+    logoPosY: { value: 3.7, min: 0, max: 10, step: 0.1 },
+    logoPosZ: { value: -5.4, min: -15, max: 10, step: 0.01 },
+    logoScale: { value: 1.0, min: 0.1, max: 5, step: 0.1 },
   });
 
   // Derived values for wall segments
@@ -435,6 +441,14 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           url="/textures/logos/3S.png"
           position={[logoControls.logoPosX, logoControls.logoPosY, logoControls.logoPosZ]}
           scale={[logoControls.logoScale, logoControls.logoScale, 1]}
+        />
+
+        {/* Laptop on table */}
+        <SimpleModel 
+          url="/models/laptop_dell_xps.glb" 
+          position={[decorControls.laptopPosX, decorControls.laptopPosY, decorControls.laptopPosZ]}
+          rotation={[0, THREE.MathUtils.degToRad(decorControls.laptopRotY), 0]}
+          scale={decorControls.laptopScale}
         />
 
         {/*
