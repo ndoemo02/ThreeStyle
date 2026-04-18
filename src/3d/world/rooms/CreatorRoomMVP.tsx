@@ -131,18 +131,18 @@ function GoldenPlayButton({ ...props }: any) {
             metalness: 0.1,
           });
         } else if (node.name === 'Object_3') {
-          // Triangular indentation = red
-          node.material = new THREE.MeshStandardMaterial({
-            color: "#ff0000",
-            roughness: 0.4,
-            metalness: 0.0,
-          });
-        } else {
-          // Main plate (Object_2) = gold
+          // Triangular indentation = gold
           node.material = new THREE.MeshStandardMaterial({
             color: "#ffd700",
             metalness: 0.9,
             roughness: 0.1,
+          });
+        } else {
+          // Main plate (Object_2) = red
+          node.material = new THREE.MeshStandardMaterial({
+            color: "#ff0000",
+            roughness: 0.4,
+            metalness: 0.0,
           });
         }
       }
@@ -284,11 +284,11 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     organizerRotY: { value: 45, min: -180, max: 180, step: 1 },
     organizerScale: { value: 0.46, min: 0.01, max: 1, step: 0.01 },
 
-    buttonPosX: { value: -6.7, min: -10, max: 10, step: 0.1 },
-    buttonPosY: { value: 2.5, min: -5, max: 5, step: 0.1 },
-    buttonPosZ: { value: -2.5, min: -10, max: 10, step: 0.1 },
-    buttonRotY: { value: 90, min: -180, max: 180, step: 1 },
-    buttonScale: { value: 1.5, min: 0.1, max: 10, step: 0.1 },
+    buttonPosX: { value: -6.0, min: -10, max: 10, step: 0.1 },
+    buttonPosY: { value: 1.6, min: -5, max: 5, step: 0.1 },
+    buttonPosZ: { value: -2.9, min: -10, max: 10, step: 0.1 },
+    buttonRotY: { value: 80, min: -180, max: 180, step: 1 },
+    buttonScale: { value: 1.0, min: 0.1, max: 10, step: 0.1 },
   });
 
   const logoControls = useControls('Wall Logo', {
