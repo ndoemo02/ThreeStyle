@@ -154,7 +154,7 @@ function GoldenPlayButton({ ...props }: any) {
 }
 
 function WallLogo({ url, ...props }: any) {
-  const texture = useTexture(url);
+  const texture = useTexture(url) as THREE.Texture;
   return (
     <group {...props}>
       {/* Optional circular background */}
