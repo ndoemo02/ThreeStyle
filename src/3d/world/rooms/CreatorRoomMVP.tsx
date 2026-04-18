@@ -437,7 +437,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         />
 
         {/* Office Chair */}
-        <SimpleModel 
+        <AutoCenteredModel 
           url="/models/office_chair.glb" 
           position={[decorControls.chairPosX, decorControls.chairPosY, decorControls.chairPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.chairRotY), 0]}
@@ -445,7 +445,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         />
 
         {/* Organizer on table */}
-        <SimpleModel 
+        <AutoCenteredModel 
           url="/models/organizer.glb" 
           position={[decorControls.organizerPosX, decorControls.organizerPosY, decorControls.organizerPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.organizerRotY), 0]}
