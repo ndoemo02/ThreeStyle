@@ -213,7 +213,7 @@ function AutoCenteredModel({ url, ...props }: any) {
   return <primitive object={processed} {...props} />;
 }
 
-function SofaRaw({ scale = 1 }: { scale?: number }) {
+function SofaRaw() {
   const { scene } = useGLTF('/models/models/sofa.glb');
   const processed = useMemo(() => {
     const clone = scene.clone(true);
@@ -248,7 +248,7 @@ function SofaRaw({ scale = 1 }: { scale?: number }) {
     return clone;
   }, [scene]);
 
-  return <primitive object={processed} scale={scale} />;
+  return <primitive object={processed} />;
 }
 
 export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onExit }: { position?: [number, number, number], rotation?: [number, number, number], onExit?: () => void }) {
@@ -376,7 +376,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     sofaPosY: { value: 0.0, min: -5, max: 5, step: 0.1 },
     sofaPosZ: { value: 0.0, min: -10, max: 10, step: 0.1 },
     sofaRotY: { value: 0, min: -180, max: 180, step: 1 },
-    sofaScale: { value: 100.0, min: 0.1, max: 5000, step: 10 },
+    sofaScale: { value: 0.3, min: 0.01, max: 5, step: 0.01 },
   });
 
   const logoControls = useControls('Wall Logo', {
@@ -537,9 +537,10 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         <group 
           position={[decorControls.sofaPosX, decorControls.sofaPosY, decorControls.sofaPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.sofaRotY), 0]}
+          scale={decorControls.sofaScale}
         >
-          {/* SofaRaw self-centers via updateMatrixWorld+bbox; scale passed as prop so offset is NOT scaled */}
-          <SofaRaw scale={decorControls.sofaScale} />
+          {/* SofaRaw self-centers via bbox; scale is on the GROUP, not on primitive */}
+          <SofaRaw />
           {/* Finding Helper: Neon Locator at sofa center */}
           <mesh position={[0, 1, 0]}>
             <boxGeometry args={[0.05, 5, 0.05]} />
