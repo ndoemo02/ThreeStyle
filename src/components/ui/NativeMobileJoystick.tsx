@@ -26,10 +26,14 @@ export function NativeMobileJoystick() {
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (isOpen) return;
-    e.stopPropagation();
-    setActive(true);
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    handlePointerMove(e);
+    try {
+      e.stopPropagation();
+      setActive(true);
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      handlePointerMove(e);
+    } catch (err) {
+      console.warn('Pointer capture failed:', err);
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -55,11 +59,15 @@ export function NativeMobileJoystick() {
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    e.stopPropagation();
-    setActive(false);
-    setPosition({ x: 0, y: 0 });
-    emitVector(0, 0);
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    try {
+      e.stopPropagation();
+      setActive(false);
+      setPosition({ x: 0, y: 0 });
+      emitVector(0, 0);
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch (err) {
+      // Ignored
+    }
   };
 
   return (

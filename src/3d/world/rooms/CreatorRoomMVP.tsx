@@ -296,11 +296,11 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     laptopRotY: { value: -157, min: -180, max: 180, step: 1 },
     laptopScale: { value: 1.6, min: 0.01, max: 50, step: 0.1 },
 
-    sofaPosX: { value: -4.0, min: -10, max: 10, step: 0.1 },
+    sofaPosX: { value: 0.0, min: -10, max: 10, step: 0.1 },
     sofaPosY: { value: 0.0, min: -5, max: 5, step: 0.1 },
-    sofaPosZ: { value: 4.0, min: -10, max: 10, step: 0.1 },
+    sofaPosZ: { value: 0.0, min: -10, max: 10, step: 0.1 },
     sofaRotY: { value: 0, min: -180, max: 180, step: 1 },
-    sofaScale: { value: 10.0, min: 0.1, max: 100, step: 0.5 },
+    sofaScale: { value: 50.0, min: 0.1, max: 200, step: 1 },
   });
 
   const logoControls = useControls('Wall Logo', {
@@ -458,12 +458,21 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         />
 
         {/* Sofa in the room */}
-        <SimpleModel 
-          url="/models/models/sofa.glb" 
+        <group 
           position={[decorControls.sofaPosX, decorControls.sofaPosY, decorControls.sofaPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.sofaRotY), 0]}
-          scale={decorControls.sofaScale}
-        />
+        >
+          <SimpleModel 
+            url="/models/models/sofa.glb" 
+            scale={decorControls.sofaScale}
+          />
+          {/* Finding Helper: Neon Locator */}
+          <mesh position={[0, 1, 0]}>
+            <boxGeometry args={[0.05, 5, 0.05]} />
+            <meshBasicMaterial color="#00ffff" />
+          </mesh>
+          <pointLight intensity={10} color="#00ffff" distance={5} />
+        </group>
 
         {/*
           Glass frame – embedded in wall (posZ = wall center = -6).
