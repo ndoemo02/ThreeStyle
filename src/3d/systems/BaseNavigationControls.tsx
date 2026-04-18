@@ -24,19 +24,49 @@ export function BaseNavigationControls() {
     };
 
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      if (event.reason?.name === 'SecurityError' && event.reason?.message?.includes('Pointer lock')) {
+      // Catch SecurityError and WrongDocumentError which are common when pointer lock fails 
+      // (e.g. without direct user interaction or on mobile devices)
+      if ((event.reason?.name === 'SecurityError' || event.reason?.name === 'WrongDocumentError') && 
+          event.reason?.message?.toLowerCase().includes('pointer lock')) {
+        event.preventDefault();
+      }
+      // WrongDocumentError sometimes doesn't include "pointer lock" in the message reliably
+      if (event.reason?.name === 'WrongDocumentError') {
         event.preventDefault();
       }
     };
     window.addEventListener('unhandledrejection', onUnhandledRejection);
 
+    // Suppress InvalidStateError caused by Leva/use-gesture on mobile touch devices
+    const originalSetPointerCapture = Element.prototype.setPointerCapture;
+    const originalReleasePointerCapture = Element.prototype.releasePointerCapture;
+    Element.prototype.setPointerCapture = function(pointerId) {
+      try {
+        originalSetPointerCapture.call(this, pointerId);
+      } catch (e: any) {
+        if (e.name === 'InvalidStateError') return;
+        throw e;
+      }
+    };
+    Element.prototype.releasePointerCapture = function(pointerId) {
+      try {
+        originalReleasePointerCapture.call(this, pointerId);
+      } catch (e: any) {
+        if (e.name === 'InvalidStateError') return;
+        // Don't throw if it fails to release, this is also a known noise source
+      }
+    };
+
     const checkMobile = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0);
     checkMobile();
     window.addEventListener('resize', checkMobile);
+
     return () => {
       console.error = originalError;
       window.removeEventListener('unhandledrejection', onUnhandledRejection);
       window.removeEventListener('resize', checkMobile);
+      Element.prototype.setPointerCapture = originalSetPointerCapture;
+      Element.prototype.releasePointerCapture = originalReleasePointerCapture;
     };
   }, []);
 

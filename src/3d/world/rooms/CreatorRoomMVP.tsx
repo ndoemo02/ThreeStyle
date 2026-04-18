@@ -541,12 +541,6 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         >
           {/* SofaRaw self-centers via bbox; scale is on the GROUP, not on primitive */}
           <SofaRaw />
-          {/* Finding Helper: Neon Locator at sofa center */}
-          <mesh position={[0, 1, 0]}>
-            <boxGeometry args={[0.05, 5, 0.05]} />
-            <meshBasicMaterial color="#00ffff" />
-          </mesh>
-          <pointLight intensity={10} color="#00ffff" distance={5} />
         </group>
 
         {/*

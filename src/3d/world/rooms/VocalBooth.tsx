@@ -117,8 +117,8 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
     const wallRepeatX = D / 1.2; // 4 tiles in bump map, ~1.2m per repeat
     const wallRepeatY = H / 1.2;
     wedgeBumpTex.repeat.set(wallRepeatX, wallRepeatY);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [W, H, D]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/immutability
+  }, [sonomaTex, filcTex, wedgeBumpTex, W, H, D]);
 
   
   const foamMat = { 
