@@ -294,13 +294,13 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     laptopPosY: { value: 1.1, min: -5, max: 5, step: 0.05 },
     laptopPosZ: { value: -2.0, min: -10, max: 10, step: 0.1 },
     laptopRotY: { value: -157, min: -180, max: 180, step: 1 },
-    laptopScale: { value: 0.16, min: 0.01, max: 1, step: 0.01 },
+    laptopScale: { value: 1.6, min: 0.01, max: 50, step: 0.1 },
 
     sofaPosX: { value: -4.0, min: -10, max: 10, step: 0.1 },
     sofaPosY: { value: 0.0, min: -5, max: 5, step: 0.1 },
     sofaPosZ: { value: 4.0, min: -10, max: 10, step: 0.1 },
     sofaRotY: { value: 0, min: -180, max: 180, step: 1 },
-    sofaScale: { value: 1.0, min: 0.1, max: 5, step: 0.05 },
+    sofaScale: { value: 10.0, min: 0.1, max: 100, step: 0.5 },
   });
 
   const logoControls = useControls('Wall Logo', {
