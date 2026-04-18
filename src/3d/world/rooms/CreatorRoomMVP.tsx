@@ -173,23 +173,67 @@ function WallLogo({ url, ...props }: any) {
 function AutoCenteredModel({ url, ...props }: any) {
   const { scene } = useGLTF(url);
   const processed = useMemo(() => {
-    const clone = scene.clone();
+    const clone = scene.clone(true);
+
+    // Force double-side rendering and ensure everything is visible
+    clone.traverse((node: any) => {
+      if (node.isMesh) {
+        node.visible = true;
+        node.frustumCulled = false;
+        if (node.material) {
+          const mats = Array.isArray(node.material) ? node.material : [node.material];
+          mats.forEach((mat: any) => {
+            mat.side = THREE.DoubleSide;
+            mat.transparent = false;
+            mat.opacity = 1;
+            mat.visible = true;
+            mat.needsUpdate = true;
+          });
+        }
+      }
+    });
+
     const box = new THREE.Box3().setFromObject(clone);
-    const center = box.getCenter(new THREE.Vector3());
-    
-    // Subtract center of bounding box to ensure it's at local 0,0,0
-    clone.position.sub(center);
-    
-    // Check for extremely small scales
     const size = box.getSize(new THREE.Vector3());
-    if (size.length() < 0.1) {
-      console.warn(`Model ${url} is extremely small:`, size);
+    const center = box.getCenter(new THREE.Vector3());
+
+    console.log(`[AutoCenteredModel] ${url}`, {
+      size: size.toArray().map(v => v.toFixed(3)),
+      center: center.toArray().map(v => v.toFixed(3)),
+    });
+
+    // If bounding box is valid, center it
+    if (size.length() > 0.0001) {
+      clone.position.sub(center);
     }
-    
+
     return clone;
   }, [scene, url]);
 
   return <primitive object={processed} {...props} />;
+}
+
+function SofaRaw() {
+  const { scene } = useGLTF('/models/models/sofa.glb');
+  const processed = useMemo(() => {
+    const clone = scene.clone(true);
+    clone.traverse((node: any) => {
+      if (node.isMesh) {
+        node.frustumCulled = false;
+        const mats = Array.isArray(node.material) ? node.material : [node.material];
+        mats.forEach((mat: any) => {
+          if (mat) {
+            mat.side = THREE.DoubleSide;
+            mat.transparent = false;
+            mat.opacity = 1;
+            mat.needsUpdate = true;
+          }
+        });
+      }
+    });
+    return clone;
+  }, [scene]);
+  return <primitive object={processed} />;
 }
 
 export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onExit }: { position?: [number, number, number], rotation?: [number, number, number], onExit?: () => void }) {
@@ -474,18 +518,20 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           scale={decorControls.laptopScale}
         />
 
-        {/* Sofa in the room */}
+        {/* Sofa in the room – uses raw scene with manual offset correction  */}
+        {/* GLB inspection: root node offset is [-854,197,1377] at scale 100*0.01=1 → in meters: [-8.54, 1.97, 13.77] */}
         <group 
           position={[decorControls.sofaPosX, decorControls.sofaPosY, decorControls.sofaPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.sofaRotY), 0]}
+          scale={decorControls.sofaScale}
         >
-          <AutoCenteredModel 
-            url="/models/models/sofa.glb" 
-            scale={decorControls.sofaScale}
-          />
+          {/* Inner group that corrects the baked-in offset: negate root offset in model units */}
+          <group position={[8.54, -1.97, -13.77]}>
+            <SofaRaw />
+          </group>
           {/* Finding Helper: Neon Locator */}
-          <mesh position={[0, 1, 0]}>
-            <boxGeometry args={[0.05, 5, 0.05]} />
+          <mesh position={[0, 1 / decorControls.sofaScale, 0]}>
+            <boxGeometry args={[0.05 / decorControls.sofaScale, 5 / decorControls.sofaScale, 0.05 / decorControls.sofaScale]} />
             <meshBasicMaterial color="#00ffff" />
           </mesh>
           <pointLight intensity={10} color="#00ffff" distance={5} />
