@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useHudStore } from '../../stores/useHudStore';
 
 export function NativeMobileJoystick() {
@@ -8,6 +8,7 @@ export function NativeMobileJoystick() {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isMobile, setIsMobile] = useState(false);
   const baseRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef(false);
   const { isOpen } = useHudStore();
 
   useEffect(() => {
@@ -17,71 +18,75 @@ export function NativeMobileJoystick() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  if (!isMobile) return null;
-
   const emitVector = (x: number, y: number) => {
-    // Write directly to window for ultra-fast unblocking 3D loop access
     (window as any).joystickVector = { x, y };
   };
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (isOpen) return;
-    try {
-      e.stopPropagation();
-      setActive(true);
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      handlePointerMove(e);
-    } catch (err) {
-      console.warn('Pointer capture failed:', err);
-    }
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    e.stopPropagation();
-    if (!active || !baseRef.current || isOpen) return;
+  const computeAndEmit = useCallback((clientX: number, clientY: number) => {
+    if (!baseRef.current) return;
     const rect = baseRef.current.getBoundingClientRect();
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    
-    let dx = e.clientX - rect.left - centerX;
-    let dy = e.clientY - rect.top - centerY;
-    
-    const radius = 30; // max distance thumb can move
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    let dx = clientX - centerX;
+    let dy = clientY - centerY;
+
+    const radius = 30;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    
+
     if (distance > radius) {
       dx = (dx / distance) * radius;
       dy = (dy / distance) * radius;
     }
-    
-    setPosition({ x: dx, y: dy });
-    emitVector(dx / radius, -dy / radius); // positive y = forward
-  };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
-    try {
-      e.stopPropagation();
+    setPosition({ x: dx, y: dy });
+    emitVector(dx / radius, -dy / radius);
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (isOpen) return;
+    e.stopPropagation();
+    activeRef.current = true;
+    setActive(true);
+    computeAndEmit(e.clientX, e.clientY);
+  }, [isOpen, computeAndEmit]);
+
+  useEffect(() => {
+    const handleWindowPointerMove = (e: PointerEvent) => {
+      if (!activeRef.current || isOpen) return;
+      computeAndEmit(e.clientX, e.clientY);
+    };
+
+    const handleWindowPointerUp = () => {
+      if (!activeRef.current) return;
+      activeRef.current = false;
       setActive(false);
       setPosition({ x: 0, y: 0 });
       emitVector(0, 0);
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch (err) {
-      // Ignored
-    }
-  };
+    };
+
+    window.addEventListener('pointermove', handleWindowPointerMove);
+    window.addEventListener('pointerup', handleWindowPointerUp);
+    window.addEventListener('pointercancel', handleWindowPointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handleWindowPointerMove);
+      window.removeEventListener('pointerup', handleWindowPointerUp);
+      window.removeEventListener('pointercancel', handleWindowPointerUp);
+    };
+  }, [isOpen, computeAndEmit]);
+
+  if (!isMobile) return null;
 
   return (
-    <div 
+    <div
       ref={baseRef}
       onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
       className={`fixed z-[100] shadow-2xl transition-opacity duration-300 ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
       style={{
-        bottom: '40px', // Lowered closer to bottom edge
-        left: '70px',   // Moved slightly to the right, but kept on left side for thumb
-        width: '120px', 
+        bottom: '40px',
+        left: '70px',
+        width: '120px',
         height: '120px',
         borderRadius: '50%',
         backgroundColor: 'rgba(255, 255, 255, 0.08)',
