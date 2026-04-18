@@ -223,12 +223,15 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0] }: {
           {/* Glass pane – full wall depth so it fills the opening */}
           <mesh>
             <boxGeometry args={[boothControls.width, boothControls.height, 0.5]} />
-            <meshStandardMaterial
-              color="#aaccee"
+            <meshPhysicalMaterial
+              color="#e8f4ff"
               transparent
-              opacity={0.07}
-              roughness={0.02}
+              transmission={0.95}
+              opacity={1}
+              roughness={0.05}
               metalness={0.1}
+              ior={1.5}
+              thickness={0.5}
               side={THREE.DoubleSide}
             />
           </mesh>

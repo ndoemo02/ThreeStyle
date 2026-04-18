@@ -68,9 +68,9 @@ export function NativeMobileJoystick() {
       onPointerCancel={handlePointerUp}
       className="fixed z-[100] shadow-2xl"
       style={{
-        bottom: '80px', // Lifted considerably higher
-        left: '50px',
-        width: '120px', // slightly wider
+        bottom: '40px', // Lowered closer to bottom edge
+        left: '70px',   // Moved slightly to the right, but kept on left side for thumb
+        width: '120px', 
         height: '120px',
         borderRadius: '50%',
         backgroundColor: 'rgba(255, 255, 255, 0.08)',

@@ -38,6 +38,56 @@ export function BaseNavigationControls() {
     };
   }, []);
 
+  const { gl } = useThree();
+
+  // Mobile First-Person Touch Controls
+  useEffect(() => {
+    if (!isMobile) return;
+    let isDragging = false;
+    let previousTouch: { x: number, y: number } | null = null;
+    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+
+    const onTouchStart = (e: TouchEvent) => {
+      // Multi-touch logic: use the first changed touch if it didn't start on joystick (joystick blocks propagation to dom)
+      const touch = e.changedTouches[0];
+      previousTouch = { x: touch.clientX, y: touch.clientY };
+      isDragging = true;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isDragging || !previousTouch) return;
+      const touch = e.changedTouches[0];
+      const movementX = touch.clientX - previousTouch.x;
+      const movementY = touch.clientY - previousTouch.y;
+      previousTouch = { x: touch.clientX, y: touch.clientY };
+
+      euler.setFromQuaternion(camera.quaternion);
+      euler.y -= movementX * 0.005;
+      euler.x -= movementY * 0.005;
+      euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+      camera.quaternion.setFromEuler(euler);
+    };
+
+    const onTouchEnd = () => {
+      isDragging = false;
+      previousTouch = null;
+    };
+
+    const dom = gl.domElement;
+    dom.addEventListener('touchstart', onTouchStart, { passive: true });
+    // Keep passive: false if we want to e.preventDefault() to stop pull-to-refresh
+    dom.addEventListener('touchmove', onTouchMove, { passive: true });
+    dom.addEventListener('touchend', onTouchEnd, { passive: true });
+    dom.addEventListener('touchcancel', onTouchEnd, { passive: true });
+
+    return () => {
+      dom.removeEventListener('touchstart', onTouchStart);
+      dom.removeEventListener('touchmove', onTouchMove);
+      dom.removeEventListener('touchend', onTouchEnd);
+      dom.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [isMobile, camera, gl]);
+
   useEffect(() => {
     if (isMobile) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -75,7 +125,7 @@ export function BaseNavigationControls() {
 
     if (isMobile) {
       const joystick = (window as any).joystickVector;
-      if (controlsRef.current && joystick && (joystick.x !== 0 || joystick.y !== 0)) {
+      if (joystick && (joystick.x !== 0 || joystick.y !== 0)) {
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(state.camera.quaternion);
         forward.y = 0;
         forward.normalize();
@@ -89,9 +139,6 @@ export function BaseNavigationControls() {
 
         state.camera.position.addScaledVector(right, moveX);
         state.camera.position.addScaledVector(forward, moveZ); 
-        
-        controlsRef.current.target.addScaledVector(right, moveX);
-        controlsRef.current.target.addScaledVector(forward, moveZ);
       }
       
       // Keep grounded at natural human eye level
@@ -114,16 +161,7 @@ export function BaseNavigationControls() {
   });
 
   if (isMobile) {
-    return (
-      <OrbitControls 
-        ref={controlsRef}
-        enableZoom={false}
-        enablePan={false}
-        enableDamping={true}
-        dampingFactor={0.05}
-        target={[camera.position.x, camera.position.y, camera.position.z - 0.1]}
-      />
-    );
+    return null; // Custom touch controls are active via effect above
   }
 
   return (

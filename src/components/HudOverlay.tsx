@@ -68,14 +68,16 @@ export function HudOverlay() {
       {/* Mobile Overlay */}
       {isMobile ? (
         <div 
-          className={`fixed inset-0 z-50 flex items-end justify-center bg-black/60 transition-opacity duration-300 ${visibilityClass}`}
-          onClick={closeHud}
+          className={`fixed inset-0 z-50 bg-black/95 backdrop-blur-3xl transition-opacity duration-300 flex flex-col ${visibilityClass}`}
         >
+          <div className="flex justify-end p-6 pb-0 z-50 shrink-0">
+            <button onClick={closeHud} className="text-white/40 hover:text-white font-mono text-xs">
+              [X] CLOSE
+            </button>
+          </div>
           <div 
-            className={`w-full h-[85vh] bg-black/90 backdrop-blur-xl border-t border-white/10 rounded-t-3xl p-6 shadow-[0_-20px_60px_rgba(255,140,66,0.15)] flex flex-col font-sans overflow-hidden transform transition-transform duration-300 ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}
-            onClick={(e) => e.stopPropagation()}
+            className={`flex-1 w-full p-6 pt-2 flex flex-col font-sans overflow-y-auto transform transition-transform duration-300 ${isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
           >
-            <div className="w-16 h-1.5 bg-white/20 rounded-full mx-auto mb-6" />
             <HudContent {...hudContentProps} />
           </div>
         </div>

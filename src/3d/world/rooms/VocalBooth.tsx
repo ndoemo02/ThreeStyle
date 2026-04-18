@@ -82,7 +82,7 @@ function ProceduralMic({ position }: { position: [number,number,number] }) {
 
 // ──────────────────────────────────────────────────────────────────────────────
 export function VocalBooth({ position = [0, 0, 0] as [number, number, number] }) {
-  const W = 4.6;
+  const W = 5.2; // slightly wider than 5.0 to embed in the frame
   const H = 3.2;
   const D = 3.6;
   const T = 0.10;
@@ -116,7 +116,7 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
       <ambientLight intensity={light.ambientIntensity} color="#fff8ee" />
 
       {/* ── Floor (wood) ── */}
-      <mesh position={[0, 0, -D / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh position={[0, 0.02, -D / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[W, D]} />
         <meshStandardMaterial map={woodTex} roughness={0.55} metalness={0.04} side={THREE.DoubleSide} />
       </mesh>
@@ -157,7 +157,7 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
       ))}
 
       {/* ── Acoustic panel tiles (back wall decoration) ── */}
-      {[-1.3, 0, 1.3].flatMap((x, i) =>
+      {[-1.5, 0, 1.5].flatMap((x, i) =>
         [0.95, 1.75, 2.55].map((y, j) => (
           <mesh key={`p${i}${j}`} position={[x, y, -D + 0.05]}>
             <boxGeometry args={[0.88, 0.62, 0.07]} />
