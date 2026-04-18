@@ -170,9 +170,26 @@ function WallLogo({ url, ...props }: any) {
   );
 }
 
-function SimpleModel({ url, ...props }: any) {
+function AutoCenteredModel({ url, ...props }: any) {
   const { scene } = useGLTF(url);
-  return <primitive object={scene.clone()} {...props} />;
+  const processed = useMemo(() => {
+    const clone = scene.clone();
+    const box = new THREE.Box3().setFromObject(clone);
+    const center = box.getCenter(new THREE.Vector3());
+    
+    // Subtract center of bounding box to ensure it's at local 0,0,0
+    clone.position.sub(center);
+    
+    // Check for extremely small scales
+    const size = box.getSize(new THREE.Vector3());
+    if (size.length() < 0.1) {
+      console.warn(`Model ${url} is extremely small:`, size);
+    }
+    
+    return clone;
+  }, [scene, url]);
+
+  return <primitive object={processed} {...props} />;
 }
 
 export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onExit }: { position?: [number, number, number], rotation?: [number, number, number], onExit?: () => void }) {
@@ -300,7 +317,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     sofaPosY: { value: 0.0, min: -5, max: 5, step: 0.1 },
     sofaPosZ: { value: 0.0, min: -10, max: 10, step: 0.1 },
     sofaRotY: { value: 0, min: -180, max: 180, step: 1 },
-    sofaScale: { value: 50.0, min: 0.1, max: 200, step: 1 },
+    sofaScale: { value: 100.0, min: 0.1, max: 5000, step: 10 },
   });
 
   const logoControls = useControls('Wall Logo', {
@@ -450,7 +467,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         />
 
         {/* iPad Pro on table (replacing laptop) */}
-        <SimpleModel 
+        <AutoCenteredModel 
           url="/models/models/ipad_pro_2024.glb" 
           position={[decorControls.laptopPosX, decorControls.laptopPosY, decorControls.laptopPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.laptopRotY), 0]}
@@ -462,7 +479,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           position={[decorControls.sofaPosX, decorControls.sofaPosY, decorControls.sofaPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.sofaRotY), 0]}
         >
-          <SimpleModel 
+          <AutoCenteredModel 
             url="/models/models/sofa.glb" 
             scale={decorControls.sofaScale}
           />
