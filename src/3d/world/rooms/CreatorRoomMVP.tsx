@@ -286,8 +286,8 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
     buttonPosX: { value: -6.0, min: -10, max: 10, step: 0.1 },
     buttonPosY: { value: 1.6, min: -5, max: 5, step: 0.1 },
-    buttonPosZ: { value: -2.9, min: -10, max: 10, step: 0.1 },
-    buttonRotY: { value: 80, min: -180, max: 180, step: 1 },
+    buttonPosZ: { value: -2.0, min: -10, max: 10, step: 0.1 },
+    buttonRotY: { value: 0, min: -180, max: 180, step: 1 },
     buttonScale: { value: 1.0, min: 0.1, max: 10, step: 0.1 },
 
     laptopPosX: { value: 6.0, min: -10, max: 10, step: 0.1 },
