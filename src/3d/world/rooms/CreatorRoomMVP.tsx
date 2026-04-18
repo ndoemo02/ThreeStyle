@@ -116,6 +116,52 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
   );
 }
 
+function GoldenPlayButton({ ...props }: any) {
+  const { scene } = useGLTF("/models/golden_play_button.glb");
+  const processedScene = useMemo(() => {
+    const clone = scene.clone();
+    clone.traverse((node: any) => {
+      if (node.isMesh) {
+        // Check names to identify the inner part
+        const name = node.name.toLowerCase();
+        if (name.includes('triangle') || name.includes('play') || name.includes('inner') || name.includes('center')) {
+          node.material = new THREE.MeshStandardMaterial({
+            color: "#ff0000", // YouTube Red
+            roughness: 0.3,
+            metalness: 0.1,
+          });
+        } else {
+          node.material = new THREE.MeshStandardMaterial({
+            color: "#ffd700", // Gold
+            metalness: 0.9,
+            roughness: 0.1,
+          });
+        }
+      }
+    });
+    return clone;
+  }, [scene]);
+
+  return <primitive object={processedScene} {...props} />;
+}
+
+function WallLogo({ url, ...props }: any) {
+  const texture = useTexture(url);
+  return (
+    <group {...props}>
+      {/* Optional circular background */}
+      <mesh position={[0, 0, -0.01]}>
+        <circleGeometry args={[0.55, 32]} />
+        <meshStandardMaterial color="#ffffff" opacity={0.1} transparent />
+      </mesh>
+      <mesh>
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial map={texture} transparent alphaTest={0.1} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
+
 function SimpleModel({ url, ...props }: any) {
   const { scene } = useGLTF(url);
   return <primitive object={scene.clone()} {...props} />;
@@ -235,6 +281,13 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     buttonPosZ: { value: -2.5, min: -10, max: 10, step: 0.1 },
     buttonRotY: { value: 90, min: -180, max: 180, step: 1 },
     buttonScale: { value: 1.5, min: 0.1, max: 10, step: 0.1 },
+  });
+
+  const logoControls = useControls('Wall Logo', {
+    logoPosX: { value: 3.5, min: -10, max: 10, step: 0.1 },
+    logoPosY: { value: 3.5, min: 0, max: 10, step: 0.1 },
+    logoPosZ: { value: -5.74, min: -15, max: 10, step: 0.01 },
+    logoScale: { value: 0.8, min: 0.1, max: 5, step: 0.1 },
   });
 
   // Derived values for wall segments
@@ -363,11 +416,17 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         />
 
         {/* Golden Play Button on left wall */}
-        <SimpleModel 
-          url="/models/golden_play_button.glb" 
+        <GoldenPlayButton 
           position={[decorControls.buttonPosX, decorControls.buttonPosY, decorControls.buttonPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.buttonRotY), 0]}
           scale={decorControls.buttonScale}
+        />
+
+        {/* 3S Logo on wall */}
+        <WallLogo 
+          url="/textures/logos/3S.png"
+          position={[logoControls.logoPosX, logoControls.logoPosY, logoControls.logoPosZ]}
+          scale={[logoControls.logoScale, logoControls.logoScale, 1]}
         />
 
         {/*
