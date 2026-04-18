@@ -43,8 +43,8 @@ type GLTFResult = GLTF & {
   animations: THREE.AnimationClip[]
 }
 
-export function EditingTable(props: JSX.IntrinsicElements['group']) {
-  const { nodes, materials } = useGLTF('/models/editing_table_design.glb') as GLTFResult
+export function EditingTable(props: any) {
+  const { nodes, materials } = useGLTF('/models/editing_table_design.glb') as unknown as GLTFResult
   return (
     <group {...props} dispose={null}>
       <group rotation={[-Math.PI / 2, 0, 0]} scale={0.063}>

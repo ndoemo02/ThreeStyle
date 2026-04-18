@@ -14,10 +14,28 @@ export function BaseNavigationControls() {
   const { camera } = useThree();
 
   useEffect(() => {
+    // Suppress Next.js error overlay for expected Pointer Lock errors
+    const originalError = console.error;
+    console.error = (...args) => {
+      if (typeof args[0] === 'string' && args[0].includes('THREE.PointerLockControls: Unable to use Pointer Lock API')) return;
+      originalError(...args);
+    };
+
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (event.reason?.name === 'SecurityError' && event.reason?.message?.includes('Pointer lock')) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener('unhandledrejection', onUnhandledRejection);
+
     const checkMobile = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0);
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    return () => {
+      console.error = originalError;
+      window.removeEventListener('unhandledrejection', onUnhandledRejection);
+      window.removeEventListener('resize', checkMobile);
+    };
   }, []);
 
   useEffect(() => {
