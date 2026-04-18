@@ -8,7 +8,7 @@ import { AcousticFoamWall } from './CreatorRoomMVP';
 
 // ─── Real Microphone Component ───────────────────────────────────────────────
 function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, number, number], rotation?: [number, number, number], scale?: number }) {
-  const { scene } = useGLTF('/models/mic-transformed.glb');
+  const { scene } = useGLTF('/models/mic-transformed.glb') as any;
   const processedScene = useMemo(() => {
     const clone = scene.clone();
     clone.traverse((n: any) => {

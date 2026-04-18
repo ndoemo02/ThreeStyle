@@ -117,7 +117,7 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
 }
 
 function GoldenPlayButton({ ...props }: any) {
-  const { scene } = useGLTF("/models/golden_play_button.glb");
+  const { scene } = useGLTF("/models/golden_play_button.glb") as any;
   const processedScene = useMemo(() => {
     const clone = scene.clone();
     clone.traverse((node: any) => {
@@ -171,7 +171,7 @@ function WallLogo({ url, ...props }: any) {
 }
 
 function AutoCenteredModel({ url, ...props }: any) {
-  const { scene } = useGLTF(url);
+  const { scene } = useGLTF(url) as any;
   const processed = useMemo(() => {
     const clone = scene.clone(true);
 
@@ -214,7 +214,7 @@ function AutoCenteredModel({ url, ...props }: any) {
 }
 
 function SofaRaw() {
-  const { scene } = useGLTF('/models/models/sofa.glb');
+  const { scene } = useGLTF('/models/models/sofa.glb') as any;
   const processed = useMemo(() => {
     const clone = scene.clone(true);
 
