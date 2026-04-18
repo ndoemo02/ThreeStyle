@@ -1,5 +1,5 @@
 import { useState, useRef, Suspense, useEffect, useMemo } from 'react';
-import { Html, useTexture } from '@react-three/drei';
+import { Html, useTexture, useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { AcousticFoamMaterial, ConcreteFloorMaterial, WoodPanelMaterial } from '../../core/AcousticDarkMaterial';
@@ -80,6 +80,45 @@ function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat }: { ar
       />
     </mesh>
   );
+}
+
+function DiamondPlateFloor({ args, position }: { args: [number, number], position: [number, number, number] }) {
+  const textures = useTexture([
+    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Color.jpg',
+    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_NormalGL.jpg',
+    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Roughness.jpg',
+    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Metalness.jpg',
+    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_AmbientOcclusion.jpg',
+  ]);
+
+  const maps = useMemo(() => {
+    return textures.map(tex => {
+      const clone = tex.clone();
+      clone.wrapS = clone.wrapT = THREE.RepeatWrapping;
+      clone.repeat.set(args[0] / 1.5, args[1] / 1.5);
+      clone.needsUpdate = true;
+      return clone;
+    });
+  }, [textures, args]);
+
+  return (
+    <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <planeGeometry args={args} />
+      <meshStandardMaterial 
+        map={maps[0]} 
+        normalMap={maps[1]} 
+        roughnessMap={maps[2]} 
+        metalnessMap={maps[3]} 
+        aoMap={maps[4]}
+        color="#555555"
+      />
+    </mesh>
+  );
+}
+
+function SimpleModel({ url, ...props }: any) {
+  const { scene } = useGLTF(url);
+  return <primitive object={scene.clone()} {...props} />;
 }
 
 export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onExit }: { position?: [number, number, number], rotation?: [number, number, number], onExit?: () => void }) {
@@ -178,6 +217,26 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     height: { value: 1.6,  min: 0.5, max: 5,   step: 0.1 },
   });
 
+  const decorControls = useControls('Room Decor', {
+    chairPosX: { value: 3.8, min: -10, max: 10, step: 0.1 },
+    chairPosY: { value: 0.0, min: -5, max: 5, step: 0.1 },
+    chairPosZ: { value: -2.6, min: -10, max: 10, step: 0.1 },
+    chairRotY: { value: -78, min: -180, max: 180, step: 1 },
+    chairScale: { value: 0.5, min: 0.1, max: 5, step: 0.05 },
+
+    organizerPosX: { value: 2.60, min: -10, max: 10, step: 0.05 },
+    organizerPosY: { value: 1.34, min: -5, max: 5, step: 0.01 },
+    organizerPosZ: { value: -3.4, min: -10, max: 10, step: 0.05 },
+    organizerRotY: { value: 45, min: -180, max: 180, step: 1 },
+    organizerScale: { value: 0.46, min: 0.01, max: 1, step: 0.01 },
+
+    buttonPosX: { value: -6.7, min: -10, max: 10, step: 0.1 },
+    buttonPosY: { value: 2.5, min: -5, max: 5, step: 0.1 },
+    buttonPosZ: { value: -2.5, min: -10, max: 10, step: 0.1 },
+    buttonRotY: { value: 90, min: -180, max: 180, step: 1 },
+    buttonScale: { value: 1.5, min: 0.1, max: 10, step: 0.1 },
+  });
+
   // Derived values for wall segments
   const glassBottom = boothControls.posY - boothControls.height / 2;
   const glassTop    = boothControls.posY + boothControls.height / 2;
@@ -200,11 +259,8 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       />
 
       <Suspense fallback={null}>
-        {/* Floor */}
-        <mesh position={[0, 0, -0.5]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[14.2, 15.2]} />
-          <primitive object={ConcreteFloorMaterial} attach="material" />
-        </mesh>
+        {/* Floor - Diamond Plate */}
+        <DiamondPlateFloor args={[14.2, 15.2]} position={[0, 0, -0.5]} />
         {/* Ceiling */}
         <AcousticFoamWall position={[0, 5.1, -0.5]} args={[14.2, 0.2, 15.2]} repeat={[14.2 / 2, 15.2 / 2]} />
 
@@ -288,6 +344,30 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           position={[tableControls.posX, tableControls.posY, tableControls.posZ]} 
           rotation={[0, THREE.MathUtils.degToRad(tableControls.rotY), 0]} 
           scale={tableControls.scale}
+        />
+
+        {/* Office Chair */}
+        <SimpleModel 
+          url="/models/office_chair.glb" 
+          position={[decorControls.chairPosX, decorControls.chairPosY, decorControls.chairPosZ]}
+          rotation={[0, THREE.MathUtils.degToRad(decorControls.chairRotY), 0]}
+          scale={decorControls.chairScale}
+        />
+
+        {/* Organizer on table */}
+        <SimpleModel 
+          url="/models/organizer.glb" 
+          position={[decorControls.organizerPosX, decorControls.organizerPosY, decorControls.organizerPosZ]}
+          rotation={[0, THREE.MathUtils.degToRad(decorControls.organizerRotY), 0]}
+          scale={decorControls.organizerScale}
+        />
+
+        {/* Golden Play Button on left wall */}
+        <SimpleModel 
+          url="/models/golden_play_button.glb" 
+          position={[decorControls.buttonPosX, decorControls.buttonPosY, decorControls.buttonPosZ]}
+          rotation={[0, THREE.MathUtils.degToRad(decorControls.buttonRotY), 0]}
+          scale={decorControls.buttonScale}
         />
 
         {/*
