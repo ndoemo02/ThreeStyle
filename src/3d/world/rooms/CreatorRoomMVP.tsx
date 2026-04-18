@@ -122,23 +122,23 @@ function GoldenPlayButton({ ...props }: any) {
     const clone = scene.clone();
     clone.traverse((node: any) => {
       if (node.isMesh) {
-        const name = node.name.toLowerCase();
-        
-        // Colors from user: indented triangle = red, play protrusion = white
-        if (name.includes('play') || name.includes('protrusion') || name.includes('wypustka')) {
+        // Map based on discovered names: Object_2, Object_3, Object_4
+        if (node.name === 'Object_4') {
+          // Play protrusion = white
           node.material = new THREE.MeshStandardMaterial({
-            color: "#ffffff", // White protrusion
+            color: "#ffffff",
             roughness: 0.2,
             metalness: 0.1,
           });
-        } else if (name.includes('triangle') || name.includes('indent') || name.includes('wciecie')) {
+        } else if (node.name === 'Object_3') {
+          // Triangular indentation = red
           node.material = new THREE.MeshStandardMaterial({
-            color: "#ff0000", // Red indentation
+            color: "#ff0000",
             roughness: 0.4,
             metalness: 0.0,
           });
         } else {
-          // Main body stays gold
+          // Main plate (Object_2) = gold
           node.material = new THREE.MeshStandardMaterial({
             color: "#ffd700",
             metalness: 0.9,
