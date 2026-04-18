@@ -1,0 +1,98 @@
+"use client";
+
+import { useState, useRef, useEffect } from 'react';
+
+export function NativeMobileJoystick() {
+  const [active, setActive] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState(false);
+  const baseRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  if (!isMobile) return null;
+
+  const emitVector = (x: number, y: number) => {
+    // Write directly to window for ultra-fast unblocking 3D loop access
+    (window as any).joystickVector = { x, y };
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    setActive(true);
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    handlePointerMove(e);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    if (!active || !baseRef.current) return;
+    const rect = baseRef.current.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    
+    let dx = e.clientX - rect.left - centerX;
+    let dy = e.clientY - rect.top - centerY;
+    
+    const radius = 30; // max distance thumb can move
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distance > radius) {
+      dx = (dx / distance) * radius;
+      dy = (dy / distance) * radius;
+    }
+    
+    setPosition({ x: dx, y: dy });
+    emitVector(dx / radius, -dy / radius); // positive y = forward
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    setActive(false);
+    setPosition({ x: 0, y: 0 });
+    emitVector(0, 0);
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+  };
+
+  return (
+    <div 
+      ref={baseRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      className="fixed z-[100] shadow-2xl"
+      style={{
+        bottom: '80px', // Lifted considerably higher
+        left: '50px',
+        width: '120px', // slightly wider
+        height: '120px',
+        borderRadius: '50%',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        border: '2px solid rgba(255, 255, 255, 0.15)',
+        touchAction: 'none',
+        pointerEvents: 'auto',
+      }}
+    >
+      <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        width: '50px',
+        height: '50px',
+        borderRadius: '50%',
+        backgroundColor: 'rgba(255, 255, 255, 0.5)',
+        backdropFilter: 'blur(8px)',
+        transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`,
+        transition: active ? 'none' : 'transform 0.05s ease-out',
+        pointerEvents: 'none',
+        boxShadow: '0 0 20px rgba(0,0,0,0.5)'
+      }} />
+    </div>
+  );
+}

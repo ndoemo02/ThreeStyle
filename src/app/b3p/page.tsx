@@ -7,6 +7,7 @@ import { GroundedHub } from '../../3d/world/hub/GroundedHub';
 import { CreatorRoomMVP } from '../../3d/world/rooms/CreatorRoomMVP';
 import { BaseNavigationControls } from '../../3d/systems/BaseNavigationControls';
 import { HudOverlay } from '../../components/HudOverlay';
+import { NativeMobileJoystick } from '../../components/ui/NativeMobileJoystick';
 
 function ZoneController({ activeZone }: { activeZone: string }) {
   const { camera } = useThree();
@@ -87,6 +88,7 @@ export default function B3PPage() {
         <BaseNavigationControls />
       </Canvas>
       <HudOverlay />
+      <NativeMobileJoystick />
     </div>
   );
 }
