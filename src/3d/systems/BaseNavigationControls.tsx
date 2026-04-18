@@ -4,7 +4,7 @@ import { PointerLockControls, OrbitControls, Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { useHudStore } from '../stores/useHudStore';
+import { useHudStore } from '../../stores/useHudStore';
 
 export function BaseNavigationControls() {
   const controlsRef = useRef<any>(null);
