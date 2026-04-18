@@ -42,6 +42,19 @@ export default function B3PPage() {
         </div>
       </div>
 
+      <button
+        onClick={() => {
+          if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().catch(err => {
+              console.error("Fullscreen err:", err);
+            });
+          }
+        }}
+        className="absolute top-4 right-4 z-50 bg-black/60 text-white/50 text-[10px] font-mono border border-white/10 px-3 py-1.5 rounded hover:bg-white/10 hover:text-white transition-all tracking-widest"
+      >
+        [⛶ FULLSCREEN]
+      </button>
+
       {activeZone !== 'hub' && (
         <button 
           onClick={() => setActiveZone('hub')}

@@ -1,0 +1,10 @@
+{
+  "name": "ThreeStyle.ai B3P",
+  "short_name": "ThreeStyle",
+  "description": "Trenuj freestyle z AI",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "start_url": "/b3p",
+  "background_color": "#000000",
+  "theme_color": "#000000"
+}

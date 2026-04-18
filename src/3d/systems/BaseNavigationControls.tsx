@@ -190,8 +190,8 @@ function MobileJoystick({ onMove }: { onMove: (x: number, y: number) => void }) 
         onPointerCancel={handlePointerUp}
         style={{
           position: 'absolute',
-          bottom: '10%',
-          left: '10%',
+          bottom: '40px',
+          left: '40px',
           width: '100px',
           height: '100px',
           borderRadius: '50%',
