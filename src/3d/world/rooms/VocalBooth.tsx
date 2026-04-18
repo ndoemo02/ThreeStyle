@@ -92,11 +92,11 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
   const foamMat = { color: '#cabfad' as THREE.ColorRepresentation, roughness: 0.92, metalness: 0.0 };
 
   const light = useControls('Vocal Booth Lighting', {
-    mainIntensity:   { value: 22, min: 0, max: 100, step: 1, label: 'Main (overhead)' },
+    mainIntensity:   { value: 38, min: 0, max: 100, step: 1, label: 'Main (overhead)' },
     fillIntensity:   { value: 12, min: 0, max: 80,  step: 1, label: 'Fill (front)' },
     accentIntensity: { value: 6,  min: 0, max: 40,  step: 1, label: 'Accent (mic rim)' },
-    ceilingIntensity:{ value: 8,  min: 0, max: 40,  step: 1, label: 'Ceiling bounce' },
-    ambientIntensity:{ value: 0.6, min: 0, max: 3,  step: 0.05, label: 'Ambient' },
+    ceilingIntensity:{ value: 4,  min: 0, max: 40,  step: 1, label: 'Ceiling bounce' },
+    ambientIntensity:{ value: 2.10, min: 0, max: 3,  step: 0.05, label: 'Ambient' },
     lightColor:      { value: '#ffe8c0', label: 'Light color' },
   });
 
@@ -105,13 +105,13 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
 
       {/* ── Lighting ── */}
       {/* Main warm overhead flood */}
-      <pointLight position={[0, H - 0.3, -D * 0.5]} intensity={light.mainIntensity}   color={light.lightColor} distance={9}  decay={1.4} />
+      <pointLight position={[0, H - 0.3, -D * 0.5]} intensity={light.mainIntensity}   color={light.lightColor} distance={5}  decay={1.8} />
       {/* Bright front fill – visible through the glass */}
-      <pointLight position={[0, H * 0.55, -0.15]}   intensity={light.fillIntensity}   color={light.lightColor} distance={7}  decay={1.6} />
+      <pointLight position={[0, H * 0.55, -0.15]}   intensity={light.fillIntensity}   color={light.lightColor} distance={4}  decay={2} />
       {/* Warm accent behind mic */}
       <pointLight position={[0.3, 1.7, -D * 0.45]}  intensity={light.accentIntensity} color="#ff9944"          distance={2.5} decay={2} />
       {/* Ceiling bounce */}
-      <pointLight position={[0, H - 0.1, -D * 0.3]} intensity={light.ceilingIntensity} color={light.lightColor} distance={5}  decay={2} />
+      <pointLight position={[0, H - 0.1, -D * 0.3]} intensity={light.ceilingIntensity} color={light.lightColor} distance={4}  decay={2} />
       {/* Booth ambient */}
       <ambientLight intensity={light.ambientIntensity} color="#fff8ee" />
 
@@ -231,7 +231,7 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
         <boxGeometry args={[0.62, 0.1, 0.04]} />
         <meshBasicMaterial color="#cc0000" />
       </mesh>
-      <pointLight position={[0, H - 0.08, -0.03]} intensity={4} color="#ff2200" distance={1.2} decay={2} />
+      <pointLight position={[0, H - 0.08, -0.05]} intensity={2} color="#ff2200" distance={1.2} decay={2} />
 
       {/* ── Floor skirting ── */}
       <mesh position={[0, 0.02, -D]}>

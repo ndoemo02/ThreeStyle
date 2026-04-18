@@ -1,5 +1,5 @@
-import { useState, useRef, Suspense, useEffect } from 'react';
-import { Html } from '@react-three/drei';
+import { useState, useRef, Suspense, useEffect, useMemo } from 'react';
+import { Html, useTexture } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { AcousticFoamMaterial, ConcreteFloorMaterial, WoodPanelMaterial } from '../../core/AcousticDarkMaterial';
@@ -8,8 +8,81 @@ import { EditingTable } from '../../modules/furniture/EditingTable';
 import { VocalBooth } from './VocalBooth';
 import { useControls } from 'leva';
 import { useHudStore } from '../../../stores/useHudStore';
+import { RoomDoor } from '../../modules/doors/RoomDoor';
 
-export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0] }: { position?: [number, number, number], rotation?: [number, number, number] }) {
+function BrickWall({ args, position }: { args: [number, number, number], position: [number, number, number] }) {
+  const textures = useTexture([
+    '/textures/Bricks061_2K-JPG/Bricks061_2K-JPG_Color.jpg',
+    '/textures/Bricks061_2K-JPG/Bricks061_2K-JPG_AmbientOcclusion.jpg',
+    '/textures/Bricks061_2K-JPG/Bricks061_2K-JPG_NormalGL.jpg',
+    '/textures/Bricks061_2K-JPG/Bricks061_2K-JPG_Roughness.jpg',
+  ]);
+
+  const maps = useMemo(() => {
+    return textures.map(tex => {
+      const clone = tex.clone();
+      clone.wrapS = clone.wrapT = THREE.RepeatWrapping;
+      clone.repeat.set(args[0] / 3, args[1] / 3);
+      // Align textures in world space so seams match perfectly
+      const leftEdge = position[0] - args[0] / 2;
+      const bottomEdge = position[1] - args[1] / 2;
+      clone.offset.set(leftEdge / 3, bottomEdge / 3);
+      clone.needsUpdate = true;
+      return clone;
+    });
+  }, [textures, args, position]);
+
+  return (
+    <mesh position={position} castShadow receiveShadow>
+      <boxGeometry args={args} />
+      <meshStandardMaterial 
+        map={maps[0]} 
+        aoMap={maps[1]} 
+        normalMap={maps[2]} 
+        roughnessMap={maps[3]} 
+        color="#888888" // darken slightly
+      />
+    </mesh>
+  );
+}
+
+function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number], repeat?: [number, number] }) {
+  const textures = useTexture([
+    '/textures/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Color.jpg',
+    '/textures/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_NormalGL.jpg',
+    '/textures/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Roughness.jpg',
+    '/textures/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Metalness.jpg',
+  ]);
+
+  const maps = useMemo(() => {
+    return textures.map(tex => {
+      const clone = tex.clone();
+      clone.wrapS = clone.wrapT = THREE.RepeatWrapping;
+      if (repeat) {
+        clone.repeat.set(repeat[0], repeat[1]);
+      } else {
+        clone.repeat.set(args[2] / 2, args[1] / 2);
+      }
+      clone.needsUpdate = true;
+      return clone;
+    });
+  }, [textures, args, repeat]);
+
+  return (
+    <mesh position={position} rotation={rotation} castShadow receiveShadow>
+      <boxGeometry args={args} />
+      <meshStandardMaterial 
+        map={maps[0]} 
+        normalMap={maps[1]} 
+        roughnessMap={maps[2]} 
+        metalnessMap={maps[3]} 
+        color="#888888" // darken slightly to fit the dark studio vibe
+      />
+    </mesh>
+  );
+}
+
+export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onExit }: { position?: [number, number, number], rotation?: [number, number, number], onExit?: () => void }) {
   const spotLightTarget = useRef<THREE.Object3D>(new THREE.Object3D());
   // Imperative refs – never stored in state to avoid re-render cycles
   const screenMatRef = useRef<THREE.MeshBasicMaterial>(null);
@@ -97,12 +170,12 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0] }: {
   });
 
   const boothControls = useControls('Vocal Booth Glass', {
-    posX:   { value: -3.4, min: -14, max: 14,  step: 0.1 },
-    posY:   { value: 1.5,  min: 0,   max: 10,  step: 0.1 },  // glass center Y
+    posX:   { value: -3.1, min: -14, max: 14,  step: 0.1 },
+    posY:   { value: 2.0,  min: 0,   max: 10,  step: 0.1 },  // glass center Y
     posZ:   { value: -6.0, min: -15, max: 10,  step: 0.1 },  // wall center Z (embedded)
     rotY:   { value: 0,    min: -180, max: 180, step: 1 },
     width:  { value: 5.0,  min: 0.5, max: 10,  step: 0.1 },
-    height: { value: 2.5,  min: 0.5, max: 5,   step: 0.1 },
+    height: { value: 1.6,  min: 0.5, max: 5,   step: 0.1 },
   });
 
   // Derived values for wall segments
@@ -129,27 +202,38 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0] }: {
       <Suspense fallback={null}>
         {/* Floor */}
         <mesh position={[0, 0, -0.5]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[14, 15]} />
+          <planeGeometry args={[14.2, 15.2]} />
           <primitive object={ConcreteFloorMaterial} attach="material" />
         </mesh>
         {/* Ceiling */}
-        <mesh position={[0, 5, -0.5]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[14, 15]} />
-          <primitive object={AcousticFoamMaterial} attach="material" />
-        </mesh>
+        <AcousticFoamWall position={[0, 5.1, -0.5]} args={[14.2, 0.2, 15.2]} repeat={[14.2 / 2, 15.2 / 2]} />
 
-        {/* Entrance Area */}
-        <group position={[0, 0, 2]}>
-          <pointLight position={[0, 2.5, 0]} intensity={5} color="#ff8c42" distance={6} decay={2} />
-          <pointLight position={[0, 2.5, 0]} intensity={2} color="#ffffff" distance={4} decay={3} />
-          <mesh position={[0, 2.1, 4.9]} castShadow receiveShadow>
-            <boxGeometry args={[2.5, 4.2, 0.2]} />
-            <meshStandardMaterial color="#050505" roughness={0.5} />
-          </mesh>
-          <mesh position={[0, 4, 4.79]}>
-            <planeGeometry args={[0.5, 0.15]} />
-            <meshBasicMaterial color="#ff0000" />
-          </mesh>
+        {/* Entrance Area -> Front Wall + RoomDoor */}
+        <group position={[0, 0, 7]}> {/* Z=7 is the front wall */}
+          {/* Front Wall - Left of door */}
+          <BrickWall 
+            position={[-4.125, 2.5, 0]} 
+            args={[5.75, 5.2, 0.5]} 
+          />
+          {/* Front Wall - Right of door */}
+          <BrickWall 
+            position={[4.125, 2.5, 0]} 
+            args={[5.75, 5.2, 0.5]} 
+          />
+          {/* Front Wall - Above door */}
+          <BrickWall 
+            position={[0, 4.6, 0]} 
+            args={[2.5, 1.0, 0.5]} 
+          />
+          
+          <RoomDoor 
+            position={[0, 0, -0.25]} // slightly inside the room to be flush
+            rotation={[0, Math.PI, 0]} 
+            label="EXIT" 
+            status="active" 
+            onEnter={() => onExit?.()} 
+          />
+          <pointLight position={[0, 2.5, -2]} intensity={5} color="#ff8c42" distance={6} decay={2} />
         </group>
 
         {/*
@@ -184,14 +268,8 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0] }: {
         )}
 
         {/* Side Walls */}
-        <mesh position={[-7, 2.5, -0.5]} rotation={[0, Math.PI / 2, 0]} castShadow receiveShadow>
-          <boxGeometry args={[15, 5, 0.5]} />
-          <primitive object={AcousticFoamMaterial} attach="material" />
-        </mesh>
-        <mesh position={[7, 2.5, -0.5]} rotation={[0, -Math.PI / 2, 0]} castShadow receiveShadow>
-          <boxGeometry args={[15, 5, 0.5]} />
-          <primitive object={AcousticFoamMaterial} attach="material" />
-        </mesh>
+        <AcousticFoamWall position={[-7, 2.5, -0.5]} rotation={[0, Math.PI / 2, 0]} args={[15.2, 5.2, 0.5]} />
+        <AcousticFoamWall position={[7, 2.5, -0.5]} rotation={[0, -Math.PI / 2, 0]} args={[15.2, 5.2, 0.5]} />
 
         {/* Vinyl Plaque */}
         <group position={[0, 3.8, -5.73]}>
@@ -220,19 +298,18 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0] }: {
           position={[boothControls.posX, boothControls.posY, boothControls.posZ]}
           rotation={[0, THREE.MathUtils.degToRad(boothControls.rotY), 0]}
         >
-          {/* Glass pane – full wall depth so it fills the opening */}
+          {/* Glass pane */}
           <mesh>
-            <boxGeometry args={[boothControls.width, boothControls.height, 0.5]} />
+            <boxGeometry args={[boothControls.width, boothControls.height, 0.1]} />
             <meshPhysicalMaterial
               color="#e8f4ff"
               transparent
-              transmission={0.95}
+              transmission={0.98}
               opacity={1}
-              roughness={0.05}
-              metalness={0.1}
-              ior={1.5}
-              thickness={0.5}
-              side={THREE.DoubleSide}
+              roughness={0.02}
+              metalness={0.05}
+              ior={1.3}
+              thickness={0.1}
             />
           </mesh>
           {/* Top frame bar */}
@@ -258,8 +335,8 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0] }: {
         </group>
 
         {/* ── VOCAL BOOTH INTERIOR (behind the glass pane) ── */}
-        {/* Booth interior sits just behind the back wall – open face at Z≈-5.75 */}
-        <VocalBooth position={[-3.4, 0, -5.75]} />
+        {/* Booth interior sits just behind the back wall */}
+        <VocalBooth position={[-3.4, 0, -6.0]} />
 
         {/* ── FOCAL SCREEN – always rendered, texture swapped imperatively ── */}
         <group 

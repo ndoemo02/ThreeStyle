@@ -56,14 +56,7 @@ export default function B3PPage() {
         [⛶ FULLSCREEN]
       </button>
 
-      {activeZone !== 'hub' && (
-        <button 
-          onClick={() => setActiveZone('hub')}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 bg-black/80 text-white font-bold border border-white/20 px-8 py-3 rounded backdrop-blur hover:bg-white/10 tracking-[0.2em]"
-        >
-          [ESC] EXIT ROOM
-        </button>
-      )}
+
       
       {/* Permanent Crosshair indicating user focus */}
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white rounded-full z-20 pointer-events-none mix-blend-difference opacity-70 shadow-[0_0_5px_rgba(255,255,255,0.5)]" />
@@ -83,7 +76,7 @@ export default function B3PPage() {
         <Environment preset="city" environmentIntensity={0.25} />
 
         {activeZone === 'hub' && <GroundedHub onEnterRoom={(id) => setActiveZone(id)} />}
-        {activeZone !== 'hub' && <CreatorRoomMVP />}
+        {activeZone !== 'hub' && <CreatorRoomMVP onExit={() => setActiveZone('hub')} />}
 
         <BaseNavigationControls />
       </Canvas>

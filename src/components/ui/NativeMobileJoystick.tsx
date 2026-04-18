@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import { useHudStore } from '../../stores/useHudStore';
 
 export function NativeMobileJoystick() {
   const [active, setActive] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isMobile, setIsMobile] = useState(false);
   const baseRef = useRef<HTMLDivElement>(null);
+  const { isOpen } = useHudStore();
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0);
@@ -23,6 +25,7 @@ export function NativeMobileJoystick() {
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (isOpen) return;
     e.stopPropagation();
     setActive(true);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -31,7 +34,7 @@ export function NativeMobileJoystick() {
 
   const handlePointerMove = (e: React.PointerEvent) => {
     e.stopPropagation();
-    if (!active || !baseRef.current) return;
+    if (!active || !baseRef.current || isOpen) return;
     const rect = baseRef.current.getBoundingClientRect();
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
@@ -66,7 +69,7 @@ export function NativeMobileJoystick() {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      className="fixed z-[100] shadow-2xl"
+      className={`fixed z-[100] shadow-2xl transition-opacity duration-300 ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
       style={{
         bottom: '40px', // Lowered closer to bottom edge
         left: '70px',   // Moved slightly to the right, but kept on left side for thumb

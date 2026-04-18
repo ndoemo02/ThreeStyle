@@ -43,23 +43,34 @@ export function BaseNavigationControls() {
   // Mobile First-Person Touch Controls
   useEffect(() => {
     if (!isMobile) return;
-    let isDragging = false;
+    let activeTouchId: number | null = null;
     let previousTouch: { x: number, y: number } | null = null;
     const euler = new THREE.Euler(0, 0, 0, 'YXZ');
 
     const onTouchStart = (e: TouchEvent) => {
-      // Multi-touch logic: use the first changed touch if it didn't start on joystick (joystick blocks propagation to dom)
+      if (activeTouchId !== null) return;
+      
       const touch = e.changedTouches[0];
+      activeTouchId = touch.identifier;
       previousTouch = { x: touch.clientX, y: touch.clientY };
-      isDragging = true;
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (!isDragging || !previousTouch) return;
-      const touch = e.changedTouches[0];
-      const movementX = touch.clientX - previousTouch.x;
-      const movementY = touch.clientY - previousTouch.y;
-      previousTouch = { x: touch.clientX, y: touch.clientY };
+      if (activeTouchId === null || !previousTouch) return;
+      
+      let activeTouch: Touch | null = null;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === activeTouchId) {
+          activeTouch = e.changedTouches[i];
+          break;
+        }
+      }
+      
+      if (!activeTouch) return;
+
+      const movementX = activeTouch.clientX - previousTouch.x;
+      const movementY = activeTouch.clientY - previousTouch.y;
+      previousTouch = { x: activeTouch.clientX, y: activeTouch.clientY };
 
       euler.setFromQuaternion(camera.quaternion);
       euler.y -= movementX * 0.005;
@@ -68,14 +79,19 @@ export function BaseNavigationControls() {
       camera.quaternion.setFromEuler(euler);
     };
 
-    const onTouchEnd = () => {
-      isDragging = false;
-      previousTouch = null;
+    const onTouchEnd = (e: TouchEvent) => {
+      if (activeTouchId === null) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === activeTouchId) {
+          activeTouchId = null;
+          previousTouch = null;
+          break;
+        }
+      }
     };
 
     const dom = gl.domElement;
     dom.addEventListener('touchstart', onTouchStart, { passive: true });
-    // Keep passive: false if we want to e.preventDefault() to stop pull-to-refresh
     dom.addEventListener('touchmove', onTouchMove, { passive: true });
     dom.addEventListener('touchend', onTouchEnd, { passive: true });
     dom.addEventListener('touchcancel', onTouchEnd, { passive: true });

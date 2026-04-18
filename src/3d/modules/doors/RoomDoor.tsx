@@ -104,7 +104,11 @@ export function RoomDoor({ position, rotation, label, status, userCount, onEnter
         {/* Flush Door Label UI on the Slab */}
         <Html transform occlude wrapperClass="door-ui" position={[-0.15, 1.9, 0.41]} distanceFactor={3.5}>
           <div className="flex flex-col items-center justify-center w-[200px] transition-all duration-500" 
-               style={{ textShadow: hovered ? `0 0 10px ${statusColor}` : 'none' }}>
+               style={{ 
+                 textShadow: hovered ? `0 0 10px ${statusColor}` : 'none',
+                 opacity: hovered ? 1 : 0,
+                 pointerEvents: hovered ? 'auto' : 'none'
+               }}>
             <div className="text-white/30 tracking-[0.3em] text-[10px] font-mono w-full text-center border-b border-white/10 pb-1 mb-2">
               ROOM KEY
             </div>
