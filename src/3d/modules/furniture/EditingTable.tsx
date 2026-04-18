@@ -40,7 +40,7 @@ type GLTFResult = GLTF & {
     Wood: THREE.MeshStandardMaterial
     Pegs_Texture: THREE.MeshStandardMaterial
   }
-  animations: GLTFAction[]
+  animations: THREE.AnimationClip[]
 }
 
 export function EditingTable(props: JSX.IntrinsicElements['group']) {
