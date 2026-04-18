@@ -61,6 +61,7 @@ export function HudOverlay() {
     setCurrentTime,
     setDuration,
     setIsPlaying,
+    mounted,
   };
 
   // Wrapper classes for visibility without unmounting (to keep audio playing)
@@ -119,9 +120,10 @@ interface HudContentProps {
   setCurrentTime: (time: number) => void;
   setDuration: (time: number) => void;
   setIsPlaying: (playing: boolean) => void;
+  mounted: boolean;
 }
 
-function HudContent({ activeScreenId, isPlaying, currentTime, duration, formatTime, togglePlay, videoRef, videoCallbackRef, setCurrentTime, setDuration, setIsPlaying }: HudContentProps) {
+function HudContent({ activeScreenId, isPlaying, currentTime, duration, formatTime, togglePlay, videoRef, videoCallbackRef, setCurrentTime, setDuration, setIsPlaying, mounted }: HudContentProps) {
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
