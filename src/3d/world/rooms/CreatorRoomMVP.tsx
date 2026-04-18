@@ -295,6 +295,12 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     laptopPosZ: { value: -2.0, min: -10, max: 10, step: 0.1 },
     laptopRotY: { value: -157, min: -180, max: 180, step: 1 },
     laptopScale: { value: 0.16, min: 0.01, max: 1, step: 0.01 },
+
+    sofaPosX: { value: -4.0, min: -10, max: 10, step: 0.1 },
+    sofaPosY: { value: 0.0, min: -5, max: 5, step: 0.1 },
+    sofaPosZ: { value: 4.0, min: -10, max: 10, step: 0.1 },
+    sofaRotY: { value: 0, min: -180, max: 180, step: 1 },
+    sofaScale: { value: 1.0, min: 0.1, max: 5, step: 0.05 },
   });
 
   const logoControls = useControls('Wall Logo', {
@@ -443,12 +449,20 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           scale={[logoControls.logoScale, logoControls.logoScale, 1]}
         />
 
-        {/* Laptop on table */}
+        {/* iPad Pro on table (replacing laptop) */}
         <SimpleModel 
-          url="/models/laptop_dell_xps.glb" 
+          url="/models/models/ipad_pro_2024.glb" 
           position={[decorControls.laptopPosX, decorControls.laptopPosY, decorControls.laptopPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.laptopRotY), 0]}
           scale={decorControls.laptopScale}
+        />
+
+        {/* Sofa in the room */}
+        <SimpleModel 
+          url="/models/models/sofa.glb" 
+          position={[decorControls.sofaPosX, decorControls.sofaPosY, decorControls.sofaPosZ]}
+          rotation={[0, THREE.MathUtils.degToRad(decorControls.sofaRotY), 0]}
+          scale={decorControls.sofaScale}
         />
 
         {/*
