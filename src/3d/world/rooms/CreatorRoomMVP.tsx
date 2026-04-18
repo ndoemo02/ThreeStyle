@@ -46,7 +46,7 @@ function BrickWall({ args, position }: { args: [number, number, number], positio
   );
 }
 
-function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number], repeat?: [number, number] }) {
+export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number], repeat?: [number, number] }) {
   const textures = useTexture([
     '/textures/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Color.jpg',
     '/textures/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_NormalGL.jpg',
@@ -328,14 +328,14 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
   const lightControls = useControls('Lighting', {
     lightPosX: { value: 1.5, min: -10, max: 10, step: 0.1 },
-    lightPosY: { value: 4.5, min: 0, max: 10, step: 0.1 },
+    lightPosY: { value: 5.0, min: 0, max: 10, step: 0.1 },
     lightPosZ: { value: -3.5, min: -15, max: 10, step: 0.1 },
-    conePosX: { value: 1.5, min: -10, max: 10, step: 0.1 },
-    conePosY: { value: 2.5, min: 0, max: 10, step: 0.1 },
-    conePosZ: { value: -4.5, min: -15, max: 10, step: 0.1 },
-    targetPosX: { value: 1.5, min: -10, max: 10, step: 0.1 },
-    targetPosY: { value: 0.9, min: 0, max: 10, step: 0.1 },
-    targetPosZ: { value: -4.5, min: -15, max: 10, step: 0.1 },
+    conePosX: { value: -3.0, min: -10, max: 10, step: 0.1 },
+    conePosY: { value: 4.6, min: 0, max: 10, step: 0.1 },
+    conePosZ: { value: -6.1, min: -15, max: 10, step: 0.1 },
+    targetPosX: { value: 7.2, min: -10, max: 10, step: 0.1 },
+    targetPosY: { value: 5.5, min: 0, max: 10, step: 0.1 },
+    targetPosZ: { value: 3.4, min: -15, max: 10, step: 0.1 },
   });
 
   const boothControls = useControls('Vocal Booth Glass', {
@@ -354,11 +354,11 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     chairRotY: { value: -78, min: -180, max: 180, step: 1 },
     chairScale: { value: 0.5, min: 0.1, max: 5, step: 0.05 },
 
-    organizerPosX: { value: 2.60, min: -10, max: 10, step: 0.05 },
-    organizerPosY: { value: 1.34, min: -5, max: 5, step: 0.01 },
-    organizerPosZ: { value: -3.4, min: -10, max: 10, step: 0.05 },
-    organizerRotY: { value: 45, min: -180, max: 180, step: 1 },
-    organizerScale: { value: 0.46, min: 0.01, max: 1, step: 0.01 },
+    organizerPosX: { value: 4.85, min: -10, max: 10, step: 0.05 },
+    organizerPosY: { value: 1.47, min: -5, max: 5, step: 0.01 },
+    organizerPosZ: { value: -4.41, min: -10, max: 10, step: 0.05 },
+    organizerRotY: { value: 0, min: -180, max: 180, step: 1 },
+    organizerScale: { value: 1.96, min: 0.01, max: 2, step: 0.01 },
 
     buttonPosX: { value: -6.0, min: -10, max: 10, step: 0.1 },
     buttonPosY: { value: 1.6, min: -5, max: 5, step: 0.1 },
@@ -370,13 +370,19 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     laptopPosY: { value: 1.1, min: -5, max: 5, step: 0.05 },
     laptopPosZ: { value: -2.0, min: -10, max: 10, step: 0.1 },
     laptopRotY: { value: -157, min: -180, max: 180, step: 1 },
-    laptopScale: { value: 1.6, min: 0.01, max: 50, step: 0.1 },
+    laptopScale: { value: 3.3, min: 0.01, max: 50, step: 0.1 },
 
-    sofaPosX: { value: 0.0, min: -10, max: 10, step: 0.1 },
-    sofaPosY: { value: 0.0, min: -5, max: 5, step: 0.1 },
-    sofaPosZ: { value: 0.0, min: -10, max: 10, step: 0.1 },
-    sofaRotY: { value: 0, min: -180, max: 180, step: 1 },
-    sofaScale: { value: 0.3, min: 0.01, max: 5, step: 0.01 },
+    sofaPosX: { value: 4.2, min: -10, max: 10, step: 0.1 },
+    sofaPosY: { value: 0.72, min: -5, max: 5, step: 0.1 },
+    sofaPosZ: { value: 3.2, min: -10, max: 10, step: 0.1 },
+    sofaRotY: { value: -180, min: -180, max: 180, step: 1 },
+    sofaScale: { value: 0.72, min: 0.01, max: 5, step: 0.01 },
+
+    rtvPosX: { value: -6.3, min: -12, max: 12, step: 0.1 },
+    rtvPosY: { value: 0.0, min: -5, max: 5, step: 0.05 },
+    rtvPosZ: { value: 2.8, min: -12, max: 12, step: 0.1 },
+    rtvRotY: { value: 90, min: -180, max: 180, step: 1 },
+    rtvScale: { value: 2.48, min: 0.01, max: 10, step: 0.1 },
   });
 
   const logoControls = useControls('Wall Logo', {
@@ -542,6 +548,14 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           {/* SofaRaw self-centers via bbox; scale is on the GROUP, not on primitive */}
           <SofaRaw />
         </group>
+
+        {/* RTV Cabinet */}
+        <AutoCenteredModel 
+          url="/models/modern_wooden_cabinet_4k.blend/modern_wooden_cabinet_4k.glb"
+          position={[decorControls.rtvPosX, decorControls.rtvPosY, decorControls.rtvPosZ]}
+          rotation={[0, THREE.MathUtils.degToRad(decorControls.rtvRotY), 0]}
+          scale={decorControls.rtvScale}
+        />
 
         {/*
           Glass frame – embedded in wall (posZ = wall center = -6).
