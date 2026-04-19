@@ -1,8 +1,7 @@
 import { useState, useRef, Suspense, useEffect, useMemo } from 'react';
 import { Html, useTexture, useGLTF } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, type ThreeElements } from '@react-three/fiber';
 import * as THREE from 'three';
-import { AcousticFoamMaterial, ConcreteFloorMaterial, WoodPanelMaterial } from '../../core/AcousticDarkMaterial';
 import { FakeLightCone } from '../../modules/fx/FakeLightCone';
 import { EditingTable } from '../../modules/furniture/EditingTable';
 import { VocalBooth } from './VocalBooth';
@@ -10,12 +9,42 @@ import { useControls } from 'leva';
 import { useHudStore } from '../../../stores/useHudStore';
 import { RoomDoor } from '../../modules/doors/RoomDoor';
 
+type PrimitiveModelProps = Omit<ThreeElements['primitive'], 'object'>;
+type UrlModelProps = PrimitiveModelProps & { url: string };
+type GltfScene = { scene: THREE.Group };
+
 function TechnicalTrim({ args, position, rotation = [0, 0, 0] }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number] }) {
   return (
     <mesh position={position} rotation={rotation} castShadow receiveShadow>
       <boxGeometry args={args} />
       <meshStandardMaterial color="#080808" roughness={0.95} metalness={0} />
     </mesh>
+  );
+}
+
+function WarmLedStrip({ args, position, rotation = [0, 0, 0], intensity = 0.65 }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number], intensity?: number }) {
+  return (
+    <mesh position={position} rotation={rotation}>
+      <boxGeometry args={args} />
+      <meshStandardMaterial
+        color="#fff1d2"
+        emissive="#ffc46f"
+        emissiveIntensity={intensity}
+        roughness={0.45}
+        metalness={0}
+        toneMapped={false}
+      />
+    </mesh>
+  );
+}
+
+function SoftWallWash({ position, rotation = [0, 0, 0], width, height, intensity = 1.8 }: { position: [number, number, number], rotation?: [number, number, number], width: number, height: number, intensity?: number }) {
+  return (
+    <rectAreaLight
+      position={position}
+      rotation={rotation}
+      args={['#ffcf8a', intensity, width, height]}
+    />
   );
 }
 
@@ -93,18 +122,18 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat 
 
 function DiamondPlateFloor({ args, position }: { args: [number, number], position: [number, number, number] }) {
   const textures = useTexture([
-    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Color.jpg',
-    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_NormalGL.jpg',
-    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Roughness.jpg',
-    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Metalness.jpg',
-    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_AmbientOcclusion.jpg',
+    '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_Color.jpg',
+    '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_NormalGL.jpg',
+    '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_Roughness.jpg',
+    '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_Metalness.jpg',
+    '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_AmbientOcclusion.jpg',
   ]);
 
   const maps = useMemo(() => {
     return textures.map(tex => {
       const clone = tex.clone();
       clone.wrapS = clone.wrapT = THREE.RepeatWrapping;
-      clone.repeat.set(args[0] / 1.5, args[1] / 1.5);
+      clone.repeat.set(args[0] / 3.0, args[1] / 3.0); // adjusted scale for PaintedMetal pattern
       clone.needsUpdate = true;
       return clone;
     });
@@ -119,18 +148,18 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
         roughnessMap={maps[2]} 
         metalnessMap={maps[3]} 
         aoMap={maps[4]}
-        color="#555555"
+        color="#ffffff"
       />
     </mesh>
   );
 }
 
-function GoldenPlayButton({ ...props }: any) {
-  const { scene } = useGLTF("/models/golden_play_button.glb") as any;
+function GoldenPlayButton(props: PrimitiveModelProps) {
+  const { scene } = useGLTF("/models/golden_play_button.glb") as unknown as GltfScene;
   const processedScene = useMemo(() => {
-    const clone = scene.clone();
-    clone.traverse((node: any) => {
-      if (node.isMesh) {
+    const clone = scene.clone(true);
+    clone.traverse((node) => {
+      if (node instanceof THREE.Mesh) {
         // Map based on discovered names: Object_2, Object_3, Object_4
         if (node.name === 'Object_4') {
           // Play protrusion = white
@@ -162,36 +191,151 @@ function GoldenPlayButton({ ...props }: any) {
   return <primitive object={processedScene} {...props} />;
 }
 
-function WallLogo({ url, ...props }: any) {
-  const texture = useTexture(url) as THREE.Texture;
+const LOGO_ASPECT = 1344 / 768;
+
+function LogoBackGlow({ width, height }: { width: number, height: number }) {
+  const shadowMaterial = useMemo(() => new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: {
+      color: { value: new THREE.Color('#090604') },
+      opacity: { value: 0.34 },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec2 vUv;
+      uniform vec3 color;
+      uniform float opacity;
+      void main() {
+        vec2 d = abs(vUv - 0.5) * vec2(1.0, 1.55);
+        float falloff = smoothstep(0.58, 0.04, length(d));
+        gl_FragColor = vec4(color, opacity * falloff);
+      }
+    `,
+  }), []);
+
+  const glowMaterial = useMemo(() => new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      color: { value: new THREE.Color('#ffc06a') },
+      opacity: { value: 0.085 },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec2 vUv;
+      uniform vec3 color;
+      uniform float opacity;
+      void main() {
+        vec2 d = abs(vUv - 0.5) * vec2(1.0, 1.45);
+        float falloff = smoothstep(0.64, 0.08, length(d));
+        gl_FragColor = vec4(color, opacity * falloff);
+      }
+    `,
+  }), []);
+
+  return (
+    <>
+      <mesh position={[0.04, -0.04, -0.006]} material={shadowMaterial}>
+        <planeGeometry args={[width * 1.18, height * 1.38]} />
+      </mesh>
+      <mesh position={[0, 0, -0.008]} material={glowMaterial}>
+        <planeGeometry args={[width * 1.36, height * 1.7]} />
+      </mesh>
+    </>
+  );
+}
+
+type WallLogoProps = Omit<ThreeElements['group'], 'scale'> & {
+  url: string;
+  scale?: number;
+};
+
+function WallLogo({ url, scale = 1, ...props }: WallLogoProps) {
+  const sourceTexture = useTexture(url) as THREE.Texture;
+  const texture = useMemo(() => {
+    const clone = sourceTexture.clone();
+    clone.colorSpace = THREE.SRGBColorSpace;
+    clone.anisotropy = 8;
+    clone.needsUpdate = true;
+    return clone;
+  }, [sourceTexture]);
+
+  useEffect(() => () => texture.dispose(), [texture]);
+
+  const width = 1.95 * scale;
+  const height = width / LOGO_ASPECT;
+
+  const frameWidth = width * 1.34;
+  const frameHeight = height * 1.62;
+  const rail = 0.055;
+
   return (
     <group {...props}>
-      {/* Optional circular background */}
-      <mesh position={[0, 0, -0.01]}>
-        <circleGeometry args={[0.55, 32]} />
-        <meshStandardMaterial color="#ffffff" opacity={0.1} transparent />
+      <mesh position={[0, 0, -0.018]} castShadow receiveShadow>
+        <planeGeometry args={[frameWidth, frameHeight]} />
+        <meshStandardMaterial color="#12100d" roughness={0.88} metalness={0.04} />
       </mesh>
-      <mesh>
-        <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial map={texture} transparent alphaTest={0.1} side={THREE.DoubleSide} />
+      <mesh position={[0, frameHeight / 2 - rail / 2, 0.006]} castShadow>
+        <boxGeometry args={[frameWidth + rail, rail, 0.045]} />
+        <meshStandardMaterial color="#221a12" roughness={0.72} metalness={0.16} />
+      </mesh>
+      <mesh position={[0, -frameHeight / 2 + rail / 2, 0.006]} castShadow>
+        <boxGeometry args={[frameWidth + rail, rail, 0.045]} />
+        <meshStandardMaterial color="#0d0a08" roughness={0.8} metalness={0.12} />
+      </mesh>
+      <mesh position={[-frameWidth / 2 + rail / 2, 0, 0.006]} castShadow>
+        <boxGeometry args={[rail, frameHeight, 0.045]} />
+        <meshStandardMaterial color="#1a130d" roughness={0.75} metalness={0.14} />
+      </mesh>
+      <mesh position={[frameWidth / 2 - rail / 2, 0, 0.006]} castShadow>
+        <boxGeometry args={[rail, frameHeight, 0.045]} />
+        <meshStandardMaterial color="#1a130d" roughness={0.75} metalness={0.14} />
+      </mesh>
+      <LogoBackGlow width={width} height={height} />
+      <mesh position={[0, 0, 0.018]} castShadow>
+        <planeGeometry args={[width, height]} />
+        <meshStandardMaterial
+          map={texture}
+          transparent
+          alphaTest={0.08}
+          roughness={0.58}
+          metalness={0}
+          side={THREE.FrontSide}
+          polygonOffset
+          polygonOffsetFactor={-1}
+        />
       </mesh>
     </group>
   );
 }
 
-function AutoCenteredModel({ url, ...props }: any) {
-  const { scene } = useGLTF(url) as any;
+function AutoCenteredModel({ url, ...props }: UrlModelProps) {
+  const { scene } = useGLTF(url) as unknown as GltfScene;
   const processed = useMemo(() => {
     const clone = scene.clone(true);
 
     // Force double-side rendering and ensure everything is visible
-    clone.traverse((node: any) => {
-      if (node.isMesh) {
+    clone.traverse((node) => {
+      if (node instanceof THREE.Mesh) {
         node.visible = true;
         node.frustumCulled = false;
         if (node.material) {
           const mats = Array.isArray(node.material) ? node.material : [node.material];
-          mats.forEach((mat: any) => {
+          mats.forEach((mat) => {
             mat.side = THREE.DoubleSide;
             mat.transparent = false;
             mat.opacity = 1;
@@ -223,16 +367,16 @@ function AutoCenteredModel({ url, ...props }: any) {
 }
 
 function SofaRaw() {
-  const { scene } = useGLTF('/models/models/sofa.glb') as any;
+  const { scene } = useGLTF('/models/models/sofa.glb') as unknown as GltfScene;
   const processed = useMemo(() => {
     const clone = scene.clone(true);
 
     // Force materials
-    clone.traverse((node: any) => {
-      if (node.isMesh) {
+    clone.traverse((node) => {
+      if (node instanceof THREE.Mesh) {
         node.frustumCulled = false;
         const mats = Array.isArray(node.material) ? node.material : [node.material];
-        mats.forEach((mat: any) => {
+        mats.forEach((mat) => {
           if (mat) {
             mat.side = THREE.DoubleSide;
             mat.transparent = false;
@@ -261,12 +405,11 @@ function SofaRaw() {
 }
 
 export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onExit }: { position?: [number, number, number], rotation?: [number, number, number], onExit?: () => void }) {
-  const spotLightTarget = useRef<THREE.Object3D>(new THREE.Object3D());
   // Imperative refs – never stored in state to avoid re-render cycles
   const screenMatRef = useRef<THREE.MeshBasicMaterial>(null);
   const videoTexRef = useRef<THREE.VideoTexture | null>(null);
 
-  const { openHud, isPlaying, masterVideoRef } = useHudStore();
+  const { openHud, masterVideoRef } = useHudStore();
   const [laptopHovered, setLaptopHovered] = useState(false);
 
   // Keep a plain ref so useFrame closure always reads the latest value
@@ -287,7 +430,6 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         screenMatRef.current.needsUpdate = true;
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [masterVideoRef]);
 
   // Every frame: (a) assign texture once both refs are ready; (b) tick needsUpdate
@@ -336,15 +478,9 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   });
 
   const lightControls = useControls('Lighting', {
-    lightPosX: { value: 1.5, min: -10, max: 10, step: 0.1 },
-    lightPosY: { value: 5.0, min: 0, max: 10, step: 0.1 },
-    lightPosZ: { value: -3.5, min: -15, max: 10, step: 0.1 },
     conePosX: { value: -3.0, min: -10, max: 10, step: 0.1 },
     conePosY: { value: 4.6, min: 0, max: 10, step: 0.1 },
-    conePosZ: { value: -5.5, min: -15, max: 10, step: 0.1 }, // moved even further forward to clear wall textures
-    targetPosX: { value: 7.2, min: -10, max: 10, step: 0.1 },
-    targetPosY: { value: 5.5, min: 0, max: 10, step: 0.1 },
-    targetPosZ: { value: 3.4, min: -15, max: 10, step: 0.1 },
+    conePosZ: { value: -5.5, min: -15, max: 10, step: 0.1 },
   });
 
   const boothControls = useControls('Vocal Booth Glass', {
@@ -369,9 +505,9 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     organizerRotY: { value: 0, min: -180, max: 180, step: 1 },
     organizerScale: { value: 1.96, min: 0.01, max: 2, step: 0.01 },
 
-    buttonPosX: { value: -6.0, min: -10, max: 10, step: 0.1 },
-    buttonPosY: { value: 1.6, min: -5, max: 5, step: 0.1 },
-    buttonPosZ: { value: -2.0, min: -10, max: 10, step: 0.1 },
+    buttonPosX: { value: -6.7, min: -10, max: 10, step: 0.1 },
+    buttonPosY: { value: 2.0, min: -5, max: 5, step: 0.1 },
+    buttonPosZ: { value: -2.4, min: -10, max: 10, step: 0.1 },
     buttonRotY: { value: 0, min: -180, max: 180, step: 1 },
     buttonScale: { value: 1.0, min: 0.1, max: 10, step: 0.1 },
 
@@ -395,10 +531,13 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   });
 
   const logoControls = useControls('Wall Logo', {
-    logoPosX: { value: 0.1, min: -10, max: 10, step: 0.1 },
-    logoPosY: { value: 3.7, min: 0, max: 10, step: 0.1 },
-    logoPosZ: { value: -5.4, min: -15, max: 10, step: 0.01 },
-    logoScale: { value: 1.0, min: 0.1, max: 5, step: 0.1 },
+    logoPosX: { value: -2.7, min: -10, max: 10, step: 0.01, label: 'X: do sciany - / do pokoju +' },
+    logoPosY: { value: 3.7, min: 0, max: 10, step: 0.1, label: 'Y: dol / gora' },
+    logoPosZ: { value: -5.5, min: -15, max: 10, step: 0.05, label: 'Z: tyl - / przod +' },
+    logoRotX: { value: 0, min: -180, max: 180, step: 1, label: 'Rot X: przechyl gora/dol' },
+    logoRotY: { value: 0, min: -180, max: 180, step: 1, label: 'Rot Y: ustaw do sciany' },
+    logoRotZ: { value: 0, min: -180, max: 180, step: 1, label: 'Rot Z: obrot jak obraz' },
+    logoScale: { value: 0.74, min: 0.1, max: 5, step: 0.05, label: 'Skala: glowny branding' },
   });
 
   // Derived values for wall segments
@@ -409,24 +548,24 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
   return (
     <group position={new THREE.Vector3(...position)} rotation={new THREE.Euler(...rotation)}>
-      <ambientLight intensity={0.15} color="#ffeedd" />
-      <primitive object={spotLightTarget.current} position={[lightControls.targetPosX, lightControls.targetPosY, lightControls.targetPosZ]} />
-      <spotLight 
-        position={[lightControls.lightPosX, lightControls.lightPosY, lightControls.lightPosZ]} 
-        target={spotLightTarget.current} 
-        intensity={60} 
-        angle={0.6} 
-        penumbra={0.8} 
-        color="#ff8c42" 
-        distance={10} 
-        castShadow 
-      />
+      <ambientLight intensity={0.28} color="#6b4a2c" />
+      <hemisphereLight args={['#ffe4bd', '#1b100b', 0.55]} />
+      <SoftWallWash position={[0, 4.92, -5.66]} rotation={[-0.25, 0, 0]} width={12.8} height={0.55} intensity={2.4} />
+      <SoftWallWash position={[-6.72, 4.72, -0.5]} rotation={[0, Math.PI / 2, 0]} width={13.4} height={0.45} intensity={1.45} />
+      <SoftWallWash position={[6.72, 4.72, -0.5]} rotation={[0, -Math.PI / 2, 0]} width={13.4} height={0.45} intensity={1.45} />
+      <pointLight position={[-1.0, 3.4, -4.5]} intensity={4.2} color="#ffd095" distance={4.8} decay={2.4} />
+      <pointLight position={[3.8, 3.2, -3.2]} intensity={2.0} color="#ffbd76" distance={5.8} decay={2.2} />
 
       <Suspense fallback={null}>
         {/* Floor - Diamond Plate */}
         <DiamondPlateFloor args={[14.2, 15.2]} position={[0, 0, -0.5]} />
         {/* Ceiling */}
         <AcousticFoamWall position={[0, 5.1, -0.5]} args={[14.2, 0.2, 15.2]} repeat={[14.2 / 2, 15.2 / 2]} />
+        {/* Warm indirect LED channels around ceiling edges */}
+        <WarmLedStrip position={[0, 4.96, -5.66]} args={[13.45, 0.035, 0.035]} intensity={0.78} />
+        <WarmLedStrip position={[0, 4.96, 6.73]} args={[13.3, 0.03, 0.03]} intensity={0.45} />
+        <WarmLedStrip position={[-6.73, 4.96, -0.5]} args={[0.035, 0.035, 14.1]} intensity={0.58} />
+        <WarmLedStrip position={[6.73, 4.96, -0.5]} args={[0.035, 0.035, 14.1]} intensity={0.58} />
 
         {/* Entrance Area -> Front Wall + RoomDoor */}
         <group position={[0, 0, 7]}> {/* Z=7 is the front wall */}
@@ -513,18 +652,6 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         <AcousticFoamWall position={[-7, 2.5, -0.5]} rotation={[0, Math.PI / 2, 0]} args={[15.2, 5.2, 0.5]} />
         <AcousticFoamWall position={[7, 2.5, -0.5]} rotation={[0, -Math.PI / 2, 0]} args={[15.2, 5.2, 0.5]} />
 
-        {/* Vinyl Plaque */}
-        <group position={[0, 3.8, -5.73]}>
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.6, 0.6, 0.05, 32]} />
-            <meshStandardMaterial color="#050505" roughness={0.1} metalness={0.9} />
-          </mesh>
-          <mesh position={[0, 0, 0.03]}>
-            <ringGeometry args={[0.2, 0.6, 32]} />
-            <meshBasicMaterial color="#ff8c42" transparent opacity={0.3} />
-          </mesh>
-        </group>
-
         {/* Production Desk */}
         <EditingTable 
           position={[tableControls.posX, tableControls.posY, tableControls.posZ]} 
@@ -555,11 +682,16 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           scale={decorControls.buttonScale}
         />
 
-        {/* 3S Logo on wall */}
+        {/* 3S identity wall logo - primary branding on the black acoustic wall */}
         <WallLogo 
           url="/textures/logos/3S.png"
           position={[logoControls.logoPosX, logoControls.logoPosY, logoControls.logoPosZ]}
-          scale={[logoControls.logoScale, logoControls.logoScale, 1]}
+          rotation={[
+            THREE.MathUtils.degToRad(logoControls.logoRotX),
+            THREE.MathUtils.degToRad(logoControls.logoRotY),
+            THREE.MathUtils.degToRad(logoControls.logoRotZ),
+          ]}
+          scale={logoControls.logoScale}
         />
 
         {/* iPad Pro on table (replacing laptop) */}
@@ -597,17 +729,21 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           rotation={[0, THREE.MathUtils.degToRad(boothControls.rotY), 0]}
         >
           {/* Glass pane */}
-          <mesh>
-            <boxGeometry args={[boothControls.width, boothControls.height, 0.1]} />
+          <mesh renderOrder={2}>
+            <boxGeometry args={[boothControls.width, boothControls.height, 0.035]} />
             <meshPhysicalMaterial
-              color="#e8f4ff"
+              color="#ffffff"
               transparent
-              transmission={0.98}
-              opacity={1}
-              roughness={0.02}
-              metalness={0.05}
-              ior={1.3}
-              thickness={0.1}
+              transmission={1}
+              opacity={0.22}
+              roughness={0.045}
+              metalness={0}
+              ior={1.08}
+              thickness={0.015}
+              attenuationColor="#ffffff"
+              attenuationDistance={8}
+              depthWrite={false}
+              side={THREE.DoubleSide}
             />
           </mesh>
           {/* PREMIUM SLIM FRAME (Matte Black) - No protrusions */}
@@ -647,7 +783,15 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
            ]}
            scale={[hudControls.hudScale, hudControls.hudScale, hudControls.hudScale]}
         >
-           <pointLight position={[0, 0, 0.2]} intensity={2} color="#ff8c42" distance={3} decay={2} />
+           <pointLight position={[0, 0, 0.2]} intensity={1.2} color="#ffc278" distance={3} decay={2} />
+           <mesh position={[0, 1.02, -0.012]}>
+             <boxGeometry args={[3.38, 0.025, 0.015]} />
+             <meshStandardMaterial color="#fff0d2" emissive="#ffb861" emissiveIntensity={0.45} toneMapped={false} />
+           </mesh>
+           <mesh position={[0, -1.02, -0.012]}>
+             <boxGeometry args={[3.38, 0.025, 0.015]} />
+             <meshStandardMaterial color="#fff0d2" emissive="#ffb861" emissiveIntensity={0.34} toneMapped={false} />
+           </mesh>
            {/* Wall screen – pure video display, no interaction */}
            <mesh>
              <planeGeometry args={[3.2, 1.8]} />
