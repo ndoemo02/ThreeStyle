@@ -81,6 +81,14 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
     lightColor:      { value: '#ffe8c0', label: 'Light color' },
   });
 
+  const micControls = useControls('Microphone', {
+    posX: { value: 0.2, min: -2, max: 2, step: 0.01 },
+    posY: { value: 0.03, min: 0, max: 2, step: 0.01 },
+    posZ: { value: -D * 0.6, min: -D, max: 0, step: 0.01 },
+    rotY: { value: -45, min: -180, max: 180, step: 1 },
+    scale: { value: 1.8, min: 0.1, max: 5, step: 0.1 },
+  });
+
   return (
     <group position={position}>
 
@@ -115,8 +123,11 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
       <AcousticFoamWall position={[W / 2 - 0.02, H / 2, -D / 2]} rotation={[0, -Math.PI / 2, 0]} args={[D, H, 0.1]} repeat={[D / 2, H / 2]} />
 
       {/* ── Real Studio Microphone ── */}
-      {/* Position manually centered in booth. Floor Y=0.03 */}
-      <RealMicMesh position={[0.2, 0.03, -D * 0.6]} scale={1.8} rotation={[0, -Math.PI / 4, 0]} />
+      <RealMicMesh 
+        position={[micControls.posX, micControls.posY, micControls.posZ]} 
+        scale={micControls.scale} 
+        rotation={[0, THREE.MathUtils.degToRad(micControls.rotY), 0]} 
+      />
 
       {/* ── Studio stool ── */}
       <mesh position={[-0.55, 0.73, -D * 0.55]}>

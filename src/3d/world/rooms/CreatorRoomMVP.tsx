@@ -341,7 +341,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     lightPosZ: { value: -3.5, min: -15, max: 10, step: 0.1 },
     conePosX: { value: -3.0, min: -10, max: 10, step: 0.1 },
     conePosY: { value: 4.6, min: 0, max: 10, step: 0.1 },
-    conePosZ: { value: -6.1, min: -15, max: 10, step: 0.1 },
+    conePosZ: { value: -5.8, min: -15, max: 10, step: 0.1 }, // moved forward from -6.1 to avoid artifacts on wall
     targetPosX: { value: 7.2, min: -10, max: 10, step: 0.1 },
     targetPosY: { value: 5.5, min: 0, max: 10, step: 0.1 },
     targetPosZ: { value: 3.4, min: -15, max: 10, step: 0.1 },
@@ -467,9 +467,11 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           <boxGeometry args={[glassLeft + 7, 5, 0.5]} />
           <meshStandardMaterial color="#5c3a1e" roughness={0.65} metalness={0.05} />
         </mesh>
-        {/* Right section – from glass right edge to room right wall, full height */}
-        <mesh position={[(glassRight + 7) / 2, 2.5, -6]} castShadow receiveShadow>
-          <boxGeometry args={[7 - glassRight, 5, 0.5]} />
+        {/* Right section – from glass right edge to room right wall, full height 
+            Extended slightly (overlap 0.1) to avoid gaps behind the frame.
+        */}
+        <mesh position={[(glassRight - 0.1 + 7) / 2, 2.5, -6]} castShadow receiveShadow>
+          <boxGeometry args={[7 - (glassRight - 0.1), 5, 0.5]} />
           <meshStandardMaterial color="#5c3a1e" roughness={0.65} metalness={0.05} />
         </mesh>
         {/* Bottom fill – from floor to glass bottom edge (flush with wall) */}
