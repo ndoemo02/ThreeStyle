@@ -126,14 +126,13 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
     '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_NormalGL.jpg',
     '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_Roughness.jpg',
     '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_Metalness.jpg',
-    '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_AmbientOcclusion.jpg',
   ]);
 
   const maps = useMemo(() => {
     return textures.map(tex => {
       const clone = tex.clone();
       clone.wrapS = clone.wrapT = THREE.RepeatWrapping;
-      clone.repeat.set(args[0] / 3.0, args[1] / 3.0); // adjusted scale for PaintedMetal pattern
+      clone.repeat.set(args[0] / 3.0, args[1] / 3.0);
       clone.needsUpdate = true;
       return clone;
     });
@@ -147,7 +146,6 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
         normalMap={maps[1]} 
         roughnessMap={maps[2]} 
         metalnessMap={maps[3]} 
-        aoMap={maps[4]}
         color="#ffffff"
       />
     </mesh>
