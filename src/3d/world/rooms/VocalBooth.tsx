@@ -42,7 +42,7 @@ function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, n
 
 // ──────────────────────────────────────────────────────────────────────────────
 export function VocalBooth({ position = [0, 0, 0] as [number, number, number] }) {
-  const W = 5.2; 
+  const W = 6.6; // wider to overlap any window range fully
   const H = 3.2;
   const D = 3.6;
 
@@ -143,18 +143,14 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
         <meshStandardMaterial color="#333" metalness={0.8} roughness={0.3} />
       </mesh>
 
-      {/* ── Headphone hook (right wall) ── */}
-      <mesh position={[W / 2 - 0.09, 1.7, -D * 0.35]} rotation={[0, -Math.PI / 2, 0]}>
-        <torusGeometry args={[0.09, 0.013, 8, 24, Math.PI * 1.25]} />
-        <meshStandardMaterial color="#bbb" metalness={0.8} roughness={0.2} />
-      </mesh>
-
       {/* ── ON AIR neon strip ── */}
       <mesh position={[0, H - 0.08, -0.05]}>
         <boxGeometry args={[0.62, 0.1, 0.04]} />
         <meshBasicMaterial color="#cc0000" />
       </mesh>
       <pointLight position={[0, H - 0.08, -0.05]} intensity={2} color="#ff2200" distance={1.2} decay={2} />
+
+
 
       {/* ── Floor skirting ── */}
       <mesh position={[0, 0.02, -D]}>

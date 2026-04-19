@@ -341,7 +341,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     lightPosZ: { value: -3.5, min: -15, max: 10, step: 0.1 },
     conePosX: { value: -3.0, min: -10, max: 10, step: 0.1 },
     conePosY: { value: 4.6, min: 0, max: 10, step: 0.1 },
-    conePosZ: { value: -5.8, min: -15, max: 10, step: 0.1 }, // moved forward from -6.1 to avoid artifacts on wall
+    conePosZ: { value: -5.5, min: -15, max: 10, step: 0.1 }, // moved even further forward to clear wall textures
     targetPosX: { value: 7.2, min: -10, max: 10, step: 0.1 },
     targetPosY: { value: 5.5, min: 0, max: 10, step: 0.1 },
     targetPosZ: { value: 3.4, min: -15, max: 10, step: 0.1 },
@@ -634,8 +634,8 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         </group>
 
         {/* ── VOCAL BOOTH INTERIOR (behind the glass pane) ── */}
-        {/* Booth interior sits just behind the back wall */}
-        <VocalBooth position={[-3.4, 0, -6.0]} />
+        {/* Booth interior sits just behind the back wall, synchronized with window X */}
+        <VocalBooth position={[boothControls.posX, 0, -6.0]} />
 
         {/* ── FOCAL SCREEN – always rendered, texture swapped imperatively ── */}
         <group 
