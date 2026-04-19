@@ -10,6 +10,15 @@ import { useControls } from 'leva';
 import { useHudStore } from '../../../stores/useHudStore';
 import { RoomDoor } from '../../modules/doors/RoomDoor';
 
+function TechnicalTrim({ args, position, rotation = [0, 0, 0] }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number] }) {
+  return (
+    <mesh position={position} rotation={rotation} castShadow receiveShadow>
+      <boxGeometry args={args} />
+      <meshStandardMaterial color="#121212" roughness={0.9} metalness={0.05} />
+    </mesh>
+  );
+}
+
 function BrickWall({ args, position }: { args: [number, number, number], position: [number, number, number] }) {
   const textures = useTexture([
     '/textures/Bricks061_2K-JPG/Bricks061_2K-JPG_Color.jpg',
@@ -478,6 +487,23 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           </mesh>
         )}
 
+        {/* ── SELECTIVE TECHNICAL TRIMS – Back wall outer corners / transitions ── */}
+        {/* Left vertical transition: Orange wall meets acoustic panels */}
+        <TechnicalTrim 
+          position={[-7.01, 2.5, -5.74]} 
+          args={[0.04, 5.0, 0.04]} 
+        />
+        {/* Right vertical transition: Orange wall meets acoustic panels */}
+        <TechnicalTrim 
+          position={[7.01, 2.5, -5.74]} 
+          args={[0.04, 5.0, 0.04]} 
+        />
+        {/* Horizontal transition: Back wall top edge (against ceiling) */}
+        <TechnicalTrim 
+          position={[0, 5.01, -5.74]} 
+          args={[14.0, 0.03, 0.03]} 
+        />
+
         {/* Side Walls */}
         <AcousticFoamWall position={[-7, 2.5, -0.5]} rotation={[0, Math.PI / 2, 0]} args={[15.2, 5.2, 0.5]} />
         <AcousticFoamWall position={[7, 2.5, -0.5]} rotation={[0, -Math.PI / 2, 0]} args={[15.2, 5.2, 0.5]} />
@@ -579,26 +605,27 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
               thickness={0.1}
             />
           </mesh>
-          {/* Top frame bar */}
-          <mesh position={[0,  boothControls.height / 2, 0]}>
-            <boxGeometry args={[boothControls.width + 0.12, 0.1, 0.5]} />
-            <meshStandardMaterial color="#0a0a0a" roughness={0.3} metalness={0.8} />
-          </mesh>
-          {/* Bottom frame bar */}
-          <mesh position={[0, -boothControls.height / 2, 0]}>
-            <boxGeometry args={[boothControls.width + 0.12, 0.1, 0.5]} />
-            <meshStandardMaterial color="#0a0a0a" roughness={0.3} metalness={0.8} />
-          </mesh>
-          {/* Left frame bar */}
-          <mesh position={[-boothControls.width / 2, 0, 0]}>
-            <boxGeometry args={[0.1, boothControls.height + 0.12, 0.5]} />
-            <meshStandardMaterial color="#0a0a0a" roughness={0.3} metalness={0.8} />
-          </mesh>
-          {/* Right frame bar */}
-          <mesh position={[boothControls.width / 2, 0, 0]}>
-            <boxGeometry args={[0.1, boothControls.height + 0.12, 0.5]} />
-            <meshStandardMaterial color="#0a0a0a" roughness={0.3} metalness={0.8} />
-          </mesh>
+          {/* SLIM TECHNICAL FRAME (Matte Dark) */}
+          {/* Top trim */}
+          <TechnicalTrim 
+            position={[0, boothControls.height / 2, 0.25]} 
+            args={[boothControls.width + 0.08, 0.04, 0.04]} 
+          />
+          {/* Bottom trim */}
+          <TechnicalTrim 
+            position={[0, -boothControls.height / 2, 0.25]} 
+            args={[boothControls.width + 0.08, 0.04, 0.04]} 
+          />
+          {/* Left trim */}
+          <TechnicalTrim 
+            position={[-boothControls.width / 2, 0, 0.25]} 
+            args={[0.04, boothControls.height + 0.08, 0.04]} 
+          />
+          {/* Right trim */}
+          <TechnicalTrim 
+            position={[boothControls.width / 2, 0, 0.25]} 
+            args={[0.04, boothControls.height + 0.08, 0.04]} 
+          />
         </group>
 
         {/* ── VOCAL BOOTH INTERIOR (behind the glass pane) ── */}
