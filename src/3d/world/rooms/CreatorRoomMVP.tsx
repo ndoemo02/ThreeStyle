@@ -14,7 +14,7 @@ function TechnicalTrim({ args, position, rotation = [0, 0, 0] }: { args: [number
   return (
     <mesh position={position} rotation={rotation} castShadow receiveShadow>
       <boxGeometry args={args} />
-      <meshStandardMaterial color="#0c0c0c" roughness={0.85} metalness={0.15} />
+      <meshStandardMaterial color="#080808" roughness={0.95} metalness={0} />
     </mesh>
   );
 }
@@ -487,28 +487,24 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           </mesh>
         )}
 
-        {/* ── SELECTIVE TECHNICAL TRIMS – Back wall outer corners / transitions ── */}
-        {/* Left vertical transition: Orange wall meets acoustic panels. 
-            Side wall is at X=-7 (0.5 thick), so inner face is at X=-6.75.
-        */}
+        {/* ── SELECTIVE SLIM TRIMS – Back wall transitions ── */}
         <TechnicalTrim 
-          position={[-6.72, 2.5, -5.73]} 
-          args={[0.06, 5.0, 0.06]} 
+          position={[-6.735, 2.5, -5.74]} 
+          args={[0.03, 5.0, 0.02]} 
         />
-        {/* Right vertical transition: Orange wall meets acoustic panels */}
         <TechnicalTrim 
-          position={[6.72, 2.5, -5.73]} 
-          args={[0.06, 5.0, 0.06]} 
+          position={[6.735, 2.5, -5.74]} 
+          args={[0.03, 5.0, 0.02]} 
         />
-        {/* Horizontal transition: Back wall top edge (against ceiling) */}
+        {/* Horizontal transition: Back wall top edge */}
         <TechnicalTrim 
-          position={[0, 4.98, -5.73]} 
-          args={[13.4, 0.04, 0.06]} 
+          position={[0, 4.99, -5.74]} 
+          args={[13.44, 0.02, 0.02]} 
         />
         {/* Bottom transition: Back wall meets metal floor */}
         <TechnicalTrim 
-          position={[0, 0.03, -5.73]} 
-          args={[13.4, 0.06, 0.06]} 
+          position={[0, 0.015, -5.74]} 
+          args={[13.44, 0.03, 0.02]} 
         />
 
         {/* Side Walls */}
@@ -612,26 +608,26 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
               thickness={0.1}
             />
           </mesh>
-          {/* SLIM TECHNICAL FRAME (Matte Dark) */}
-          {/* Top trim */}
+          {/* PREMIUM SLIM FRAME (Matte Black) - No protrusions */}
+          {/* Top bar */}
           <TechnicalTrim 
-            position={[0, boothControls.height / 2, 0.27]} 
-            args={[boothControls.width + 0.16, 0.06, 0.06]} 
+            position={[0, boothControls.height / 2, 0.26]} 
+            args={[boothControls.width, 0.025, 0.02]} 
           />
-          {/* Bottom trim */}
+          {/* Bottom bar */}
           <TechnicalTrim 
-            position={[0, -boothControls.height / 2, 0.27]} 
-            args={[boothControls.width + 0.16, 0.06, 0.06]} 
+            position={[0, -boothControls.height / 2, 0.26]} 
+            args={[boothControls.width, 0.025, 0.02]} 
           />
-          {/* Left trim */}
+          {/* Left bar */}
           <TechnicalTrim 
-            position={[-boothControls.width / 2, 0, 0.27]} 
-            args={[0.06, boothControls.height + 0.16, 0.06]} 
+            position={[-boothControls.width / 2, 0, 0.26]} 
+            args={[0.025, boothControls.height + 0.025, 0.02]} 
           />
-          {/* Right trim */}
+          {/* Right bar */}
           <TechnicalTrim 
-            position={[boothControls.width / 2, 0, 0.27]} 
-            args={[0.06, boothControls.height + 0.16, 0.06]} 
+            position={[boothControls.width / 2, 0, 0.26]} 
+            args={[0.025, boothControls.height + 0.025, 0.02]} 
           />
         </group>
 
