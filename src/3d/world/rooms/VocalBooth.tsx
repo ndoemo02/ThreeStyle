@@ -73,19 +73,19 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
   }, [W, H, D, slatCount, slatMatrix]);
 
   const light = useControls('Vocal Booth Lighting', {
-    mainIntensity:   { value: 0, min: 0, max: 100, step: 1, label: 'Main (overhead)' },
+    mainIntensity:   { value: 23, min: 0, max: 100, step: 1, label: 'Main (overhead)' },
     fillIntensity:   { value: 0, min: 0, max: 80,  step: 1, label: 'Fill (front)' },
     accentIntensity: { value: 0,  min: 0, max: 40,  step: 1, label: 'Accent (mic rim)' },
     ceilingIntensity:{ value: 0,  min: 0, max: 40,  step: 1, label: 'Ceiling bounce' },
-    ambientIntensity:{ value: 0.00, min: 0, max: 5,  step: 0.05, label: 'Ambient' },
+    ambientIntensity:{ value: 1.15, min: 0, max: 5,  step: 0.05, label: 'Ambient' },
     lightColor:      { value: '#ffe8c0', label: 'Light color' },
   });
 
   const micControls = useControls('Microphone', {
-    posX: { value: 0.2, min: -2, max: 2, step: 0.01 },
+    posX: { value: -2.0, min: -10, max: 10, step: 0.01 },
     posY: { value: 0.03, min: 0, max: 2, step: 0.01 },
-    posZ: { value: -D * 0.6, min: -D, max: 0, step: 0.01 },
-    rotY: { value: -45, min: -180, max: 180, step: 1 },
+    posZ: { value: -2.9, min: -D, max: 0, step: 0.01 },
+    rotY: { value: -28, min: -180, max: 180, step: 1 },
     scale: { value: 1.8, min: 0.1, max: 5, step: 0.1 },
   });
 
