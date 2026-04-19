@@ -42,7 +42,7 @@ function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, n
 
 // ──────────────────────────────────────────────────────────────────────────────
 export function VocalBooth({ position = [0, 0, 0] as [number, number, number] }) {
-  const W = 5.2;
+  const W = 6.6;
   const H = 3.2;
   const D = 3.6;
 
@@ -57,7 +57,7 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
     filcTex.repeat.set(W, H);
   }, [sonomaTex, filcTex, W, H]);
 
-  const slatCount = 104; // Back wall slats
+  const slatCount = 132; // Back wall slats
   const slatMatrix = useMemo(() => new THREE.Matrix4(), []);
   const instancedSlatsRef = useRef<THREE.InstancedMesh>(null);
 
