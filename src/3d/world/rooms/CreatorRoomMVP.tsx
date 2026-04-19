@@ -122,7 +122,7 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat 
 
 function DiamondPlateFloor({ args, position }: { args: [number, number], position: [number, number, number] }) {
   const textures = useTexture([
-    '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_Color.jpg',
+    '/textures/PaintedMetal005_2K-JPG/PaintedMetal005.png',
     '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_NormalGL.jpg',
     '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_Roughness.jpg',
     '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_Metalness.jpg',
