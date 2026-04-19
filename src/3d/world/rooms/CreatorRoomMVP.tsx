@@ -12,6 +12,10 @@ import { RoomDoor } from '../../modules/doors/RoomDoor';
 type PrimitiveModelProps = Omit<ThreeElements['primitive'], 'object'>;
 type UrlModelProps = PrimitiveModelProps & { url: string };
 type GltfScene = { scene: THREE.Group };
+type MaterialCompileShader = {
+  uniforms: Record<string, { value: unknown }>;
+  fragmentShader: string;
+};
 
 function TechnicalTrim({ args, position, rotation = [0, 0, 0] }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number] }) {
   return (
@@ -138,7 +142,7 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
     });
   }, [textures, args]);
 
-  const onBeforeCompile = (shader: any) => {
+  const onBeforeCompile = (shader: MaterialCompileShader) => {
     shader.uniforms.uCircleCenters = { value: [
       new THREE.Vector2(0.25, 0.25),
       new THREE.Vector2(0.75, 0.25),

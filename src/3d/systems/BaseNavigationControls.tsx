@@ -1,16 +1,42 @@
 "use client";
 
-import { PointerLockControls, OrbitControls, Html } from '@react-three/drei';
+import { PointerLockControls } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
+import type { PointerLockControls as PointerLockControlsImpl } from 'three-stdlib';
 import { useHudStore } from '../../stores/useHudStore';
 
+type JoystickVector = {
+  x: number;
+  y: number;
+};
+
+declare global {
+  interface Window {
+    joystickVector?: JoystickVector;
+  }
+}
+
+function isPointerLockError(reason: unknown): boolean {
+  const errorLike = reason as { name?: unknown; message?: unknown } | null;
+  const name = typeof errorLike?.name === 'string' ? errorLike.name : '';
+  const message = typeof errorLike?.message === 'string' ? errorLike.message : String(reason ?? '');
+  const normalized = message.toLowerCase();
+
+  return (
+    name === 'NotAllowedError' ||
+    name === 'SecurityError' ||
+    name === 'WrongDocumentError' ||
+    normalized.includes('pointer lock') ||
+    normalized.includes('user gesture is required')
+  );
+}
+
 export function BaseNavigationControls() {
-  const controlsRef = useRef<any>(null);
+  const controlsRef = useRef<PointerLockControlsImpl | null>(null);
   const direction = useRef(new THREE.Vector3());
   const moveState = useRef({ forward: false, backward: false, left: false, right: false });
-  const [isLocked, setIsLocked] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const { camera } = useThree();
   const isHudOpen = useHudStore(s => s.isOpen);
@@ -23,26 +49,27 @@ export function BaseNavigationControls() {
   }, [isHudOpen]);
 
   useEffect(() => {
-    // Suppress Next.js error overlay for expected Pointer Lock errors
+    // Browser/Next dev overlay can surface expected pointer-lock denials when no user gesture exists.
     const originalError = console.error;
     console.error = (...args) => {
-      if (typeof args[0] === 'string' && args[0].includes('THREE.PointerLockControls: Unable to use Pointer Lock API')) return;
+      if (args.some(isPointerLockError)) return;
       originalError(...args);
     };
 
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      // Catch SecurityError and WrongDocumentError which are common when pointer lock fails 
-      // (e.g. without direct user interaction or on mobile devices)
-      if ((event.reason?.name === 'SecurityError' || event.reason?.name === 'WrongDocumentError') && 
-          event.reason?.message?.toLowerCase().includes('pointer lock')) {
-        event.preventDefault();
-      }
-      // WrongDocumentError sometimes doesn't include "pointer lock" in the message reliably
-      if (event.reason?.name === 'WrongDocumentError') {
+      if (isPointerLockError(event.reason)) {
         event.preventDefault();
       }
     };
+
+    const onWindowError = (event: ErrorEvent) => {
+      if (isPointerLockError(event.error) || isPointerLockError(event.message)) {
+        event.preventDefault();
+      }
+    };
+
     window.addEventListener('unhandledrejection', onUnhandledRejection);
+    window.addEventListener('error', onWindowError);
 
     // Suppress InvalidStateError caused by Leva/use-gesture on mobile touch devices
     const originalSetPointerCapture = Element.prototype.setPointerCapture;
@@ -50,16 +77,16 @@ export function BaseNavigationControls() {
     Element.prototype.setPointerCapture = function(pointerId) {
       try {
         originalSetPointerCapture.call(this, pointerId);
-      } catch (e: any) {
-        if (e.name === 'InvalidStateError') return;
-        throw e;
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === 'InvalidStateError') return;
+        throw error;
       }
     };
     Element.prototype.releasePointerCapture = function(pointerId) {
       try {
         originalReleasePointerCapture.call(this, pointerId);
-      } catch (e: any) {
-        if (e.name === 'InvalidStateError') return;
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === 'InvalidStateError') return;
         // Don't throw if it fails to release, this is also a known noise source
       }
     };
@@ -71,6 +98,7 @@ export function BaseNavigationControls() {
     return () => {
       console.error = originalError;
       window.removeEventListener('unhandledrejection', onUnhandledRejection);
+      window.removeEventListener('error', onWindowError);
       window.removeEventListener('resize', checkMobile);
       Element.prototype.setPointerCapture = originalSetPointerCapture;
       Element.prototype.releasePointerCapture = originalReleasePointerCapture;
@@ -179,7 +207,7 @@ export function BaseNavigationControls() {
     const speed = 6.0 * delta; // standard walk speed
 
     if (isMobile) {
-      const joystick = (window as any).joystickVector;
+      const joystick = window.joystickVector;
       if (joystick && (joystick.x !== 0 || joystick.y !== 0)) {
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(state.camera.quaternion);
         forward.y = 0;
@@ -219,13 +247,7 @@ export function BaseNavigationControls() {
     return null; // Custom touch controls are active via effect above
   }
 
-  return (
-    <PointerLockControls 
-      ref={controlsRef} 
-      onLock={() => setIsLocked(true)}
-      onUnlock={() => setIsLocked(false)}
-    />
-  );
+  return <PointerLockControls ref={controlsRef} />;
 }
 
 
