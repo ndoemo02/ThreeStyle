@@ -15,6 +15,13 @@ export function BaseNavigationControls() {
   const { camera } = useThree();
   const isHudOpen = useHudStore(s => s.isOpen);
 
+  // When HUD opens, exit pointer lock so user can interact with the overlay
+  useEffect(() => {
+    if (isHudOpen && document.pointerLockElement) {
+      document.exitPointerLock();
+    }
+  }, [isHudOpen]);
+
   useEffect(() => {
     // Suppress Next.js error overlay for expected Pointer Lock errors
     const originalError = console.error;
@@ -208,8 +215,8 @@ export function BaseNavigationControls() {
     }
   });
 
-  if (isMobile || isHudOpen) {
-    return null; // Custom touch controls are active via effect above, or HUD is open
+  if (isMobile) {
+    return null; // Custom touch controls are active via effect above
   }
 
   return (

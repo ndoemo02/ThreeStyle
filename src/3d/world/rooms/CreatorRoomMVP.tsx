@@ -258,7 +258,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   const videoTexRef = useRef<THREE.VideoTexture | null>(null);
 
   const { openHud, isPlaying, masterVideoRef } = useHudStore();
-  const [hovered, setHovered] = useState(false);
+  const [laptopHovered, setLaptopHovered] = useState(false);
 
   // Keep a plain ref so useFrame closure always reads the latest value
   const videoElemRef = useRef<HTMLVideoElement | null>(null);
@@ -272,9 +272,9 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       videoTexRef.current = null;
       if (screenMatRef.current) {
         screenMatRef.current.map = null;
-        screenMatRef.current.color.set(hovered ? '#ff8c42' : '#333333');
+        screenMatRef.current.color.set('#333333');
         screenMatRef.current.transparent = true;
-        screenMatRef.current.opacity = hovered ? 0.4 : 0.1;
+        screenMatRef.current.opacity = 0.1;
         screenMatRef.current.needsUpdate = true;
       }
     }
@@ -616,24 +616,9 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
            scale={[hudControls.hudScale, hudControls.hudScale, hudControls.hudScale]}
         >
            <pointLight position={[0, 0, 0.2]} intensity={2} color="#ff8c42" distance={3} decay={2} />
-           <mesh
-             onClick={() => openHud('master_catalog')}
-             onPointerOver={() => setHovered(true)}
-             onPointerOut={() => setHovered(false)}
-             onPointerEnter={() => {
-               if (document.pointerLockElement) {
-                 const onKeyDown = (e: KeyboardEvent) => {
-                   if (e.code === 'KeyE' || e.key === 'e') {
-                     document.exitPointerLock();
-                     openHud('master_catalog');
-                   }
-                 };
-                 document.addEventListener('keydown', onKeyDown, { once: true });
-               }
-             }}
-           >
+           {/* Wall screen – pure video display, no interaction */}
+           <mesh>
              <planeGeometry args={[3.2, 1.8]} />
-             {/* Material is always present; texture is swapped imperatively by useEffect */}
              <meshBasicMaterial
                ref={screenMatRef}
                color="#333333"
@@ -642,15 +627,58 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
                side={THREE.DoubleSide}
              />
            </mesh>
+        </group>
 
-           {(!isPlaying) && (
-              <Html transform distanceFactor={2.5} position={[0, 0, 0.05]} pointerEvents="none">
-                 <div style={{ fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', fontSize: 18, letterSpacing: '0.3em', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, background: 'rgba(0,0,0,0.5)', padding: 32, borderRadius: 16, border: '1px solid rgba(255,255,255,0.1)' }}>
-                   <div style={{ width: 64, height: 64, background: 'linear-gradient(135deg,#ff8c42,#e040fb)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 28, color: '#000' }}>V</div>
-                   <span style={{ textAlign: 'center' }}>VEO3 GENERATED VIDEO<br/><span style={{ fontSize: 12, opacity: 0.5 }}>PRESS [E] TO INTERACT</span></span>
-                 </div>
-              </Html>
-           )}
+        {/* ── LAPTOP INTERACTIVE ZONE – otwiera HUD panel ── */}
+        <group
+          position={[decorControls.laptopPosX, decorControls.laptopPosY + 0.35, decorControls.laptopPosZ]}
+          rotation={[0, THREE.MathUtils.degToRad(decorControls.laptopRotY), 0]}
+        >
+          {/* Large invisible hit-test plane covering full iPad screen */}
+          <mesh
+            onClick={(e) => {
+              if (document.pointerLockElement) return;
+              e.stopPropagation();
+              openHud('master_catalog');
+            }}
+            onPointerOver={() => setLaptopHovered(true)}
+            onPointerOut={() => setLaptopHovered(false)}
+            onPointerEnter={() => {
+              if (document.pointerLockElement) {
+                const onKeyDown = (ke: KeyboardEvent) => {
+                  if (ke.code === 'KeyE' || ke.key === 'e') {
+                    document.exitPointerLock();
+                    openHud('master_catalog');
+                  }
+                };
+                document.addEventListener('keydown', onKeyDown, { once: true });
+              }
+            }}
+          >
+            {/* 2.0×1.6 covers the full iPad Pro screen at scale 3.3 */}
+            <planeGeometry args={[2.0, 1.6]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+          </mesh>
+
+          {/* Hover hint – NO transform, renders as screen-space HTML anchored to 3D pos */}
+          {laptopHovered && (
+            <Html position={[0, 1.1, 0]} center pointerEvents="none" zIndexRange={[10, 11]}>
+              <div style={{
+                fontFamily: 'monospace',
+                color: 'rgba(255,255,255,0.9)',
+                fontSize: 13,
+                letterSpacing: '0.2em',
+                background: 'rgba(0,0,0,0.85)',
+                padding: '8px 18px',
+                borderRadius: 6,
+                border: '1px solid rgba(255,140,66,0.6)',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 0 12px rgba(255,140,66,0.3)',
+              }}>
+                [E] OPEN STUDIO HUD
+              </div>
+            </Html>
+          )}
         </group>
 
         {/* Volumetric glow */}
