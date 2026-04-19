@@ -57,7 +57,7 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
     filcTex.repeat.set(W, H);
   }, [sonomaTex, filcTex, W, H]);
 
-  const slatCount = 104; // Back wall slats
+  const slatCount = 132; // Back wall slats (W / 0.05)
   const slatMatrix = useMemo(() => new THREE.Matrix4(), []);
   const instancedSlatsRef = useRef<THREE.InstancedMesh>(null);
 
