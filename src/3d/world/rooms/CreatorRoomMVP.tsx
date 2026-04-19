@@ -138,6 +138,40 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
     });
   }, [textures, args]);
 
+  const onBeforeCompile = (shader: any) => {
+    shader.uniforms.uCircleCenters = { value: [
+      new THREE.Vector2(0.25, 0.25),
+      new THREE.Vector2(0.75, 0.25),
+      new THREE.Vector2(0.5, 0.5),
+      new THREE.Vector2(0.2, 0.8),
+      new THREE.Vector2(0.8, 0.8),
+      new THREE.Vector2(0.3, 0.4),
+    ]};
+    shader.fragmentShader = `
+      uniform vec2 uCircleCenters[6];
+      ${shader.fragmentShader}
+    `.replace(
+      '#include <map_fragment>',
+      `
+      #include <map_fragment>
+      
+      float totalMask = 0.0;
+      float radius = 0.18;
+      float feather = 0.05;
+      
+      for(int i = 0; i < 6; i++) {
+        float d = distance(vMapUv, uCircleCenters[i]);
+        float m = 1.0 - smoothstep(radius - feather, radius, d);
+        totalMask = max(totalMask, m);
+      }
+      
+      // Base color is very dark matte black
+      vec3 bgColor = vec3(0.02, 0.02, 0.02);
+      diffuseColor.rgb = mix(bgColor, diffuseColor.rgb, totalMask);
+      `
+    );
+  };
+
   return (
     <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
       <planeGeometry args={args} />
@@ -147,6 +181,7 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
         roughnessMap={maps[2]} 
         metalnessMap={maps[3]} 
         color="#ffffff"
+        onBeforeCompile={onBeforeCompile}
       />
     </mesh>
   );
