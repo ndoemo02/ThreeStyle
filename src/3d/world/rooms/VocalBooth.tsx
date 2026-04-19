@@ -22,18 +22,18 @@ function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, n
         n.material = m;
       }
     });
-    
+
     clone.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(clone);
     const center = box.getCenter(new THREE.Vector3());
     if (box.getSize(new THREE.Vector3()).length() > 0.0001) {
       clone.position.sub(center);
     }
-    
+
     return clone;
   }, [scene]);
   return (
-    <group position={position} rotation={rotation || [0,0,0]} scale={scale}>
+    <group position={position} rotation={rotation || [0, 0, 0]} scale={scale}>
       <primitive object={processedScene} />
     </group>
   );
@@ -42,7 +42,7 @@ function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, n
 
 // ──────────────────────────────────────────────────────────────────────────────
 export function VocalBooth({ position = [0, 0, 0] as [number, number, number] }) {
-  const W = 6.6; // wider to overlap any window range fully
+  const W = 5.2;
   const H = 3.2;
   const D = 3.6;
 
@@ -57,7 +57,7 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
     filcTex.repeat.set(W, H);
   }, [sonomaTex, filcTex, W, H]);
 
-  const slatCount = 132; // Back wall slats (W / 0.05)
+  const slatCount = 104; // Back wall slats
   const slatMatrix = useMemo(() => new THREE.Matrix4(), []);
   const instancedSlatsRef = useRef<THREE.InstancedMesh>(null);
 
@@ -73,30 +73,22 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
   }, [W, H, D, slatCount, slatMatrix]);
 
   const light = useControls('Vocal Booth Lighting', {
-    mainIntensity:   { value: 23, min: 0, max: 100, step: 1, label: 'Main (overhead)' },
-    fillIntensity:   { value: 0, min: 0, max: 80,  step: 1, label: 'Fill (front)' },
-    accentIntensity: { value: 0,  min: 0, max: 40,  step: 1, label: 'Accent (mic rim)' },
-    ceilingIntensity:{ value: 0,  min: 0, max: 40,  step: 1, label: 'Ceiling bounce' },
-    ambientIntensity:{ value: 1.15, min: 0, max: 5,  step: 0.05, label: 'Ambient' },
-    lightColor:      { value: '#ffe8c0', label: 'Light color' },
-  });
-
-  const micControls = useControls('Microphone', {
-    posX: { value: -2.0, min: -10, max: 10, step: 0.01 },
-    posY: { value: 0.03, min: 0, max: 2, step: 0.01 },
-    posZ: { value: -2.9, min: -D, max: 0, step: 0.01 },
-    rotY: { value: -28, min: -180, max: 180, step: 1 },
-    scale: { value: 1.8, min: 0.1, max: 5, step: 0.1 },
+    mainIntensity: { value: 0, min: 0, max: 100, step: 1, label: 'Main (overhead)' },
+    fillIntensity: { value: 0, min: 0, max: 80, step: 1, label: 'Fill (front)' },
+    accentIntensity: { value: 0, min: 0, max: 40, step: 1, label: 'Accent (mic rim)' },
+    ceilingIntensity: { value: 0, min: 0, max: 40, step: 1, label: 'Ceiling bounce' },
+    ambientIntensity: { value: 0.00, min: 0, max: 5, step: 0.05, label: 'Ambient' },
+    lightColor: { value: '#ffe8c0', label: 'Light color' },
   });
 
   return (
     <group position={position}>
 
       {/* ── Lighting ── */}
-      <pointLight position={[0, H - 0.3, -D * 0.5]} intensity={light.mainIntensity}   color={light.lightColor} distance={5}  decay={1.8} />
-      <pointLight position={[0, H * 0.55, -0.15]}   intensity={light.fillIntensity}   color={light.lightColor} distance={4}  decay={2} />
-      <pointLight position={[0.3, 1.7, -D * 0.45]}  intensity={light.accentIntensity} color="#ff9944"          distance={2.5} decay={2} />
-      <pointLight position={[0, H - 0.1, -D * 0.3]} intensity={light.ceilingIntensity} color={light.lightColor} distance={4}  decay={2} />
+      <pointLight position={[0, H - 0.3, -D * 0.5]} intensity={light.mainIntensity} color={light.lightColor} distance={5} decay={1.8} />
+      <pointLight position={[0, H * 0.55, -0.15]} intensity={light.fillIntensity} color={light.lightColor} distance={4} decay={2} />
+      <pointLight position={[0.3, 1.7, -D * 0.45]} intensity={light.accentIntensity} color="#ff9944" distance={2.5} decay={2} />
+      <pointLight position={[0, H - 0.1, -D * 0.3]} intensity={light.ceilingIntensity} color={light.lightColor} distance={4} decay={2} />
       <ambientLight intensity={light.ambientIntensity} color="#fff8ee" />
 
       {/* ── Floor / Ceiling ── */}
@@ -110,7 +102,7 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
       </mesh>
 
       {/* ── Back Wall (Felt + Wood Slats) ── */}
-      <mesh position={[0, H / 2, -D - 0.01]}> 
+      <mesh position={[0, H / 2, -D - 0.01]}>
         <planeGeometry args={[W, H]} />
         <meshStandardMaterial map={filcTex} roughness={0.95} color="#111" />
       </mesh>
@@ -123,11 +115,8 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
       <AcousticFoamWall position={[W / 2 - 0.02, H / 2, -D / 2]} rotation={[0, -Math.PI / 2, 0]} args={[D, H, 0.1]} repeat={[D / 2, H / 2]} />
 
       {/* ── Real Studio Microphone ── */}
-      <RealMicMesh 
-        position={[micControls.posX, micControls.posY, micControls.posZ]} 
-        scale={micControls.scale} 
-        rotation={[0, THREE.MathUtils.degToRad(micControls.rotY), 0]} 
-      />
+      {/* Position manually centered in booth. Floor Y=0.03 */}
+      <RealMicMesh position={[0.2, 0.03, -D * 0.6]} scale={1.8} rotation={[0, -Math.PI / 4, 0]} />
 
       {/* ── Studio stool ── */}
       <mesh position={[-0.55, 0.73, -D * 0.55]}>
@@ -143,14 +132,18 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
         <meshStandardMaterial color="#333" metalness={0.8} roughness={0.3} />
       </mesh>
 
+      {/* ── Headphone hook (right wall) ── */}
+      <mesh position={[W / 2 - 0.09, 1.7, -D * 0.35]} rotation={[0, -Math.PI / 2, 0]}>
+        <torusGeometry args={[0.09, 0.013, 8, 24, Math.PI * 1.25]} />
+        <meshStandardMaterial color="#bbb" metalness={0.8} roughness={0.2} />
+      </mesh>
+
       {/* ── ON AIR neon strip ── */}
       <mesh position={[0, H - 0.08, -0.05]}>
         <boxGeometry args={[0.62, 0.1, 0.04]} />
         <meshBasicMaterial color="#cc0000" />
       </mesh>
       <pointLight position={[0, H - 0.08, -0.05]} intensity={2} color="#ff2200" distance={1.2} decay={2} />
-
-
 
       {/* ── Floor skirting ── */}
       <mesh position={[0, 0.02, -D]}>

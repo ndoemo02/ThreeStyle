@@ -126,55 +126,22 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat 
 
 function DiamondPlateFloor({ args, position }: { args: [number, number], position: [number, number, number] }) {
   const textures = useTexture([
-    '/textures/PaintedMetal005_2K-JPG/PaintedMetal005.png',
-    '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_NormalGL.jpg',
-    '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_Roughness.jpg',
-    '/textures/PaintedMetal005_2K-JPG/PaintedMetal005_2K-JPG_Metalness.jpg',
+    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Color.jpg',
+    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_NormalGL.jpg',
+    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Roughness.jpg',
+    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Metalness.jpg',
+    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_AmbientOcclusion.jpg',
   ]);
 
   const maps = useMemo(() => {
     return textures.map(tex => {
       const clone = tex.clone();
       clone.wrapS = clone.wrapT = THREE.RepeatWrapping;
-      clone.repeat.set(args[0] / 3.0, args[1] / 3.0);
+      clone.repeat.set(args[0] / 1.5, args[1] / 1.5);
       clone.needsUpdate = true;
       return clone;
     });
   }, [textures, args]);
-
-  const onBeforeCompile = (shader: MaterialCompileShader) => {
-    shader.uniforms.uCircleCenters = { value: [
-      new THREE.Vector2(0.25, 0.25),
-      new THREE.Vector2(0.75, 0.25),
-      new THREE.Vector2(0.5, 0.5),
-      new THREE.Vector2(0.2, 0.8),
-      new THREE.Vector2(0.8, 0.8),
-      new THREE.Vector2(0.3, 0.4),
-    ]};
-    shader.fragmentShader = `
-      uniform vec2 uCircleCenters[6];
-      ${shader.fragmentShader}
-    `.replace(
-      '#include <map_fragment>',
-      `
-      #include <map_fragment>
-      
-      float totalMask = 0.0;
-      float radius = 0.18;
-      float feather = 0.05;
-      
-      for(int i = 0; i < 6; i++) {
-        float d = distance(vMapUv, uCircleCenters[i]);
-        float m = 1.0 - smoothstep(radius - feather, radius, d);
-        totalMask = max(totalMask, m);
-      }
-      
-      // Base color is very dark matte black
-      vec3 bgColor = vec3(0.02, 0.02, 0.02);
-      diffuseColor.rgb = mix(bgColor, diffuseColor.rgb, totalMask);
-      `
-    );
-  };
 
   return (
     <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -184,8 +151,8 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
         normalMap={maps[1]} 
         roughnessMap={maps[2]} 
         metalnessMap={maps[3]} 
-        color="#ffffff"
-        onBeforeCompile={onBeforeCompile}
+        aoMap={maps[4]}
+        color="#555555"
       />
     </mesh>
   );
