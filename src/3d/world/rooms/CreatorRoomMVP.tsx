@@ -488,20 +488,27 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         )}
 
         {/* ── SELECTIVE TECHNICAL TRIMS – Back wall outer corners / transitions ── */}
-        {/* Left vertical transition: Orange wall meets acoustic panels */}
+        {/* Left vertical transition: Orange wall meets acoustic panels. 
+            Side wall is at X=-7 (0.5 thick), so inner face is at X=-6.75.
+        */}
         <TechnicalTrim 
-          position={[-6.96, 2.5, -5.73]} 
+          position={[-6.72, 2.5, -5.73]} 
           args={[0.06, 5.0, 0.06]} 
         />
         {/* Right vertical transition: Orange wall meets acoustic panels */}
         <TechnicalTrim 
-          position={[6.96, 2.5, -5.73]} 
+          position={[6.72, 2.5, -5.73]} 
           args={[0.06, 5.0, 0.06]} 
         />
         {/* Horizontal transition: Back wall top edge (against ceiling) */}
         <TechnicalTrim 
-          position={[0, 5.01, -5.73]} 
-          args={[14.0, 0.04, 0.06]} 
+          position={[0, 4.98, -5.73]} 
+          args={[13.4, 0.04, 0.06]} 
+        />
+        {/* Bottom transition: Back wall meets metal floor */}
+        <TechnicalTrim 
+          position={[0, 0.03, -5.73]} 
+          args={[13.4, 0.06, 0.06]} 
         />
 
         {/* Side Walls */}
@@ -609,22 +616,22 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           {/* Top trim */}
           <TechnicalTrim 
             position={[0, boothControls.height / 2, 0.27]} 
-            args={[boothControls.width + 0.12, 0.06, 0.06]} 
+            args={[boothControls.width + 0.16, 0.06, 0.06]} 
           />
           {/* Bottom trim */}
           <TechnicalTrim 
             position={[0, -boothControls.height / 2, 0.27]} 
-            args={[boothControls.width + 0.12, 0.06, 0.06]} 
+            args={[boothControls.width + 0.16, 0.06, 0.06]} 
           />
           {/* Left trim */}
           <TechnicalTrim 
             position={[-boothControls.width / 2, 0, 0.27]} 
-            args={[0.06, boothControls.height + 0.12, 0.06]} 
+            args={[0.06, boothControls.height + 0.16, 0.06]} 
           />
           {/* Right trim */}
           <TechnicalTrim 
             position={[boothControls.width / 2, 0, 0.27]} 
-            args={[0.06, boothControls.height + 0.12, 0.06]} 
+            args={[0.06, boothControls.height + 0.16, 0.06]} 
           />
         </group>
 
