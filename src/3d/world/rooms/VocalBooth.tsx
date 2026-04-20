@@ -8,18 +8,22 @@ import { AcousticFoamWall } from './CreatorRoomMVP';
 
 // ─── Real Microphone Component ───────────────────────────────────────────────
 function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, number, number], rotation?: [number, number, number], scale?: number }) {
-  const { scene } = useGLTF('/models/mic-transformed.glb') as any;
+  const { scene } = useGLTF('/models/mic-transformed.glb') as { scene: THREE.Group };
   const processedScene = useMemo(() => {
     const clone = scene.clone();
-    clone.traverse((n: any) => {
-      if (n.isMesh && n.material) {
-        n.visible = true;
+    clone.traverse((n) => {
+      if (n instanceof THREE.Mesh && n.material) {
         n.frustumCulled = false;
-        const m = n.material.clone();
-        if (m.name?.toLowerCase().includes('metal')) m.metalness = 0.9;
-        m.roughness = Math.max(0.2, m.roughness || 0);
-        m.side = THREE.DoubleSide;
-        n.material = m;
+        const sourceMaterial = Array.isArray(n.material) ? n.material[0] : n.material;
+        const material = sourceMaterial.clone();
+        if ('metalness' in material && typeof material.metalness === 'number' && material.name?.toLowerCase().includes('metal')) {
+          material.metalness = 0.9;
+        }
+        if ('roughness' in material && typeof material.roughness === 'number') {
+          material.roughness = Math.max(0.2, material.roughness || 0);
+        }
+        material.side = THREE.DoubleSide;
+        n.material = material;
       }
     });
 
@@ -46,16 +50,21 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
   const H = 3.2;
   const D = 3.6;
 
-  const [sonomaTex, filcTex] = useTexture([
+  const [rawSonomaTex, rawFilcTex] = useTexture([
     '/textures/Lamele/Veneer/Veneer/Tekstury/LAM_P3_SONOMA.jpg',
     '/textures/Lamele/Veneer/Veneer/Tekstury/LAM_P3_FILC_CZARNY.jpg'
-  ]);
+  ]) as THREE.Texture[];
 
-  useLayoutEffect(() => {
+  const { sonomaTex, filcTex } = useMemo(() => {
+    const sonomaTex = rawSonomaTex.clone();
+    const filcTex = rawFilcTex.clone();
     sonomaTex.wrapS = sonomaTex.wrapT = THREE.RepeatWrapping;
     filcTex.wrapS = filcTex.wrapT = THREE.RepeatWrapping;
     filcTex.repeat.set(W, H);
-  }, [sonomaTex, filcTex, W, H]);
+    sonomaTex.needsUpdate = true;
+    filcTex.needsUpdate = true;
+    return { sonomaTex, filcTex };
+  }, [rawSonomaTex, rawFilcTex, W, H]);
 
   const slatCount = 132; // Back wall slats
   const slatMatrix = useMemo(() => new THREE.Matrix4(), []);
@@ -73,12 +82,20 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
   }, [W, H, D, slatCount, slatMatrix]);
 
   const light = useControls('Vocal Booth Lighting', {
-    mainIntensity: { value: 0, min: 0, max: 100, step: 1, label: 'Main (overhead)' },
-    fillIntensity: { value: 0, min: 0, max: 80, step: 1, label: 'Fill (front)' },
-    accentIntensity: { value: 0, min: 0, max: 40, step: 1, label: 'Accent (mic rim)' },
-    ceilingIntensity: { value: 0, min: 0, max: 40, step: 1, label: 'Ceiling bounce' },
-    ambientIntensity: { value: 0.00, min: 0, max: 5, step: 0.05, label: 'Ambient' },
-    lightColor: { value: '#ffe8c0', label: 'Light color' },
+    mainIntensity: { value: 6, min: 0, max: 100, step: 1, label: 'Main (overhead)' },
+    fillIntensity: { value: 3, min: 0, max: 80, step: 1, label: 'Fill (front)' },
+    accentIntensity: { value: 14, min: 0, max: 40, step: 1, label: 'Accent (mic rim)' },
+    ceilingIntensity: { value: 15, min: 0, max: 40, step: 1, label: 'Ceiling bounce' },
+    ambientIntensity: { value: 3.30, min: 0, max: 5, step: 0.05, label: 'Ambient' },
+    lightColor: { value: '#ffffff', label: 'Light color' },
+  });
+
+  const mic = useControls('Microphone', {
+    posX: { value: 2.61, min: -4, max: 4, step: 0.01 },
+    posY: { value: 0.25, min: 0, max: 2, step: 0.01 },
+    posZ: { value: -2.7, min: -5, max: 0, step: 0.01 },
+    rotY: { value: -132, min: -180, max: 180, step: 1 },
+    scale: { value: 1.60, min: 0.1, max: 5, step: 0.05 },
   });
 
   return (
@@ -115,8 +132,11 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
       <AcousticFoamWall position={[W / 2 - 0.02, H / 2, -D / 2]} rotation={[0, -Math.PI / 2, 0]} args={[D, H, 0.1]} repeat={[D / 2, H / 2]} />
 
       {/* ── Real Studio Microphone ── */}
-      {/* Position manually centered in booth. Floor Y=0.03 */}
-      <RealMicMesh position={[0.2, 0.03, -D * 0.6]} scale={1.8} rotation={[0, -Math.PI / 4, 0]} />
+      <RealMicMesh
+        position={[mic.posX, mic.posY, mic.posZ]}
+        scale={mic.scale}
+        rotation={[0, THREE.MathUtils.degToRad(mic.rotY), 0]}
+      />
 
       {/* ── Studio stool ── */}
       <mesh position={[-0.55, 0.73, -D * 0.55]}>
