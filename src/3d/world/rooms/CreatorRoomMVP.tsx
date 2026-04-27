@@ -216,7 +216,7 @@ function createSoftFrameTexture({ color, strength, bottomFactor = 0.35, shadow =
   return texture;
 }
 
-function WallLogo({ url, ...props }: { url: string } & SceneObjectProps) {
+function Thr3StyleWallArt({ url, ...props }: { url: string } & SceneObjectProps) {
   const texture = useTexture(url) as THREE.Texture;
   const glowTexture = useMemo(() => createSoftFrameTexture({ color: [255, 170, 96], strength: 0.81, bottomFactor: 0.065 }), []);
   const shadowTexture = useMemo(() => createSoftFrameTexture({ color: [0, 0, 0], strength: 0.58, bottomFactor: 0.72, shadow: true }), []);
@@ -289,6 +289,41 @@ function WallLogo({ url, ...props }: { url: string } & SceneObjectProps) {
       <mesh position={[0, 0.08, 0.075]} renderOrder={9}>
         <planeGeometry args={[artworkWidth - 0.22, artworkHeight - 0.22]} />
         <meshBasicMaterial color="#ffffff" transparent opacity={0.035} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function Thr3StyleScreenBranding({ screenUrl, panelHeight = 0.92, showBase = true, ...props }: { screenUrl: string, panelHeight?: number, showBase?: boolean } & SceneObjectProps) {
+  const sourceTexture = useTexture(screenUrl) as THREE.Texture;
+  const screenTexture = useMemo(() => {
+    const clone = sourceTexture.clone();
+    clone.colorSpace = THREE.SRGBColorSpace;
+    clone.minFilter = THREE.LinearFilter;
+    clone.magFilter = THREE.LinearFilter;
+    clone.needsUpdate = true;
+    return clone;
+  }, [sourceTexture]);
+  const screenAspect = useMemo(() => {
+    const image = screenTexture.image as { width?: number; height?: number } | undefined;
+    if (image?.width && image?.height) {
+      return image.width / image.height;
+    }
+    return 1344 / 768;
+  }, [screenTexture]);
+  const panelWidth = panelHeight * screenAspect;
+
+  return (
+    <group {...props}>
+      {showBase && (
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[panelWidth + 0.02, panelHeight + 0.02, 0.02]} />
+          <meshStandardMaterial color="#06080a" roughness={0.94} metalness={0.04} />
+        </mesh>
+      )}
+      <mesh position={[0, 0, showBase ? 0.012 : 0.001]} renderOrder={4}>
+        <planeGeometry args={[panelWidth, panelHeight]} />
+        <meshBasicMaterial map={screenTexture} toneMapped={false} />
       </mesh>
     </group>
   );
@@ -523,6 +558,14 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     logoScale: { value: 1.4, min: 0.1, max: 5, step: 0.1 },
   });
 
+  const brandTestControls = useControls('THR3STYLE Screen State', {
+    posX: { value: 6.72, min: -10, max: 10, step: 0.01 },
+    posY: { value: 2.25, min: 0, max: 10, step: 0.01 },
+    posZ: { value: 0.6, min: -10, max: 10, step: 0.01 },
+    rotY: { value: -90, min: -180, max: 180, step: 1 },
+    scale: { value: 1.2, min: 0.1, max: 5, step: 0.05 },
+  });
+
   const roomBackZ = -6;
   const roomFrontZ = 7;
   const leftWallX = -7;
@@ -637,17 +680,6 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         {/* Right acoustic wall remains the desk/screen zone boundary. */}
         <AcousticFoamWall position={[7, wallHeight / 2, -0.5]} rotation={[0, -Math.PI / 2, 0]} args={[15.2, wallHeight, 0.5]} />
 
-        {/* Vinyl Plaque */}
-        <group position={[0, 3.8, -5.73]}>
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.6, 0.6, 0.05, 32]} />
-            <meshStandardMaterial color="#050505" roughness={0.1} metalness={0.9} />
-          </mesh>
-          <mesh position={[0, 0, 0.03]}>
-            <ringGeometry args={[0.2, 0.6, 32]} />
-            <meshBasicMaterial color="#ff8c42" transparent opacity={0.3} />
-          </mesh>
-        </group>
 
         {/* Production Desk */}
         <EditingTable 
@@ -680,10 +712,18 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         />
 
         {/* Framed 3S artwork on the brown identity wall */}
-        <WallLogo 
+        <Thr3StyleWallArt
           url="/textures/logos/3S.png"
           position={[logoControls.logoPosX, logoControls.logoPosY, logoControls.logoPosZ]}
           scale={[logoControls.logoScale, logoControls.logoScale, 1]}
+        />
+
+        {/* THR3STYLE Screen Branding: cleaner digital usage mode for room displays. */}
+        <Thr3StyleScreenBranding
+          screenUrl="/textures/branding/logo3s.jpeg"
+          position={[brandTestControls.posX, brandTestControls.posY, brandTestControls.posZ]}
+          rotation={[0, THREE.MathUtils.degToRad(brandTestControls.rotY), 0]}
+          scale={brandTestControls.scale}
         />
 
         {/* iPad Pro on table (replacing laptop) */}
@@ -786,6 +826,14 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
                side={THREE.DoubleSide}
              />
            </mesh>
+           {!masterVideoRef && (
+             <Thr3StyleScreenBranding
+               screenUrl="/textures/branding/logo3s.jpeg"
+               panelHeight={1.8}
+               showBase={false}
+               position={[0, 0, 0.002]}
+             />
+           )}
         </group>
 
         {/* ── LAPTOP INTERACTIVE ZONE – otwiera HUD panel ── */}

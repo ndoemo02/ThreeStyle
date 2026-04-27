@@ -1,28 +1,87 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Environment } from '@react-three/drei';
+import { Environment, PerspectiveCamera } from '@react-three/drei';
 import { GroundedHub } from '../../3d/world/hub/GroundedHub';
 import { CreatorRoomMVP } from '../../3d/world/rooms/CreatorRoomMVP';
 import { BaseNavigationControls } from '../../3d/systems/BaseNavigationControls';
 import { HudOverlay } from '../../components/HudOverlay';
 import { NativeMobileJoystick } from '../../components/ui/NativeMobileJoystick';
 
+type CameraPreset = {
+  position: [number, number, number];
+  target: [number, number, number];
+  fov: number;
+};
+
+function getRoomCameraPreset(width: number, height: number): CameraPreset {
+  if (height > width) {
+    return {
+      position: [0.55, 2.24, 5.2],
+      target: [1.45, 1.78, -2.15],
+      fov: 52,
+    };
+  }
+
+  if (width < 1024) {
+    return {
+      position: [0.1, 2.1, 2.9],
+      target: [0.95, 1.95, -2.45],
+      fov: 54,
+    };
+  }
+
+  return {
+    position: [0, 2.1, 2.4],
+    target: [0.8, 1.95, -2.2],
+    fov: 58,
+  };
+}
+
+function getHubCameraPreset(width: number, height: number): CameraPreset {
+  if (height > width) {
+    return {
+      position: [0, 2.05, 6],
+      target: [0, 2.05, 0],
+      fov: 58,
+    };
+  }
+
+  if (width < 1024) {
+    return {
+      position: [0, 2.05, 5.4],
+      target: [0, 2.05, 0],
+      fov: 58,
+    };
+  }
+
+  return {
+    position: [0, 2.05, 5],
+    target: [0, 2.05, 0],
+    fov: 60,
+  };
+}
+
 function ZoneController({ activeZone }: { activeZone: string }) {
-  const { camera } = useThree();
-  useEffect(() => {
-    if (activeZone === 'hub') {
-       camera.position.set(0, 2.05, 5);
-       camera.rotation.set(0, 0, 0);
-       camera.lookAt(0, 2.05, 0);
-    } else {
-       camera.position.set(0, 2.05, 2);
-       camera.rotation.set(0, 0, 0);
-       camera.lookAt(0, 2.05, 0); // Desktop is at negative Z
-    }
-  }, [activeZone, camera]);
-  return null;
+  const { size } = useThree();
+  const preset = useMemo(() => {
+    return activeZone === 'hub'
+      ? getHubCameraPreset(size.width, size.height)
+      : getRoomCameraPreset(size.width, size.height);
+  }, [activeZone, size.width, size.height]);
+
+  return (
+    <PerspectiveCamera
+      makeDefault
+      position={preset.position}
+      fov={preset.fov}
+      onUpdate={(cam) => {
+        cam.lookAt(...preset.target);
+        cam.updateProjectionMatrix();
+      }}
+    />
+  );
 }
 
 export default function B3PPage() {

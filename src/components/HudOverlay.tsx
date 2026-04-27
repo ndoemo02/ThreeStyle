@@ -1,8 +1,9 @@
 "use client";
 
 import { useHudStore } from '../stores/useHudStore';
-import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent, type UIEvent } from 'react';
 import { flushSync } from 'react-dom';
+import { Thr3StyleHudMark } from './branding/Thr3StyleHudMark';
 
 type MediaKind = 'video' | 'audio';
 
@@ -27,6 +28,16 @@ type MediaLibraryResponse = {
 type LibraryStatus = 'loading' | 'ready' | 'error';
 
 const MEDIA_REFRESH_MS = 8000;
+const panelShellClass = 'relative overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(24,19,16,0.78),rgba(7,8,10,0.88))] shadow-[0_30px_120px_rgba(0,0,0,0.5),0_0_24px_rgba(243,160,93,0.08)] backdrop-blur-[24px]';
+const panelCardClass = 'relative overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.025))] shadow-[0_18px_50px_rgba(0,0,0,0.24),0_0_18px_rgba(243,160,93,0.05)] backdrop-blur-xl';
+
+const panelLabels = [
+  'Now Playing',
+  'Vote / Discovery',
+  'Queue / Next',
+  'Session / Room',
+  'Media Library',
+] as const;
 
 function isDisplayableVideo(item: HudMediaItem) {
   return item.kind === 'video' && item.isVideoDisplayable !== false;
@@ -47,6 +58,17 @@ function formatTime(time: number) {
   const mins = Math.floor(time / 60);
   const secs = Math.floor(time % 60);
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+function formatStamp(input: string) {
+  const date = new Date(input);
+  if (Number.isNaN(date.getTime())) return 'No timestamp';
+  return new Intl.DateTimeFormat('pl-PL', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }
 
 function getMediaItems(response: MediaLibraryResponse) {
@@ -188,7 +210,6 @@ export function HudOverlay() {
     setCurrentTime(0);
     setDuration(0);
 
-    // Keep play() inside the click gesture even when React has to swap video/audio nodes.
     flushSync(() => {
       setActiveMediaId(id);
     });
@@ -206,64 +227,60 @@ export function HudOverlay() {
   }, [activeMediaId, mediaItems, playCurrentMedia, setIsPlaying, togglePlay]);
 
   const activeMedia = mediaItems.find((item) => item.id === activeMediaId) ?? null;
-
-  const hudContentProps = {
-    activeScreenId,
-    activeMedia,
-    mediaItems,
-    libraryStatus,
-    libraryError,
-    isPlaying,
-    currentTime,
-    duration,
-    togglePlay,
-    videoCallbackRef,
-    audioCallbackRef,
-    selectAndPlayMedia,
-    setCurrentTime,
-    setDuration,
-    setIsPlaying,
-    mounted,
-  };
-
-  const visibilityClass = isOpen
-    ? 'opacity-100 pointer-events-auto'
-    : 'opacity-0 pointer-events-none';
+  const statusLabel = libraryStatus === 'loading' ? 'Scanning' : libraryStatus === 'error' ? 'Offline' : 'Session Live';
+  const visibilityClass = isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none';
 
   return (
-    <>
-      {isMobile ? (
-        <div
-          className={`fixed inset-0 z-50 bg-black/95 backdrop-blur-3xl transition-opacity duration-300 flex flex-col ${visibilityClass}`}
-        >
-          <div className="flex justify-end p-6 pb-0 z-50 shrink-0">
-            <button onClick={closeHud} className="text-white/40 hover:text-white font-mono text-xs">
-              [X] CLOSE
+    <div
+      className={`fixed inset-0 z-50 bg-[radial-gradient(circle_at_top,rgba(243,160,93,0.16),rgba(0,0,0,0.82)_34%,rgba(0,0,0,0.92)_100%)] backdrop-blur-xl transition-opacity duration-300 ${visibilityClass}`}
+      onClick={closeHud}
+    >
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent_18%,transparent_84%,rgba(0,0,0,0.26))]" />
+      <div className={`relative mx-auto flex h-dvh w-full ${isMobile ? 'max-w-full px-3 py-3' : 'max-w-[620px] px-5 py-4'} flex-col`} onClick={(event) => event.stopPropagation()}>
+        <div className="pointer-events-none absolute inset-y-0 left-1/2 w-[60%] -translate-x-1/2 bg-[radial-gradient(circle_at_top,rgba(243,160,93,0.08),transparent_38%)] blur-[100px]" />
+
+        <header className={`${panelShellClass} z-20 mb-3 shrink-0 p-4`}>
+          <div className="absolute inset-0 rounded-[32px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_18%,transparent_80%,rgba(243,160,93,0.04))] pointer-events-none" />
+          <div className="relative flex items-center gap-3">
+            <Thr3StyleHudMark compact className="shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] uppercase tracking-[0.34em] text-[#f3a05d]/75">Laptop Media Session</p>
+              <h1 className="mt-1 truncate text-[1.15rem] font-semibold tracking-[-0.03em] text-white">BLOK TRZECH PIĘTER</h1>
+            </div>
+            <div className="hidden min-w-[120px] rounded-full border border-white/10 bg-white/6 px-3 py-2 text-right md:block">
+              <p className="text-[10px] uppercase tracking-[0.26em] text-white/42">Status</p>
+              <p className="mt-1 text-xs font-medium text-white/82">{statusLabel}</p>
+            </div>
+            <button
+              onClick={closeHud}
+              className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[10px] uppercase tracking-[0.26em] text-white/56 transition hover:border-[#f3a05d]/30 hover:text-white"
+            >
+              Close
             </button>
           </div>
-          <div
-            className={`flex-1 w-full p-6 pt-2 flex flex-col font-sans overflow-y-auto transform transition-transform duration-300 ${isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
-          >
-            <HudContent {...hudContentProps} />
-          </div>
-        </div>
-      ) : (
-        <div
-          className={`fixed inset-0 z-50 flex items-center justify-end pr-8 bg-black/40 transition-opacity duration-300 ${visibilityClass}`}
-          onClick={closeHud}
-        >
-          <div
-            className={`w-[560px] h-[90vh] bg-black/90 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-[0_40px_100px_rgba(0,0,0,0.8),0_0_40px_rgba(255,140,66,0.15)] flex flex-col font-sans shadow-2xl transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : 'translate-x-[120%]'}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button onClick={closeHud} className="absolute top-6 right-6 text-white/40 hover:text-white font-mono text-xs z-50">
-              [X] CLOSE
-            </button>
-            <HudContent {...hudContentProps} />
-          </div>
-        </div>
-      )}
-    </>
+        </header>
+
+        <HudContent
+          activeScreenId={activeScreenId}
+          activeMedia={activeMedia}
+          mediaItems={mediaItems}
+          libraryStatus={libraryStatus}
+          libraryError={libraryError}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          togglePlay={togglePlay}
+          videoCallbackRef={videoCallbackRef}
+          audioCallbackRef={audioCallbackRef}
+          selectAndPlayMedia={selectAndPlayMedia}
+          setCurrentTime={setCurrentTime}
+          setDuration={setDuration}
+          setIsPlaying={setIsPlaying}
+          mounted={mounted}
+          isMobile={isMobile}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -284,6 +301,7 @@ interface HudContentProps {
   setDuration: (time: number) => void;
   setIsPlaying: (playing: boolean) => void;
   mounted: boolean;
+  isMobile: boolean;
 }
 
 function HudContent({
@@ -303,10 +321,31 @@ function HudContent({
   setDuration,
   setIsPlaying,
   mounted,
+  isMobile,
 }: HudContentProps) {
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const videoItems = mediaItems.filter((item) => item.kind === 'video');
-  const audioItems = mediaItems.filter((item) => item.kind === 'audio');
+  const videoItems = useMemo(() => mediaItems.filter((item) => item.kind === 'video'), [mediaItems]);
+  const audioItems = useMemo(() => mediaItems.filter((item) => item.kind === 'audio'), [mediaItems]);
+  const queueItems = useMemo(() => mediaItems.filter((item) => item.id !== activeMedia?.id).slice(0, 6), [activeMedia?.id, mediaItems]);
+  const quickVoteItems = useMemo(() => mediaItems.slice(0, 3), [mediaItems]);
+  const [activePanelIndex, setActivePanelIndex] = useState(0);
+  const [selectedVoteId, setSelectedVoteId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const effectiveSelectedVoteId = selectedVoteId ?? activeMedia?.id ?? quickVoteItems[0]?.id ?? null;
+
+  const jumpToPanel = useCallback((index: number) => {
+    const node = scrollRef.current;
+    if (!node) return;
+    node.scrollTo({ top: node.clientHeight * index, behavior: 'smooth' });
+  }, []);
+
+  const handleScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    const node = event.currentTarget;
+    const nextIndex = Math.round(node.scrollTop / Math.max(node.clientHeight, 1));
+    if (nextIndex !== activePanelIndex) {
+      setActivePanelIndex(nextIndex);
+    }
+  }, [activePanelIndex]);
 
   const mediaEventProps = {
     onTimeUpdate: (event: SyntheticEvent<HTMLMediaElement>) => setCurrentTime(event.currentTarget.currentTime),
@@ -316,153 +355,409 @@ function HudContent({
     onEnded: () => setIsPlaying(false),
   };
 
-  return (
-    <div className="h-full flex flex-col relative w-full">
-      <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/20 rounded-full blur-[80px] -z-10 translate-x-1/2 -translate-y-1/2" />
+  const sessionMetrics = [
+    { label: 'Viewport', value: activeScreenId ?? 'master_catalog' },
+    { label: 'Playable', value: `${mediaItems.filter((item) => item.kind === 'video' && item.isVideoDisplayable !== false).length}` },
+    { label: 'Audio', value: `${audioItems.length}` },
+    { label: 'Library', value: `${mediaItems.length} files` },
+  ];
 
-      <div className="flex justify-between items-start border-b border-white/10 pb-6 mb-6 shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-amber-300 rounded-xl flex items-center justify-center font-black text-3xl text-black shadow-lg">
-            3S
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-white tracking-tight drop-shadow-md">MEDIA HUD</h1>
-            <p className="text-orange-400 text-xs font-mono tracking-widest mt-1">
-              AUTO SCAN // {activeScreenId ?? 'MASTER'}
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2 mt-1">
-          <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded-full font-mono text-[10px] border border-green-500/30 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            {libraryStatus === 'loading' ? 'SCAN' : `${mediaItems.length} FILES`}
-          </span>
-        </div>
+  return (
+    <div className="relative min-h-0 flex-1">
+      <div className="pointer-events-none absolute bottom-0 left-1/2 h-48 w-[80%] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(243,160,93,0.14),transparent_62%)] blur-[90px]" />
+
+      <div className="absolute right-0 top-1/2 z-20 hidden -translate-y-1/2 md:flex md:flex-col md:gap-2">
+        {panelLabels.map((label, index) => {
+          const isActive = index === activePanelIndex;
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => jumpToPanel(index)}
+              className={`group flex items-center justify-end gap-2 ${isActive ? 'opacity-100' : 'opacity-55 hover:opacity-90'}`}
+            >
+              <span className={`max-w-0 overflow-hidden text-[10px] uppercase tracking-[0.24em] text-white/60 transition-all group-hover:max-w-[120px] ${isActive ? 'max-w-[120px] text-[#f3a05d]' : ''}`}>
+                {label}
+              </span>
+              <span className={`h-2.5 w-2.5 rounded-full border ${isActive ? 'border-[#f3a05d] bg-[#f3a05d] shadow-[0_0_16px_rgba(243,160,93,0.9)]' : 'border-white/22 bg-white/10'}`} />
+            </button>
+          );
+        })}
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col justify-start w-full relative mb-6 overflow-y-auto pr-1">
-        <div className="w-full aspect-video bg-black/60 rounded-xl overflow-hidden shadow-xl border border-white/10 relative group">
-          {mounted && activeMedia?.kind === 'video' && !isDisplayableVideo(activeMedia) ? (
-            <div className="w-full h-full bg-[radial-gradient(circle_at_center,rgba(251,146,60,0.18),rgba(0,0,0,0.92)_62%)] flex flex-col items-center justify-center text-center p-8">
-              <div className="w-20 h-20 rounded-2xl border border-orange-300/30 bg-orange-400/10 flex items-center justify-center mb-5 shadow-[0_0_45px_rgba(249,115,22,0.18)]">
-                <span className="text-2xl font-black text-orange-200">H265</span>
-              </div>
-              <p className="text-orange-200 text-[10px] font-mono tracking-[0.3em] uppercase mb-2">Audio-only risk</p>
-              <p className="text-white font-black text-lg tracking-tight line-clamp-2">{activeMedia.title}</p>
-              <p className="text-white/45 text-xs mt-3 max-w-[360px]">{activeMedia.compatibilityNote ?? 'Ten plik moze wymagac konwersji do H.264 (avc1), zeby pokazac obraz w HUD i na ekranie 3D.'}</p>
-            </div>
-          ) : mounted && activeMedia?.kind === 'video' ? (
-            <video
-              key={activeMedia.id}
-              id="room-master-video"
-              ref={videoCallbackRef}
-              src={activeMedia.src}
-              playsInline
-              preload="metadata"
-              loop
-              className="w-full h-full object-cover transition-opacity duration-500"
-              {...mediaEventProps}
-            />
-          ) : mounted && activeMedia?.kind === 'audio' ? (
-            <div className="w-full h-full bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.24),rgba(0,0,0,0.9)_62%)] flex flex-col items-center justify-center text-center p-8">
-              <audio
-                key={activeMedia.id}
-                ref={audioCallbackRef}
-                src={activeMedia.src}
-                preload="metadata"
-                {...mediaEventProps}
-              />
-              <div className="w-20 h-20 rounded-2xl border border-orange-300/30 bg-orange-400/10 flex items-center justify-center mb-5 shadow-[0_0_45px_rgba(249,115,22,0.22)]">
-                <span className="text-3xl font-black text-orange-200">A</span>
-              </div>
-              <p className="text-white/40 text-[10px] font-mono tracking-[0.3em] uppercase mb-2">Audio Track</p>
-              <p className="text-white font-black text-xl tracking-tight line-clamp-2">{activeMedia.title}</p>
-            </div>
-          ) : mounted ? (
-            <div className="w-full h-full bg-black flex flex-col items-center justify-center font-mono text-[10px] text-white/30 gap-2 px-8 text-center">
-              <span>NO MEDIA FOUND</span>
-              <span className="text-white/20">Wrzu? pliki do public/media/video albo public/media/audio.</span>
-            </div>
-          ) : (
-            <div className="w-full h-full bg-black flex items-center justify-center font-mono text-[10px] text-white/20">LOADING VIEWPORT...</div>
-          )}
-
-          {activeMedia && (
-            <div
-              className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-              onClick={togglePlay}
-            >
-              <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-2xl">
-                {isPlaying ? (
-                  <span className="w-4 h-4 border-l-4 border-r-4 border-white" />
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="h-full snap-y snap-mandatory overflow-y-auto overscroll-y-contain pr-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <PanelViewport>
+          <PanelFrame
+            eyebrow="Panel 01"
+            title="Now Playing"
+            subtitle="A focused playback surface with enough context to keep the room immersive."
+            footer={`Swipe for more • ${activePanelIndex + 1}/${panelLabels.length}`}
+          >
+            <div className="flex min-h-0 flex-1 flex-col gap-4">
+              <div className={`${panelCardClass} group relative aspect-[4/5] min-h-[280px] overflow-hidden`}>
+                <div className="absolute inset-0 rounded-[26px] border border-white/10 pointer-events-none" />
+                {mounted && activeMedia?.kind === 'video' && !isDisplayableVideo(activeMedia) ? (
+                  <div className="flex h-full flex-col items-center justify-center bg-[radial-gradient(circle_at_center,rgba(243,160,93,0.14),rgba(0,0,0,0.92)_64%)] px-8 text-center">
+                    <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-[24px] border border-[#f3a05d]/24 bg-white/6 text-2xl font-semibold text-[#f3a05d]">
+                      H
+                    </div>
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-[#f3a05d]/78">Video codec warning</p>
+                    <p className="mt-3 text-xl font-semibold tracking-[-0.03em] text-white">{activeMedia.title}</p>
+                    <p className="mt-3 max-w-[320px] text-sm leading-6 text-white/55">
+                      {activeMedia.compatibilityNote ?? 'Ten plik moze wymagac konwersji do H.264, zeby pokazac obraz w HUD i na ekranie pokoju.'}
+                    </p>
+                  </div>
+                ) : mounted && activeMedia?.kind === 'video' ? (
+                  <video
+                    key={activeMedia.id}
+                    id="room-master-video"
+                    ref={videoCallbackRef}
+                    src={activeMedia.src}
+                    playsInline
+                    preload="metadata"
+                    loop
+                    className="h-full w-full object-cover"
+                    {...mediaEventProps}
+                  />
+                ) : mounted && activeMedia?.kind === 'audio' ? (
+                  <div className="flex h-full flex-col items-center justify-center bg-[radial-gradient(circle_at_center,rgba(243,160,93,0.18),rgba(0,0,0,0.9)_62%)] px-8 text-center">
+                    <audio
+                      key={activeMedia.id}
+                      ref={audioCallbackRef}
+                      src={activeMedia.src}
+                      preload="metadata"
+                      {...mediaEventProps}
+                    />
+                    <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-[24px] border border-[#f3a05d]/28 bg-white/6 text-2xl font-semibold text-[#f3a05d]">
+                      A
+                    </div>
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-[#f3a05d]/78">Audio track</p>
+                    <p className="mt-3 text-xl font-semibold tracking-[-0.03em] text-white">{activeMedia.title}</p>
+                  </div>
+                ) : mounted ? (
+                  <div className="flex h-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,rgba(243,160,93,0.08),rgba(0,0,0,0.94)_62%)] px-8 text-center">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-white/36">No media found</p>
+                    <p className="mt-3 max-w-[320px] text-sm leading-6 text-white/46">Wrzuć pliki do `public/media/video` albo `public/media/audio`, a HUD zaciągnie je automatycznie.</p>
+                  </div>
                 ) : (
-                  <span className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[12px] border-l-white border-b-[8px] border-b-transparent ml-1" />
+                  <div className="flex h-full items-center justify-center bg-black text-[10px] uppercase tracking-[0.24em] text-white/24">Loading viewport</div>
+                )}
+
+                {activeMedia && (
+                  <button
+                    type="button"
+                    onClick={togglePlay}
+                    className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-100 transition group-hover:bg-black/26"
+                  >
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/14 bg-white/10 shadow-[0_0_35px_rgba(243,160,93,0.16)] backdrop-blur-md">
+                      {isPlaying ? (
+                        <span className="h-5 w-5 border-l-[6px] border-r-[6px] border-white" />
+                      ) : (
+                        <span className="ml-1 h-0 w-0 border-y-[11px] border-y-transparent border-l-[17px] border-l-white" />
+                      )}
+                    </div>
+                  </button>
+                )}
+              </div>
+
+              <div className={`${panelCardClass} p-5`}>
+                <div className="mb-4 flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">{isPlaying ? 'Playing now' : 'Ready to play'}</p>
+                    <p className="mt-2 truncate text-[1.15rem] font-semibold tracking-[-0.03em] text-white">{activeMedia?.title ?? 'Media library empty'}</p>
+                    <p className="mt-2 text-sm text-white/52">
+                      {activeMedia ? `${activeMedia.kind.toUpperCase()} • ${formatBytes(activeMedia.size)} • ${formatStamp(activeMedia.modifiedAt)}` : 'Dodaj pliki do biblioteki, aby uruchomić sesję.'}
+                    </p>
+                  </div>
+                  <div className="flex h-10 items-end gap-1 opacity-80">
+                    {Array.from({ length: 12 }).map((_, index) => (
+                      <span
+                        key={index}
+                        className="w-1.5 rounded-full bg-[linear-gradient(180deg,rgba(255,241,227,0.92),rgba(243,160,93,0.42))]"
+                        style={{ height: isPlaying ? `${26 + (index % 5) * 11}%` : '24%' }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/8">
+                  <div
+                    className="h-full rounded-full bg-[linear-gradient(90deg,rgba(243,160,93,0.88),rgba(255,241,227,0.96))]"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-white/40">
+                  <span>{formatTime(currentTime)}</span>
+                  <span>{formatTime(duration)}</span>
+                </div>
+              </div>
+            </div>
+          </PanelFrame>
+        </PanelViewport>
+
+        <PanelViewport>
+          <PanelFrame
+            eyebrow="Panel 02"
+            title="Vote / Discovery"
+            subtitle="One decision surface, one action path, no desktop-dashboard clutter."
+          >
+            <div className="flex min-h-0 flex-1 flex-col gap-4">
+              <div className={`${panelCardClass} p-5`}>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-[#f3a05d]/78">Current prompt</p>
+                <h2 className="mt-3 text-[1.35rem] font-semibold tracking-[-0.04em] text-white">Which media state should guide the room next?</h2>
+                <p className="mt-3 text-sm leading-6 text-white/56">
+                  Discovery is intentionally reduced to one focused choice so the laptop feels like a cinematic controller, not a dashboard.
+                </p>
+              </div>
+
+              <div className="grid gap-3">
+                {quickVoteItems.length === 0 ? (
+                  <EmptyCard message="Brak mediów do panelu discovery." />
+                ) : (
+                  quickVoteItems.map((item, index) => {
+                    const isSelected = item.id === effectiveSelectedVoteId;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedVoteId(item.id);
+                          selectAndPlayMedia(item.id);
+                        }}
+                        className={`relative overflow-hidden rounded-[24px] border p-4 text-left transition ${
+                          isSelected
+                            ? 'border-[#f3a05d]/34 bg-[linear-gradient(180deg,rgba(243,160,93,0.16),rgba(255,255,255,0.05))] shadow-[0_18px_42px_rgba(243,160,93,0.08)]'
+                            : 'border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] hover:bg-white/8'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="text-[10px] uppercase tracking-[0.24em] text-white/38">Option 0{index + 1}</p>
+                            <p className="mt-2 truncate text-base font-medium text-white/92">{item.title}</p>
+                            <p className="mt-2 text-sm text-white/50">{item.kind === 'video' ? 'Video focus' : 'Audio focus'} • {formatBytes(item.size)}</p>
+                          </div>
+                          <span className={`rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.22em] ${isSelected ? 'bg-white/12 text-[#f3a05d]' : 'bg-white/6 text-white/48'}`}>
+                            {isSelected ? 'Active' : 'Select'}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })
                 )}
               </div>
             </div>
-          )}
-        </div>
+          </PanelFrame>
+        </PanelViewport>
 
-        <div className="mt-6 space-y-5">
-          <MediaSection
-            title="Video Assets"
-            emptyText="Brak filmow w public/media/video."
-            items={videoItems}
-            activeMediaId={activeMedia?.id ?? null}
-            isPlaying={isPlaying}
-            onSelect={selectAndPlayMedia}
-          />
-          <MediaSection
-            title="Audio Assets"
-            emptyText="Brak audio w public/media/audio."
-            items={audioItems}
-            activeMediaId={activeMedia?.id ?? null}
-            isPlaying={isPlaying}
-            onSelect={selectAndPlayMedia}
-          />
-          {libraryStatus === 'error' && (
-            <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200 font-mono">
-              {libraryError}
-            </p>
-          )}
-        </div>
-      </div>
+        <PanelViewport>
+          <PanelFrame
+            eyebrow="Panel 03"
+            title="Queue / Next"
+            subtitle="A thumb-friendly queue surface for moving through the session one media item at a time."
+          >
+            <div className="flex min-h-0 flex-1 flex-col gap-4">
+              <div className={`${panelCardClass} p-5`}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">Up next</p>
+                    <p className="mt-2 text-base font-medium text-white/88">{queueItems.length > 0 ? `${queueItems.length} items ready` : 'Queue is empty'}</p>
+                  </div>
+                  <div className="rounded-full border border-white/10 bg-white/6 px-3 py-2 text-[10px] uppercase tracking-[0.24em] text-white/46">
+                    Vertical flow
+                  </div>
+                </div>
+              </div>
 
-      <div className="bg-black/50 rounded-xl border border-white/5 p-5 mt-2 shrink-0 relative overflow-hidden">
-        <div className="flex items-center justify-between z-10 relative">
-          <div className="min-w-0">
-            <p className="text-white/40 font-mono text-[10px] tracking-[0.2em] mb-1">{isPlaying ? 'NOW PLAYING' : 'PAUSED'}</p>
-            <p className="text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-200 drop-shadow-md truncate">
-              {activeMedia?.title ?? 'Media library empty'}
-            </p>
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                {queueItems.length === 0 ? (
+                  <EmptyCard message="Brak kolejnych pozycji. Dodaj więcej plików do biblioteki." />
+                ) : (
+                  queueItems.map((item, index) => (
+                    <QueueRow
+                      key={item.id}
+                      index={index}
+                      item={item}
+                      onSelect={selectAndPlayMedia}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          </PanelFrame>
+        </PanelViewport>
+
+        <PanelViewport>
+          <PanelFrame
+            eyebrow="Panel 04"
+            title="Session / Room State"
+            subtitle="Ambient session info that supports the room instead of overpowering it."
+          >
+            <div className="grid min-h-0 flex-1 gap-4">
+              <div className={`${panelCardClass} p-5`}>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-[#f3a05d]/78">Session status</p>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {sessionMetrics.map((metric) => (
+                    <div key={metric.label} className="rounded-[22px] border border-white/8 bg-black/14 p-4">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-white/38">{metric.label}</p>
+                      <p className="mt-2 truncate text-base font-medium text-white/88">{metric.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className={`${panelCardClass} p-5`}>
+                <div className="mb-4 flex items-center justify-between">
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">Room pulse</p>
+                  <span className="text-[10px] uppercase tracking-[0.22em] text-white/38">{libraryStatus}</span>
+                </div>
+                <div className="flex h-24 items-end gap-2">
+                  {Array.from({ length: 18 }).map((_, index) => (
+                    <span
+                      key={index}
+                      className="flex-1 rounded-full bg-[linear-gradient(180deg,rgba(255,244,232,0.92),rgba(243,160,93,0.4))]"
+                      style={{ height: `${30 + ((index * 17) % 55)}%`, opacity: index % 4 === 0 ? 0.95 : 0.72 }}
+                    />
+                  ))}
+                </div>
+                <p className="mt-4 text-sm leading-6 text-white/54">
+                  Laptop otwiera teraz pionowy, sekwencyjny media flow. Każdy ekran skupia się na jednej funkcji, więc sterowanie jest czytelne nawet na telefonie.
+                </p>
+              </div>
+            </div>
+          </PanelFrame>
+        </PanelViewport>
+
+        <PanelViewport>
+          <PanelFrame
+            eyebrow="Panel 05"
+            title="Media Library"
+            subtitle="The full asset list remains available, but inside one focused viewport instead of multiple side modules."
+          >
+            <div className="flex min-h-0 flex-1 flex-col gap-4">
+              {libraryStatus === 'error' && libraryError ? (
+                <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">
+                  {libraryError}
+                </div>
+              ) : null}
+
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+                <LibrarySection
+                  title="Video Assets"
+                  emptyText="Brak filmów w public/media/video."
+                  items={videoItems}
+                  activeMediaId={activeMedia?.id ?? null}
+                  isPlaying={isPlaying}
+                  onSelect={selectAndPlayMedia}
+                />
+                <LibrarySection
+                  title="Audio Assets"
+                  emptyText="Brak audio w public/media/audio."
+                  items={audioItems}
+                  activeMediaId={activeMedia?.id ?? null}
+                  isPlaying={isPlaying}
+                  onSelect={selectAndPlayMedia}
+                />
+              </div>
+            </div>
+          </PanelFrame>
+        </PanelViewport>
+
+        {isMobile ? (
+          <div className="sticky bottom-3 mt-3 flex justify-center pb-1">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[rgba(8,9,11,0.72)] px-3 py-2 backdrop-blur-xl">
+              {panelLabels.map((label, index) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => jumpToPanel(index)}
+                  className={`h-2.5 rounded-full transition-all ${index === activePanelIndex ? 'w-7 bg-[#f3a05d]' : 'w-2.5 bg-white/20'}`}
+                  aria-label={label}
+                />
+              ))}
+            </div>
           </div>
-          <div className="flex items-end h-8 gap-0.5 z-10 opacity-80 shrink-0 pl-4">
-            {Array.from({ length: 12 }).map((_, index) => (
-              <div
-                key={index}
-                className="w-1 bg-orange-500 rounded-t-sm transition-all duration-300"
-                style={{ height: isPlaying ? `${20 + (index % 5) * 15}%` : '20%' }}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="w-full h-1 bg-white/10 rounded-full mt-4 overflow-hidden z-10 relative">
-          <div
-            className="h-full bg-gradient-to-r from-orange-500 to-amber-300 relative transition-all duration-100"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-        <div className="flex justify-between mt-2 text-[10px] font-mono text-white/40 z-10 relative">
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
+        ) : null}
       </div>
     </div>
   );
 }
 
-interface MediaSectionProps {
+function PanelViewport({ children }: { children: React.ReactNode }) {
+  return <section className="flex h-full snap-start flex-col pb-3">{children}</section>;
+}
+
+interface PanelFrameProps {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  footer?: string;
+  children: React.ReactNode;
+}
+
+function PanelFrame({ eyebrow, title, subtitle, footer, children }: PanelFrameProps) {
+  return (
+    <div className={`${panelShellClass} flex h-full flex-col p-5`}>
+      <div className="pointer-events-none absolute inset-0 rounded-[32px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_18%,transparent_80%,rgba(243,160,93,0.04))]" />
+      <div className="relative mb-4 shrink-0">
+        <p className="text-[10px] uppercase tracking-[0.3em] text-[#f3a05d]/76">{eyebrow}</p>
+        <h2 className="mt-3 text-[1.55rem] font-semibold tracking-[-0.04em] text-white">{title}</h2>
+        <p className="mt-2 max-w-[420px] text-sm leading-6 text-white/54">{subtitle}</p>
+      </div>
+      <div className="relative min-h-0 flex-1">{children}</div>
+      {footer ? (
+        <div className="relative mt-4 shrink-0 border-t border-white/8 pt-3 text-[10px] uppercase tracking-[0.24em] text-white/34">
+          {footer}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function EmptyCard({ message }: { message: string }) {
+  return (
+    <div className={`${panelCardClass} p-4 text-sm text-white/42`}>
+      {message}
+    </div>
+  );
+}
+
+function QueueRow({
+  index,
+  item,
+  onSelect,
+}: {
+  index: number;
+  item: HudMediaItem;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(item.id)}
+      className={`${panelCardClass} flex w-full items-center justify-between gap-4 p-4 text-left transition hover:bg-white/8`}
+    >
+      <div className="flex items-center gap-4 min-w-0">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-white/6 text-sm font-medium text-white/82">
+          0{index + 1}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-white/92">{item.title}</p>
+          <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-white/38">
+            {item.kind} • {formatBytes(item.size)}
+          </p>
+        </div>
+      </div>
+      <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/50">
+        Open
+      </span>
+    </button>
+  );
+}
+
+interface LibrarySectionProps {
   title: string;
   emptyText: string;
   items: HudMediaItem[];
@@ -471,48 +766,41 @@ interface MediaSectionProps {
   onSelect: (id: string) => void;
 }
 
-function MediaSection({ title, emptyText, items, activeMediaId, isPlaying, onSelect }: MediaSectionProps) {
+function LibrarySection({ title, emptyText, items, activeMediaId, isPlaying, onSelect }: LibrarySectionProps) {
   return (
     <section>
-      <p className="text-white/40 text-xs font-mono tracking-widest uppercase mb-3">{title}</p>
-      <div className="flex flex-col gap-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">{title}</p>
+        <div className="h-px flex-1 bg-[linear-gradient(90deg,rgba(255,255,255,0.12),rgba(243,160,93,0.14),transparent)]" />
+      </div>
+      <div className="space-y-3">
         {items.length === 0 ? (
-          <div className="border border-white/5 bg-white/[0.03] rounded-xl p-4 text-xs text-white/30 font-mono">
-            {emptyText}
-          </div>
+          <EmptyCard message={emptyText} />
         ) : (
           items.map((item) => {
             const isActive = item.id === activeMediaId;
             return (
               <button
                 key={item.id}
+                type="button"
                 onClick={() => onSelect(item.id)}
-                className={`flex items-center justify-between border p-4 rounded-xl transition group text-left ${
+                className={`relative w-full overflow-hidden rounded-[24px] border p-4 text-left transition ${
                   isActive
-                    ? 'bg-orange-500/15 border-orange-300/30 shadow-[0_0_28px_rgba(249,115,22,0.12)]'
-                    : item.kind === 'video' && !isDisplayableVideo(item)
-                      ? 'bg-white/[0.03] hover:bg-orange-500/10 border-orange-300/15'
-                      : 'bg-white/5 hover:bg-white/10 border-white/5'
+                    ? 'border-[#f3a05d]/34 bg-[linear-gradient(180deg,rgba(243,160,93,0.14),rgba(255,255,255,0.05))] shadow-[0_18px_40px_rgba(243,160,93,0.08)]'
+                    : 'border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] hover:bg-white/8'
                 }`}
               >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className={`w-10 h-10 rounded-lg flex justify-center items-center transition shrink-0 ${isActive ? 'bg-orange-500' : 'bg-orange-500/20 group-hover:bg-orange-500'}`}>
-                    {isActive && isPlaying ? (
-                      <span className="w-3 h-3 border-l-4 border-r-4 border-white ml-[1px]" />
-                    ) : (
-                      <span className="w-0 h-0 border-t-[6px] border-t-transparent border-l-[8px] border-l-white border-b-[6px] border-b-transparent ml-1" />
-                    )}
-                  </div>
+                <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-white font-bold tracking-wide text-sm truncate">{item.title}</p>
-                    <p className="text-white/40 text-[10px] mt-1 font-mono uppercase">
-                      {item.kind === 'video' ? (item.videoCodec ?? 'unknown') : item.kind} / {formatBytes(item.size)}
+                    <p className="truncate text-sm font-medium text-white/92">{item.title}</p>
+                    <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-white/38">
+                      {item.kind === 'video' ? (item.videoCodec ?? 'unknown') : item.kind} • {formatBytes(item.size)}
                     </p>
                   </div>
+                  <span className={`shrink-0 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.22em] ${isActive ? 'bg-white/12 text-[#f3a05d]' : 'bg-white/6 text-white/48'}`}>
+                    {isActive ? (isPlaying ? 'Playing' : 'Ready') : 'Open'}
+                  </span>
                 </div>
-                <span className="text-orange-300 font-mono text-[10px] opacity-0 group-hover:opacity-100 transition pl-3 shrink-0">
-                  {item.kind === 'video' && !isDisplayableVideo(item) ? 'H.264?' : isActive ? (isPlaying ? 'PAUSE' : 'PLAY') : 'PLAY'}
-                </span>
               </button>
             );
           })
