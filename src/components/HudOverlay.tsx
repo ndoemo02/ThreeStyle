@@ -1,7 +1,7 @@
 "use client";
 
 import { useHudStore } from '../stores/useHudStore';
-import { useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent, type UIEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject, type SyntheticEvent, type UIEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { Thr3StyleHudMark } from './branding/Thr3StyleHudMark';
 
@@ -88,6 +88,9 @@ export function HudOverlay() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const mediaElementRef = useRef<HTMLMediaElement | null>(null);
+  const masterVideoElementRef = useRef<HTMLVideoElement | null>(null);
+  const masterAudioElementRef = useRef<HTMLAudioElement | null>(null);
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -147,30 +150,19 @@ export function HudOverlay() {
     setDuration(0);
   }, [activeMediaId]);
 
-  const videoCallbackRef = useCallback((node: HTMLVideoElement | null) => {
-    if (node) {
-      mediaElementRef.current = node;
-      setMasterVideoRef(node);
-      return;
-    }
+  useEffect(() => {
+    const isVideoActive = activeMediaId
+      ? mediaItems.some((item) => {
+          const match = item.id === activeMediaId && item.kind === 'video' && item.isVideoDisplayable !== false;
+          if (item.id === activeMediaId) console.log('[DEBUG HUD] isVideoActive evaluation:', item.id, item.kind, item.isVideoDisplayable, '=>', match);
+          return match;
+        })
+      : false;
 
-    if (mediaElementRef.current instanceof HTMLVideoElement) {
-      mediaElementRef.current = null;
-    }
-    setMasterVideoRef(null);
-  }, [setMasterVideoRef]);
-
-  const audioCallbackRef = useCallback((node: HTMLAudioElement | null) => {
-    if (node) {
-      mediaElementRef.current = node;
-      return;
-    }
-
-    if (mediaElementRef.current instanceof HTMLAudioElement) {
-      mediaElementRef.current = null;
-    }
-    setMasterVideoRef(null);
-  }, [setMasterVideoRef]);
+    console.log('[DEBUG HUD] Setting masterVideoRef, isVideoActive:', isVideoActive, 'Element:', isVideoActive ? masterVideoElementRef.current : null);
+    mediaElementRef.current = isVideoActive ? masterVideoElementRef.current : masterAudioElementRef.current;
+    setMasterVideoRef(isVideoActive ? masterVideoElementRef.current : null);
+  }, [activeMediaId, mediaItems, setMasterVideoRef]);
 
   const playCurrentMedia = useCallback(() => {
     const mediaElement = mediaElementRef.current;
@@ -218,25 +210,86 @@ export function HudOverlay() {
       return;
     }
 
-    const nextMediaElement = mediaElementRef.current;
+    const nextMediaElement = selectedMedia.kind === 'video'
+      ? masterVideoElementRef.current
+      : masterAudioElementRef.current;
     if (!nextMediaElement) return;
 
+    mediaElementRef.current = nextMediaElement;
+    console.log('[DEBUG HUD] Playing media:', selectedMedia.kind, 'Element:', nextMediaElement);
+    
     nextMediaElement.currentTime = 0;
     nextMediaElement.load();
-    playCurrentMedia();
-  }, [activeMediaId, mediaItems, playCurrentMedia, setIsPlaying, togglePlay]);
+    void nextMediaElement.play().then(() => {
+      console.log('[DEBUG HUD] Media playback started successfully! paused:', nextMediaElement.paused);
+    }).catch((error: unknown) => {
+      console.warn('HUD media playback was blocked:', error);
+      setIsPlaying(false);
+    });
+  }, [activeMediaId, mediaItems, setIsPlaying, togglePlay]);
 
   const activeMedia = mediaItems.find((item) => item.id === activeMediaId) ?? null;
   const statusLabel = libraryStatus === 'loading' ? 'Scanning' : libraryStatus === 'error' ? 'Offline' : 'Session Live';
   const visibilityClass = isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none';
+  const masterMediaEventProps = {
+    onTimeUpdate: (event: SyntheticEvent<HTMLMediaElement>) => setCurrentTime(event.currentTarget.currentTime),
+    onLoadedMetadata: (event: SyntheticEvent<HTMLMediaElement>) => setDuration(event.currentTarget.duration),
+    onPlay: () => setIsPlaying(true),
+    onPause: () => setIsPlaying(false),
+    onEnded: () => setIsPlaying(false),
+  };
+
+  useEffect(() => {
+    const preview = previewVideoRef.current;
+    const master = masterVideoElementRef.current;
+
+    if (!preview || !master || activeMedia?.kind !== 'video' || !isDisplayableVideo(activeMedia)) {
+      return;
+    }
+
+    if (Math.abs(preview.currentTime - master.currentTime) > 0.35) {
+      preview.currentTime = master.currentTime;
+    }
+
+    if (isPlaying) {
+      void preview.play().catch(() => {});
+      return;
+    }
+
+    preview.pause();
+  }, [activeMedia, currentTime, isPlaying]);
 
   return (
-    <div
-      className={`fixed inset-0 z-50 bg-[radial-gradient(circle_at_top,rgba(243,160,93,0.16),rgba(0,0,0,0.82)_34%,rgba(0,0,0,0.92)_100%)] backdrop-blur-xl transition-opacity duration-300 ${visibilityClass}`}
-      onClick={closeHud}
-    >
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent_18%,transparent_84%,rgba(0,0,0,0.26))]" />
-      <div className={`relative mx-auto flex h-dvh w-full ${isMobile ? 'max-w-full px-3 py-3' : 'max-w-[620px] px-5 py-4'} flex-col`} onClick={(event) => event.stopPropagation()}>
+    <>
+      <div 
+        style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: 1, height: 1, pointerEvents: 'none', zIndex: -9999, opacity: 0.0001, overflow: 'hidden' }}
+        suppressHydrationWarning
+      >
+        <video
+          ref={masterVideoElementRef}
+          src={activeMedia?.kind === 'video' ? activeMedia.src : undefined}
+          playsInline
+          autoPlay
+          preload="auto"
+          loop
+          className="w-full h-full"
+          {...masterMediaEventProps}
+        />
+        <audio
+          ref={masterAudioElementRef}
+          src={activeMedia?.kind === 'audio' ? activeMedia.src : undefined}
+          preload="auto"
+          {...masterMediaEventProps}
+        />
+      </div>
+
+      <div
+        className={`fixed inset-0 z-50 bg-[radial-gradient(circle_at_top,rgba(243,160,93,0.16),rgba(0,0,0,0.82)_34%,rgba(0,0,0,0.92)_100%)] backdrop-blur-xl transition-opacity duration-300 ${visibilityClass}`}
+        onClick={closeHud}
+      >
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent_18%,transparent_84%,rgba(0,0,0,0.26))]" />
+        
+        <div className={`relative mx-auto flex h-dvh w-full ${isMobile ? 'max-w-full px-3 py-3' : 'max-w-[620px] px-5 py-4'} flex-col`} onClick={(event) => event.stopPropagation()}>
         <div className="pointer-events-none absolute inset-y-0 left-1/2 w-[60%] -translate-x-1/2 bg-[radial-gradient(circle_at_top,rgba(243,160,93,0.08),transparent_38%)] blur-[100px]" />
 
         <header className={`${panelShellClass} z-20 mb-3 shrink-0 p-4`}>
@@ -270,17 +323,17 @@ export function HudOverlay() {
           currentTime={currentTime}
           duration={duration}
           togglePlay={togglePlay}
-          videoCallbackRef={videoCallbackRef}
-          audioCallbackRef={audioCallbackRef}
           selectAndPlayMedia={selectAndPlayMedia}
           setCurrentTime={setCurrentTime}
           setDuration={setDuration}
           setIsPlaying={setIsPlaying}
           mounted={mounted}
           isMobile={isMobile}
+          previewVideoRef={previewVideoRef}
         />
       </div>
     </div>
+    </>
   );
 }
 
@@ -294,14 +347,13 @@ interface HudContentProps {
   currentTime: number;
   duration: number;
   togglePlay: () => void;
-  videoCallbackRef: (node: HTMLVideoElement | null) => void;
-  audioCallbackRef: (node: HTMLAudioElement | null) => void;
   selectAndPlayMedia: (id: string) => void;
   setCurrentTime: (time: number) => void;
   setDuration: (time: number) => void;
   setIsPlaying: (playing: boolean) => void;
   mounted: boolean;
   isMobile: boolean;
+  previewVideoRef: RefObject<HTMLVideoElement | null>;
 }
 
 function HudContent({
@@ -314,14 +366,10 @@ function HudContent({
   currentTime,
   duration,
   togglePlay,
-  videoCallbackRef,
-  audioCallbackRef,
   selectAndPlayMedia,
-  setCurrentTime,
-  setDuration,
-  setIsPlaying,
   mounted,
   isMobile,
+  previewVideoRef,
 }: HudContentProps) {
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const videoItems = useMemo(() => mediaItems.filter((item) => item.kind === 'video'), [mediaItems]);
@@ -346,14 +394,6 @@ function HudContent({
       setActivePanelIndex(nextIndex);
     }
   }, [activePanelIndex]);
-
-  const mediaEventProps = {
-    onTimeUpdate: (event: SyntheticEvent<HTMLMediaElement>) => setCurrentTime(event.currentTarget.currentTime),
-    onLoadedMetadata: (event: SyntheticEvent<HTMLMediaElement>) => setDuration(event.currentTarget.duration),
-    onPlay: () => setIsPlaying(true),
-    onPause: () => setIsPlaying(false),
-    onEnded: () => setIsPlaying(false),
-  };
 
   const sessionMetrics = [
     { label: 'Viewport', value: activeScreenId ?? 'master_catalog' },
@@ -415,23 +455,16 @@ function HudContent({
                   <video
                     key={activeMedia.id}
                     id="room-master-video"
-                    ref={videoCallbackRef}
+                    ref={previewVideoRef}
                     src={activeMedia.src}
                     playsInline
                     preload="metadata"
                     loop
+                    muted
                     className="h-full w-full object-cover"
-                    {...mediaEventProps}
                   />
                 ) : mounted && activeMedia?.kind === 'audio' ? (
                   <div className="flex h-full flex-col items-center justify-center bg-[radial-gradient(circle_at_center,rgba(243,160,93,0.18),rgba(0,0,0,0.9)_62%)] px-8 text-center">
-                    <audio
-                      key={activeMedia.id}
-                      ref={audioCallbackRef}
-                      src={activeMedia.src}
-                      preload="metadata"
-                      {...mediaEventProps}
-                    />
                     <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-[24px] border border-[#f3a05d]/28 bg-white/6 text-2xl font-semibold text-[#f3a05d]">
                       A
                     </div>

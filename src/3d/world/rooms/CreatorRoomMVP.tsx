@@ -1,5 +1,5 @@
-import { useState, useRef, Suspense, useEffect, useMemo } from 'react';
-import { Html, useTexture, useGLTF } from '@react-three/drei';
+import { useState, useRef, Suspense, useEffect, useMemo, useCallback } from 'react';
+import { Html, useTexture, useGLTF, useAnimations } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { EditingTable } from '../../modules/furniture/EditingTable';
@@ -90,7 +90,9 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat,
         normalMap={maps[1]} 
         roughnessMap={maps[2]} 
         metalnessMap={maps[3]} 
-        color="#888888" // darken slightly to fit the dark studio vibe
+        color="#a0a0a0" // Brighter so grooves are more visible
+        normalScale={new THREE.Vector2(3, 3)} // Much stronger normal map for deep grooves
+        roughness={0.7}
       />
     </mesh>
   );
@@ -124,7 +126,10 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
         roughnessMap={maps[2]} 
         metalnessMap={maps[3]} 
         aoMap={maps[4]}
-        color="#555555"
+        color="#999999" // Brighter base color
+        normalScale={new THREE.Vector2(2.5, 2.5)} // Stronger normal map to pop the diamond plate
+        roughness={0.65} // Let it shine a bit more
+        metalness={0.75} // Metallic feel
       />
     </mesh>
   );
@@ -216,15 +221,35 @@ function createSoftFrameTexture({ color, strength, bottomFactor = 0.35, shadow =
   return texture;
 }
 
-function Thr3StyleWallArt({ url, ...props }: { url: string } & SceneObjectProps) {
+function Thr3StyleWallArt({ url, offsetX = 0, offsetY = 0, repeatX = 1, repeatY = 1, ...props }: { url: string, offsetX?: number, offsetY?: number, repeatX?: number, repeatY?: number } & SceneObjectProps) {
   const texture = useTexture(url) as THREE.Texture;
+
+  // Apply an offset to perfectly center the logo
+  useMemo(() => {
+    if (url.includes('logo3s.jpeg')) {
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      // offset.x: negative moves image right, positive moves image left
+      texture.offset.set(offsetX, offsetY); 
+      texture.repeat.set(repeatX, repeatY); 
+      texture.needsUpdate = true;
+    }
+  }, [texture, url, offsetX, offsetY, repeatX, repeatY]);
+
+  const logoAspect = useMemo(() => {
+    const image = texture.image as { width?: number; height?: number } | undefined;
+    if (image?.width && image?.height) {
+      return image.width / image.height;
+    }
+    return 1344 / 768;
+  }, [texture]);
   const glowTexture = useMemo(() => createSoftFrameTexture({ color: [255, 170, 96], strength: 0.81, bottomFactor: 0.065 }), []);
   const shadowTexture = useMemo(() => createSoftFrameTexture({ color: [0, 0, 0], strength: 0.58, bottomFactor: 0.72, shadow: true }), []);
-  const logoAspect = 1344 / 768;
-  const artworkWidth = 2.7;
   const artworkHeight = 1.45;
-  const logoHeight = 0.92;
+  const padding = 0.18; // Uniform padding (passe-partout)
+  const logoHeight = artworkHeight - padding;
   const logoWidth = logoHeight * logoAspect;
+  const artworkWidth = logoWidth + padding;
 
   return (
     <group {...props}>
@@ -294,6 +319,102 @@ function Thr3StyleWallArt({ url, ...props }: { url: string } & SceneObjectProps)
   );
 }
 
+function StudioDisplayWall({
+  videoTexture,
+  fallbackVisible,
+}: {
+  videoTexture: THREE.VideoTexture | null;
+  fallbackVisible: boolean;
+}) {
+  const screenWidth = 3.2;
+  const screenHeight = 1.8;
+
+  return (
+    <group>
+      {/* 1. Main outer wood casing (backplane) */}
+      <mesh position={[0, 0, -0.08]} castShadow receiveShadow>
+        <boxGeometry args={[3.98, 2.44, 0.10]} />
+        <meshStandardMaterial color="#4f301b" roughness={0.78} metalness={0.06} />
+      </mesh>
+
+      {/* 2. Inner dark wood casing */}
+      <mesh position={[0, 0.03, -0.04]} castShadow receiveShadow>
+        <boxGeometry args={[3.72, 2.16, 0.06]} />
+        <meshStandardMaterial color="#1c130e" roughness={0.84} metalness={0.08} />
+      </mesh>
+
+      {/* 3. The black panel behind the screen */}
+      <mesh position={[0, 0.015, -0.01]} castShadow receiveShadow>
+        <boxGeometry args={[3.46, 1.98, 0.04]} />
+        <meshStandardMaterial color="#050505" roughness={0.9} metalness={0.08} />
+      </mesh>
+
+      {/* 4. Raised front bezel (top/bottom/sides) defining the screen cavity */}
+      {/* Top Bezel */}
+      <mesh position={[0, 0.95, 0.025]} castShadow>
+        <boxGeometry args={[3.42, 0.06, 0.05]} />
+        <meshStandardMaterial color="#0b0b0b" roughness={0.62} metalness={0.22} />
+      </mesh>
+      {/* Bottom Bezel */}
+      <mesh position={[0, -0.95, 0.025]} castShadow>
+        <boxGeometry args={[3.42, 0.06, 0.05]} />
+        <meshStandardMaterial color="#0b0b0b" roughness={0.62} metalness={0.22} />
+      </mesh>
+      {/* Left Bezel */}
+      <mesh position={[-1.71, 0, 0.025]} castShadow>
+        <boxGeometry args={[0.06, 1.94, 0.05]} />
+        <meshStandardMaterial color="#0b0b0b" roughness={0.62} metalness={0.22} />
+      </mesh>
+      {/* Right Bezel */}
+      <mesh position={[1.71, 0, 0.025]} castShadow>
+        <boxGeometry args={[0.06, 1.94, 0.05]} />
+        <meshStandardMaterial color="#0b0b0b" roughness={0.62} metalness={0.22} />
+      </mesh>
+
+      {/* Glowing inner edge for the bezel */}
+      <mesh position={[0, 0.92, 0.015]}>
+        <boxGeometry args={[3.22, 0.018, 0.02]} />
+        <meshBasicMaterial color="#d49b62" transparent opacity={0.16} />
+      </mesh>
+      <mesh position={[-1.61, 0, 0.015]}>
+        <boxGeometry args={[0.018, 1.82, 0.02]} />
+        <meshBasicMaterial color="#d49b62" transparent opacity={0.08} />
+      </mesh>
+      <mesh position={[1.61, 0, 0.015]}>
+        <boxGeometry args={[0.018, 1.82, 0.02]} />
+        <meshBasicMaterial color="#d49b62" transparent opacity={0.12} />
+      </mesh>
+
+      {/* Bottom shadow lip */}
+      <mesh position={[0, -1.08, 0.01]} receiveShadow>
+        <boxGeometry args={[2.86, 0.1, 0.03]} />
+        <meshStandardMaterial color="#24160f" roughness={0.52} metalness={0.14} />
+      </mesh>
+
+      {/* 5. The Video Display Surface (Front-most plain, properly placed above the black panel) */}
+      <mesh position={[0, 0, 0.011]} renderOrder={20}>
+        <planeGeometry args={[screenWidth, screenHeight]} />
+        <meshBasicMaterial
+          map={videoTexture || null}
+          color={videoTexture ? "#ffffff" : "#0d0d0d"}
+          side={THREE.DoubleSide}
+          toneMapped={false}
+        />
+      </mesh>
+
+      {/* 6. Fallback Branding Layer */}
+      {fallbackVisible && (
+        <Thr3StyleScreenBranding
+          screenUrl="/textures/branding/logo3s.jpeg"
+          panelHeight={screenHeight}
+          showBase={false}
+          position={[0, 0, 0.012]}
+        />
+      )}
+    </group>
+  );
+}
+
 function Thr3StyleScreenBranding({ screenUrl, panelHeight = 0.92, showBase = true, ...props }: { screenUrl: string, panelHeight?: number, showBase?: boolean } & SceneObjectProps) {
   const sourceTexture = useTexture(screenUrl) as THREE.Texture;
   const screenTexture = useMemo(() => {
@@ -330,7 +451,10 @@ function Thr3StyleScreenBranding({ screenUrl, panelHeight = 0.92, showBase = tru
 }
 
 function AutoCenteredModel({ url, ...props }: { url: string } & SceneObjectProps) {
-  const { scene } = useGLTF(url) as { scene: THREE.Group };
+  const { scene, animations } = useGLTF(url) as { scene: THREE.Group, animations: THREE.AnimationClip[] };
+  const groupRef = useRef<THREE.Group>(null);
+  const { actions } = useAnimations(animations, groupRef);
+
   const processed = useMemo(() => {
     const clone = scene.clone(true);
 
@@ -356,11 +480,6 @@ function AutoCenteredModel({ url, ...props }: { url: string } & SceneObjectProps
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
 
-    console.log(`[AutoCenteredModel] ${url}`, {
-      size: size.toArray().map(v => v.toFixed(3)),
-      center: center.toArray().map(v => v.toFixed(3)),
-    });
-
     // If bounding box is valid, center it
     if (size.length() > 0.0001) {
       clone.position.sub(center);
@@ -369,7 +488,44 @@ function AutoCenteredModel({ url, ...props }: { url: string } & SceneObjectProps
     return clone;
   }, [scene, url]);
 
-  return <primitive object={processed} {...props} />;
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleInteract = useCallback((e: any) => {
+    e.stopPropagation();
+    if (actions) {
+      setIsOpen(prev => {
+        const nextState = !prev;
+        Object.values(actions).forEach(action => {
+          if (action) {
+            action.paused = false;
+            action.timeScale = nextState ? 1 : -1;
+            action.setLoop(THREE.LoopOnce, 1);
+            action.clampWhenFinished = true;
+            
+            // If opening, ensure we play from start
+            if (nextState) {
+              if (action.time === 0 || action.time >= action.getClip().duration) {
+                action.time = 0;
+              }
+            } else {
+              // If closing, ensure we play from the end
+              if (action.time === 0 || action.time >= action.getClip().duration) {
+                action.time = action.getClip().duration;
+              }
+            }
+            action.play();
+          }
+        });
+        return nextState;
+      });
+    }
+  }, [actions]);
+
+  return (
+    <group ref={groupRef} onClick={handleInteract} {...props}>
+      <primitive object={processed} />
+    </group>
+  );
 }
 
 function SofaRaw() {
@@ -412,65 +568,41 @@ function SofaRaw() {
 
 export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onExit }: { position?: [number, number, number], rotation?: [number, number, number], onExit?: () => void }) {
   const spotLightTarget = useMemo(() => new THREE.Object3D(), []);
-  // Imperative refs – never stored in state to avoid re-render cycles
-  const screenMatRef = useRef<THREE.MeshBasicMaterial>(null);
-  const videoTexRef = useRef<THREE.VideoTexture | null>(null);
 
-  const { openHud, masterVideoRef } = useHudStore();
+  const { openHud } = useHudStore();
+  const masterVideoRef = useHudStore((s) => s.masterVideoRef);
   const [laptopHovered, setLaptopHovered] = useState(false);
 
-  // Keep a plain ref so useFrame closure always reads the latest value
-  const videoElemRef = useRef<HTMLVideoElement | null>(null);
-  const textureAssigned = useRef(false);
+  // diagnostic: confirm re-renders happen when masterVideoRef changes
+  // console.log('[MVP] render – masterVideoRef:', !!masterVideoRef);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 5. Native Video Texture Pipeline with Demand-Frameloop Support
+  // ══════════════════════════════════════════════════════════════════════════
+  const [videoTex, setVideoTex] = useState<THREE.VideoTexture | null>(null);
 
   useEffect(() => {
-    const previousTexture = videoTexRef.current;
-    const screenMaterial = screenMatRef.current;
+    const video = masterVideoRef || document.querySelector('video');
+    if (!video) return;
 
-    if (previousTexture) {
-      if (screenMaterial?.map === previousTexture) {
-        screenMaterial.map = null;
-      }
-      previousTexture.dispose();
-    }
+    const tex = new THREE.VideoTexture(video);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.format = THREE.RGBAFormat;
+    setVideoTex(tex);
 
-    videoElemRef.current = masterVideoRef;
-    videoTexRef.current = null;
-    textureAssigned.current = false;
-
-    if (screenMaterial) {
-      screenMaterial.map = null;
-      screenMaterial.color.set(masterVideoRef ? '#111111' : '#333333');
-      screenMaterial.transparent = true;
-      screenMaterial.opacity = masterVideoRef ? 0.35 : 0.1;
-      screenMaterial.needsUpdate = true;
-    }
+    return () => tex.dispose();
   }, [masterVideoRef]);
 
-  // Every frame: (a) assign texture once both refs are ready; (b) tick needsUpdate
-  useFrame(() => {
-    const vid  = videoElemRef.current;
-    const mat  = screenMatRef.current;
-
-    // One-time assignment – waits until R3F has populated screenMatRef
-    if (!textureAssigned.current && vid && mat) {
-      const tex = new THREE.VideoTexture(vid);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.minFilter  = THREE.LinearFilter;
-      tex.magFilter  = THREE.LinearFilter;
-      tex.format     = THREE.RGBAFormat;
-      videoTexRef.current = tex;
-      mat.map          = tex;
-      mat.color.set('#ffffff');
-      mat.opacity      = 1;
-      mat.transparent  = false;
-      mat.needsUpdate  = true;
-      textureAssigned.current = true;
-    }
-
-    // Every frame: push new decoded frame to GPU
-    if (videoTexRef.current) {
-      videoTexRef.current.needsUpdate = true;
+  useFrame(({ invalidate }) => {
+    if (videoTex) {
+      videoTex.needsUpdate = true;
+      const vid = masterVideoRef || document.querySelector('video');
+      // If the video is actively playing, force the scene to rerender
+      if (vid && !vid.paused && vid.readyState >= 2) {
+        invalidate(); 
+      }
     }
   });
 
@@ -515,13 +647,13 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
   const decorControls = useControls('Room Decor', {
     chairPosX: { value: 3.8, min: -10, max: 10, step: 0.1 },
-    chairPosY: { value: 0.0, min: -5, max: 5, step: 0.1 },
+    chairPosY: { value: 0.8, min: -5, max: 5, step: 0.1 },
     chairPosZ: { value: -2.6, min: -10, max: 10, step: 0.1 },
     chairRotY: { value: -78, min: -180, max: 180, step: 1 },
     chairScale: { value: 0.5, min: 0.1, max: 5, step: 0.05 },
 
     organizerPosX: { value: 4.85, min: -10, max: 10, step: 0.05 },
-    organizerPosY: { value: 1.47, min: -5, max: 5, step: 0.01 },
+    organizerPosY: { value: 1.55, min: -5, max: 5, step: 0.01 },
     organizerPosZ: { value: -4.4, min: -10, max: 10, step: 0.05 },
     organizerRotY: { value: 0, min: -180, max: 180, step: 1 },
     organizerScale: { value: 1.96, min: 0.01, max: 2, step: 0.01 },
@@ -533,7 +665,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     buttonScale: { value: 0.7, min: 0.1, max: 10, step: 0.1 },
 
     laptopPosX: { value: 6.0, min: -10, max: 10, step: 0.1 },
-    laptopPosY: { value: 1.10, min: -5, max: 5, step: 0.05 },
+    laptopPosY: { value: 1.4, min: -5, max: 5, step: 0.05 },
     laptopPosZ: { value: -2.0, min: -10, max: 10, step: 0.1 },
     laptopRotY: { value: -157, min: -180, max: 180, step: 1 },
     laptopScale: { value: 3.3, min: 0.01, max: 50, step: 0.1 },
@@ -544,8 +676,8 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     sofaRotY: { value: -180, min: -180, max: 180, step: 1 },
     sofaScale: { value: 0.72, min: 0.01, max: 5, step: 0.01 },
 
-    rtvPosX: { value: -5.9, min: -12, max: 12, step: 0.1 },
-    rtvPosY: { value: 0.0, min: -5, max: 5, step: 0.05 },
+    rtvPosX: { value: -6.0, min: -12, max: 12, step: 0.1 },
+    rtvPosY: { value: 0.60, min: -5, max: 5, step: 0.05 },
     rtvPosZ: { value: 3.2, min: -12, max: 12, step: 0.1 },
     rtvRotY: { value: 90, min: -180, max: 180, step: 1 },
     rtvScale: { value: 2.5, min: 0.01, max: 10, step: 0.1 },
@@ -558,12 +690,11 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     logoScale: { value: 1.4, min: 0.1, max: 5, step: 0.1 },
   });
 
-  const brandTestControls = useControls('THR3STYLE Screen State', {
-    posX: { value: 6.72, min: -10, max: 10, step: 0.01 },
-    posY: { value: 2.25, min: 0, max: 10, step: 0.01 },
-    posZ: { value: 0.6, min: -10, max: 10, step: 0.01 },
-    rotY: { value: -90, min: -180, max: 180, step: 1 },
-    scale: { value: 1.2, min: 0.1, max: 5, step: 0.05 },
+  const artControls = useControls('Wall Artwork', {
+    offsetX: { value: 0.13, min: -0.5, max: 0.5, step: 0.001 },
+    offsetY: { value: 0.10, min: -0.5, max: 0.5, step: 0.001 },
+    repeatX: { value: 0.74, min: 0.5, max: 2, step: 0.001 },
+    repeatY: { value: 0.80, min: 0.5, max: 2, step: 0.001 },
   });
 
   const roomBackZ = -6;
@@ -579,18 +710,43 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
   return (
     <group position={new THREE.Vector3(...position)} rotation={new THREE.Euler(...rotation)}>
-      <ambientLight intensity={0.15} color="#ffeedd" />
-      <primitive object={spotLightTarget} position={[lightControls.targetPosX, lightControls.targetPosY, lightControls.targetPosZ]} />
+      <ambientLight intensity={0.05} color="#ffeedd" />
+      
+      {/* Ceiling LED strip simulation (warm glow) */}
+      <pointLight position={[0, 4.9, 0]} intensity={1.5} color="#ffa95c" distance={10} decay={1.5} />
+      <pointLight position={[-4, 4.9, -4]} intensity={1.2} color="#ffa95c" distance={8} decay={1.5} />
+      <pointLight position={[4, 4.9, 4]} intensity={1.2} color="#ffa95c" distance={8} decay={1.5} />
+
+      {/* Desk SpotLight (Soft & Focused) */}
       <spotLight 
-        position={[lightControls.lightPosX, lightControls.lightPosY, lightControls.lightPosZ]} 
-        target={spotLightTarget}
-        intensity={60} 
-        angle={0.6} 
+        position={[3.5, 4.5, -3.4]} 
+        intensity={40} 
+        angle={0.8} 
         penumbra={0.8} 
-        color="#ff8c42" 
-        distance={10} 
+        decay={1.5}
+        color="#ffecd6" 
+        distance={9} 
         castShadow 
-      />
+      >
+        <object3D position={[3.5, 0, -3.4]} attach="target" />
+      </spotLight>
+
+      {/* RTV Cabinet SpotLight (Soft) */}
+      <spotLight 
+        position={[-5.0, 4.0, 3.2]} 
+        intensity={35} 
+        angle={0.9} 
+        penumbra={1} 
+        decay={1.5}
+        color="#ffe4c4" 
+        distance={8} 
+        castShadow 
+      >
+        <object3D position={[-6.0, 0.6, 3.2]} attach="target" />
+      </spotLight>
+
+      {/* Additional soft fill from the front of the room */}
+      <directionalLight position={[0, 3, 5]} intensity={0.2} color="#ffffff" />
 
       <Suspense fallback={null}>
         {/* Floor - Diamond Plate */}
@@ -713,17 +869,13 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
         {/* Framed 3S artwork on the brown identity wall */}
         <Thr3StyleWallArt
-          url="/textures/logos/3S.png"
+          url="/textures/branding/logo3s.jpeg"
           position={[logoControls.logoPosX, logoControls.logoPosY, logoControls.logoPosZ]}
           scale={[logoControls.logoScale, logoControls.logoScale, 1]}
-        />
-
-        {/* THR3STYLE Screen Branding: cleaner digital usage mode for room displays. */}
-        <Thr3StyleScreenBranding
-          screenUrl="/textures/branding/logo3s.jpeg"
-          position={[brandTestControls.posX, brandTestControls.posY, brandTestControls.posZ]}
-          rotation={[0, THREE.MathUtils.degToRad(brandTestControls.rotY), 0]}
-          scale={brandTestControls.scale}
+          offsetX={artControls.offsetX}
+          offsetY={artControls.offsetY}
+          repeatX={artControls.repeatX}
+          repeatY={artControls.repeatY}
         />
 
         {/* iPad Pro on table (replacing laptop) */}
@@ -814,26 +966,11 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
            ]}
            scale={[hudControls.hudScale, hudControls.hudScale, hudControls.hudScale]}
         >
-           <pointLight position={[0, 0, 0.2]} intensity={2} color="#ff8c42" distance={3} decay={2} />
-           {/* Wall screen - pure video display, no interaction */}
-           <mesh>
-             <planeGeometry args={[3.2, 1.8]} />
-             <meshBasicMaterial
-               ref={screenMatRef}
-               color="#333333"
-               transparent
-               opacity={0.1}
-               side={THREE.DoubleSide}
-             />
-           </mesh>
-           {!masterVideoRef && (
-             <Thr3StyleScreenBranding
-               screenUrl="/textures/branding/logo3s.jpeg"
-               panelHeight={1.8}
-               showBase={false}
-               position={[0, 0, 0.002]}
-             />
-           )}
+           <pointLight position={[0, 0, 0.34]} intensity={2.4} color="#ff8c42" distance={3.6} decay={2} />
+           <StudioDisplayWall
+             videoTexture={videoTex}
+             fallbackVisible={!masterVideoRef}
+           />
         </group>
 
         {/* ── LAPTOP INTERACTIVE ZONE – otwiera HUD panel ── */}

@@ -37,13 +37,19 @@ export function BaseNavigationControls() {
   const controlsRef = useRef<PointerLockControlsImpl | null>(null);
   const direction = useRef(new THREE.Vector3());
   const moveState = useRef({ forward: false, backward: false, left: false, right: false });
+  const pointerLockCooldownUntil = useRef(0);
   const [isMobile, setIsMobile] = useState(false);
   const { camera } = useThree();
   const isHudOpen = useHudStore(s => s.isOpen);
 
+  const startPointerLockCooldown = () => {
+    pointerLockCooldownUntil.current = Date.now() + 450;
+  };
+
   // When HUD opens, exit pointer lock so user can interact with the overlay
   useEffect(() => {
     if (isHudOpen && document.pointerLockElement) {
+      startPointerLockCooldown();
       document.exitPointerLock();
     }
   }, [isHudOpen]);
@@ -68,8 +74,15 @@ export function BaseNavigationControls() {
       }
     };
 
+    const swallowImmediateRelock = (event: MouseEvent) => {
+      if (Date.now() >= pointerLockCooldownUntil.current) return;
+      event.stopImmediatePropagation();
+      event.preventDefault();
+    };
+
     window.addEventListener('unhandledrejection', onUnhandledRejection);
     window.addEventListener('error', onWindowError);
+    document.addEventListener('click', swallowImmediateRelock, true);
 
     // Suppress InvalidStateError caused by Leva/use-gesture on mobile touch devices
     const originalSetPointerCapture = Element.prototype.setPointerCapture;
@@ -99,6 +112,7 @@ export function BaseNavigationControls() {
       console.error = originalError;
       window.removeEventListener('unhandledrejection', onUnhandledRejection);
       window.removeEventListener('error', onWindowError);
+      document.removeEventListener('click', swallowImmediateRelock, true);
       window.removeEventListener('resize', checkMobile);
       Element.prototype.setPointerCapture = originalSetPointerCapture;
       Element.prototype.releasePointerCapture = originalReleasePointerCapture;
@@ -176,6 +190,7 @@ export function BaseNavigationControls() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // INTERACTION MODE: exit pointer lock to interact with UI when pressing 'E'
       if (document.pointerLockElement && (e.code === 'KeyE' || e.key === 'e')) {
+        startPointerLockCooldown();
         document.exitPointerLock();
       }
       
@@ -249,5 +264,4 @@ export function BaseNavigationControls() {
 
   return <PointerLockControls ref={controlsRef} />;
 }
-
 

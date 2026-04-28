@@ -86,7 +86,7 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
     fillIntensity: { value: 3, min: 0, max: 80, step: 1, label: 'Fill (front)' },
     accentIntensity: { value: 14, min: 0, max: 40, step: 1, label: 'Accent (mic rim)' },
     ceilingIntensity: { value: 15, min: 0, max: 40, step: 1, label: 'Ceiling bounce' },
-    ambientIntensity: { value: 3.30, min: 0, max: 5, step: 0.05, label: 'Ambient' },
+    ambientIntensity: { value: 0.2, min: 0, max: 5, step: 0.05, label: 'Ambient' },
     lightColor: { value: '#ffffff', label: 'Light color' },
   });
 
