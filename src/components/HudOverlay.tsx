@@ -90,7 +90,6 @@ export function HudOverlay() {
   const mediaElementRef = useRef<HTMLMediaElement | null>(null);
   const masterVideoElementRef = useRef<HTMLVideoElement | null>(null);
   const masterAudioElementRef = useRef<HTMLAudioElement | null>(null);
-  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -239,49 +238,30 @@ export function HudOverlay() {
     onEnded: () => setIsPlaying(false),
   };
 
-  useEffect(() => {
-    const preview = previewVideoRef.current;
-    const master = masterVideoElementRef.current;
-
-    if (!preview || !master || activeMedia?.kind !== 'video' || !isDisplayableVideo(activeMedia)) {
-      return;
-    }
-
-    if (Math.abs(preview.currentTime - master.currentTime) > 0.35) {
-      preview.currentTime = master.currentTime;
-    }
-
-    if (isPlaying) {
-      void preview.play().catch(() => {});
-      return;
-    }
-
-    preview.pause();
-  }, [activeMedia, currentTime, isPlaying]);
-
   return (
     <>
-      <div 
-        style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: 1, height: 1, pointerEvents: 'none', zIndex: -9999, opacity: 0.0001, overflow: 'hidden' }}
-        suppressHydrationWarning
-      >
-        <video
-          ref={masterVideoElementRef}
-          src={activeMedia?.kind === 'video' ? activeMedia.src : undefined}
-          playsInline
-          autoPlay
-          preload="auto"
-          loop
-          className="w-full h-full"
-          {...masterMediaEventProps}
-        />
-        <audio
-          ref={masterAudioElementRef}
-          src={activeMedia?.kind === 'audio' ? activeMedia.src : undefined}
-          preload="auto"
-          {...masterMediaEventProps}
-        />
-      </div>
+      {mounted && (
+        <div 
+          style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: 1, height: 1, pointerEvents: 'none', zIndex: -9999, opacity: 0.0001, overflow: 'hidden' }}
+        >
+          <video
+            ref={masterVideoElementRef}
+            src={activeMedia?.kind === 'video' ? activeMedia.src : undefined}
+            playsInline
+            autoPlay
+            preload="auto"
+            loop
+            className="w-full h-full"
+            {...masterMediaEventProps}
+          />
+          <audio
+            ref={masterAudioElementRef}
+            src={activeMedia?.kind === 'audio' ? activeMedia.src : undefined}
+            preload="auto"
+            {...masterMediaEventProps}
+          />
+        </div>
+      )}
 
       <div
         className={`fixed inset-0 z-50 bg-[radial-gradient(circle_at_top,rgba(243,160,93,0.16),rgba(0,0,0,0.82)_34%,rgba(0,0,0,0.92)_100%)] backdrop-blur-xl transition-opacity duration-300 ${visibilityClass}`}
@@ -329,7 +309,7 @@ export function HudOverlay() {
           setIsPlaying={setIsPlaying}
           mounted={mounted}
           isMobile={isMobile}
-          previewVideoRef={previewVideoRef}
+          masterVideoElementRef={masterVideoElementRef}
         />
       </div>
     </div>
@@ -353,7 +333,7 @@ interface HudContentProps {
   setIsPlaying: (playing: boolean) => void;
   mounted: boolean;
   isMobile: boolean;
-  previewVideoRef: RefObject<HTMLVideoElement | null>;
+  masterVideoElementRef: RefObject<HTMLVideoElement | null>;
 }
 
 function HudContent({
@@ -369,7 +349,7 @@ function HudContent({
   selectAndPlayMedia,
   mounted,
   isMobile,
-  previewVideoRef,
+  masterVideoElementRef,
 }: HudContentProps) {
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const videoItems = useMemo(() => mediaItems.filter((item) => item.kind === 'video'), [mediaItems]);
@@ -425,12 +405,13 @@ function HudContent({
         })}
       </div>
 
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="h-full snap-y snap-mandatory overflow-y-auto overscroll-y-contain pr-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-      >
-        <PanelViewport>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="h-full snap-y snap-mandatory overflow-y-auto overscroll-y-contain pr-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <PanelViewport>
           <PanelFrame
             eyebrow="Panel 01"
             title="Now Playing"
@@ -438,7 +419,7 @@ function HudContent({
             footer={`Swipe for more • ${activePanelIndex + 1}/${panelLabels.length}`}
           >
             <div className="flex min-h-0 flex-1 flex-col gap-4">
-              <div className={`${panelCardClass} group relative aspect-[4/5] min-h-[280px] overflow-hidden`}>
+              <div className={`${panelCardClass} group relative min-h-0 flex-1 overflow-hidden`}>
                 <div className="absolute inset-0 rounded-[26px] border border-white/10 pointer-events-none" />
                 {mounted && activeMedia?.kind === 'video' && !isDisplayableVideo(activeMedia) ? (
                   <div className="flex h-full flex-col items-center justify-center bg-[radial-gradient(circle_at_center,rgba(243,160,93,0.14),rgba(0,0,0,0.92)_64%)] px-8 text-center">
@@ -452,17 +433,7 @@ function HudContent({
                     </p>
                   </div>
                 ) : mounted && activeMedia?.kind === 'video' ? (
-                  <video
-                    key={activeMedia.id}
-                    id="room-master-video"
-                    ref={previewVideoRef}
-                    src={activeMedia.src}
-                    playsInline
-                    preload="metadata"
-                    loop
-                    muted
-                    className="h-full w-full object-cover"
-                  />
+                  <VideoCanvasPreview masterVideoRef={masterVideoElementRef} activeMediaId={activeMedia.id} />
                 ) : mounted && activeMedia?.kind === 'audio' ? (
                   <div className="flex h-full flex-col items-center justify-center bg-[radial-gradient(circle_at_center,rgba(243,160,93,0.18),rgba(0,0,0,0.9)_62%)] px-8 text-center">
                     <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-[24px] border border-[#f3a05d]/28 bg-white/6 text-2xl font-semibold text-[#f3a05d]">
@@ -697,10 +668,11 @@ function HudContent({
             </div>
           </PanelFrame>
         </PanelViewport>
+        </div>
 
         {isMobile ? (
-          <div className="sticky bottom-3 mt-3 flex justify-center pb-1">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[rgba(8,9,11,0.72)] px-3 py-2 backdrop-blur-xl">
+          <div className="absolute bottom-3 left-0 right-0 flex justify-center pointer-events-none">
+            <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-[rgba(8,9,11,0.72)] px-3 py-2 backdrop-blur-xl">
               {panelLabels.map((label, index) => (
                 <button
                   key={label}
@@ -732,7 +704,7 @@ interface PanelFrameProps {
 
 function PanelFrame({ eyebrow, title, subtitle, footer, children }: PanelFrameProps) {
   return (
-    <div className={`${panelShellClass} flex h-full flex-col p-5`}>
+    <div className={`${panelShellClass} flex h-full flex-col p-5 pb-16 md:pb-5`}>
       <div className="pointer-events-none absolute inset-0 rounded-[32px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_18%,transparent_80%,rgba(243,160,93,0.04))]" />
       <div className="relative mb-4 shrink-0">
         <p className="text-[10px] uppercase tracking-[0.3em] text-[#f3a05d]/76">{eyebrow}</p>
@@ -788,6 +760,27 @@ function QueueRow({
       </span>
     </button>
   );
+}
+
+function VideoCanvasPreview({ masterVideoRef, activeMediaId }: { masterVideoRef: RefObject<HTMLVideoElement | null>; activeMediaId: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let animationFrameId: number;
+    const renderLoop = () => {
+      animationFrameId = requestAnimationFrame(renderLoop);
+      if (masterVideoRef.current && canvasRef.current && masterVideoRef.current.readyState >= 2) {
+        const ctx = canvasRef.current.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(masterVideoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+        }
+      }
+    };
+    renderLoop();
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [masterVideoRef, activeMediaId]);
+
+  return <canvas ref={canvasRef} width={640} height={360} className="h-full w-full object-cover" />;
 }
 
 interface LibrarySectionProps {

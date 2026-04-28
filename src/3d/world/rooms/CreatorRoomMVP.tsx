@@ -700,10 +700,10 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   });
 
   const artControls = useControls('Wall Artwork', {
-    offsetX: { value: 0.13, min: -0.5, max: 0.5, step: 0.001 },
-    offsetY: { value: 0.10, min: -0.5, max: 0.5, step: 0.001 },
-    repeatX: { value: 0.74, min: 0.5, max: 2, step: 0.001 },
-    repeatY: { value: 0.80, min: 0.5, max: 2, step: 0.001 },
+    offsetX: { value: 0, min: -0.5, max: 0.5, step: 0.001 },
+    offsetY: { value: 0, min: -0.5, max: 0.5, step: 0.001 },
+    repeatX: { value: 1, min: 0.5, max: 2, step: 0.001 },
+    repeatY: { value: 1, min: 0.5, max: 2, step: 0.001 },
   });
 
   const roomBackZ = -6;
