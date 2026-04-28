@@ -1,9 +1,15 @@
 "use client";
 
 import { AcousticDarkMaterial, ConcreteFloorMaterial, WoodPanelMaterial, AcousticFoamMaterial, SpeakerGrilleMaterial } from '../../core/AcousticDarkMaterial';
-import { Html } from '@react-three/drei';
+import { Html, useTexture } from '@react-three/drei';
+import * as THREE from 'three';
 
 export function HubShell() {
+  const woodTexture = useTexture('/textures/Lamele/Veneer/Veneer/Tekstury/LAM_P3_LIGHT_OAK.jpg');
+  woodTexture.wrapS = THREE.RepeatWrapping;
+  woodTexture.wrapT = THREE.RepeatWrapping;
+  woodTexture.repeat.set(4, 2);
+
   return (
     <group>
       {/* Polished Concrete Ground Floor */}
@@ -21,7 +27,7 @@ export function HubShell() {
       {/* Main Back Wall - Base Acoustic */}
       <mesh position={[0, 4, -10]} castShadow receiveShadow>
         <boxGeometry args={[20, 8, 1]} />
-        <primitive object={AcousticFoamMaterial} attach="material" />
+        <meshStandardMaterial map={woodTexture} roughness={0.9} color="#8a7360" />
       </mesh>
       
       {/* Identity Wall Composition (Wood Slats + Emissive Focal Ring) */}
@@ -30,7 +36,7 @@ export function HubShell() {
         {[...Array(12)].map((_, i) => (
           <mesh key={i} position={[-5.5 + i * 1.0, 0, 0]} castShadow receiveShadow>
             <boxGeometry args={[0.4, 8, 0.2]} />
-            <primitive object={WoodPanelMaterial} attach="material" />
+            <meshStandardMaterial map={woodTexture} roughness={0.7} color="#b5947a" />
           </mesh>
         ))}
         {/* Emissive Focal Ring (Branded Identity) */}

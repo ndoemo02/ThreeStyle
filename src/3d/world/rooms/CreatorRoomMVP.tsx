@@ -606,7 +606,6 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
   useFrame(({ invalidate }) => {
     if (videoTex) {
-      videoTex.needsUpdate = true;
       const vid = masterVideoRef || document.querySelector('video');
       // If the video is actively playing, force the scene to rerender
       if (vid && !vid.paused && vid.readyState >= 2) {
@@ -764,31 +763,25 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         {/* Ceiling */}
         <AcousticFoamWall position={[0, 5.1, -0.5]} args={[14.2, 0.2, 15.2]} repeat={[14.2 / 2, 15.2 / 2]} />
 
-        {/* Entrance Area -> Front Wall + RoomDoor */}
+        {/* Entrance Area -> Front Wall + Elevator Hole */}
         <group position={[0, 0, 7]}> {/* Z=7 is the front wall */}
           {/* Front Wall - Left of door */}
           <BrickWall 
-            position={[-4.125, 2.5, 0]} 
-            args={[5.75, 5.2, 0.5]} 
+            position={[-4.15, 2.5, 0]} 
+            args={[5.7, 5.2, 0.5]} 
           />
           {/* Front Wall - Right of door */}
           <BrickWall 
-            position={[4.125, 2.5, 0]} 
-            args={[5.75, 5.2, 0.5]} 
+            position={[4.15, 2.5, 0]} 
+            args={[5.7, 5.2, 0.5]} 
           />
           {/* Front Wall - Above door */}
           <BrickWall 
             position={[0, 4.6, 0]} 
-            args={[2.5, 1.0, 0.5]} 
+            args={[2.6, 1.0, 0.5]} 
           />
           
-          <RoomDoor 
-            position={[0, 0, -0.25]} // slightly inside the room to be flush
-            rotation={[0, Math.PI, 0]} 
-            label="EXIT" 
-            status="active" 
-            onEnter={() => onExit?.()} 
-          />
+          {/* RoomDoor removed - we use the physical ElevatorA now */}
           <pointLight position={[0, 2.5, -2]} intensity={5} color="#ff8c42" distance={6} decay={2} />
         </group>
 

@@ -6,12 +6,12 @@ import { RoomDoor } from '../../modules/doors/RoomDoor';
 import { ScaleReferenceDummy } from '../../modules/debug/ScaleReferenceDummy';
 
 const DOORS = [
-  { id: 'creator-room-mvp', label: 'STUDIO A', status: 'active', users: 12, pos: [-14, 0, 3.9], rot: [0, Math.PI, 0] },
+  // Winda A jest na pozycji: id: 'creator-room-mvp', pos: [-14, 0, 3.9]
   { id: 'room-2', label: 'LOFI BEATS', status: 'active', users: 8, pos: [-19, 0, 3.9], rot: [0, Math.PI, 0] },
   { id: 'room-3', label: 'PODCAST 1', status: 'locked', users: 0, pos: [-14, 0, -3.9], rot: [0, 0, 0] },
   { id: 'room-4', label: 'PRIVATE', status: 'offline', users: 0, pos: [-19, 0, -3.9], rot: [0, 0, 0] },
   
-  { id: 'room-5', label: 'SYNTH CAVE', status: 'active', users: 42, pos: [-29, 0, 3.9], rot: [0, Math.PI, 0] },
+  // Winda B bedzie na pozycji: id: 'room-5', pos: [-29, 0, 3.9]
   { id: 'room-6', label: 'CHILLOUT', status: 'active', users: 5, pos: [-34, 0, 3.9], rot: [0, Math.PI, 0] },
   { id: 'room-7', label: 'MIX ROOM', status: 'locked', users: 1, pos: [-29, 0, -3.9], rot: [0, 0, 0] },
   { id: 'room-8', label: 'ARCHIVE', status: 'offline', users: 0, pos: [-34, 0, -3.9], rot: [0, 0, 0] },
@@ -38,8 +38,31 @@ export function LeftWingCorridor({ onEnterRoom }: { onEnterRoom: (id: string) =>
         <boxGeometry args={[30, 6, 0.5]} />
         <primitive object={WoodPanelMaterial} attach="material" />
       </mesh>
-      <mesh position={[-15, 3, 4]} castShadow receiveShadow>
-        <boxGeometry args={[30, 6, 0.5]} />
+      
+      {/* Prawa ściana (od strony pokojów) podzielona na 3 części, z otworami na Windy A (X = -14) i B (X = -30) */}
+      {/* Odcinek 1: od X=0 do X=-12.7 (Długość 12.7, środek -6.35) */}
+      <mesh position={[-6.35, 3, 4]} castShadow receiveShadow>
+        <boxGeometry args={[12.7, 6, 0.5]} />
+        <primitive object={WoodPanelMaterial} attach="material" />
+      </mesh>
+      {/* Odcinek 2: od X=-15.3 do X=-29 (Długość 13.7, środek -22.15) */}
+      <mesh position={[-22.15, 3, 4]} castShadow receiveShadow>
+        <boxGeometry args={[13.7, 6, 0.5]} />
+        <primitive object={WoodPanelMaterial} attach="material" />
+      </mesh>
+      {/* Odcinek 3: od X=-31 do X=-30 (Zastąpmy końcówkę, damy kawałek od X=-31.3 do -35 dla zapasu) */}
+      <mesh position={[-33.15, 3, 4]} castShadow receiveShadow>
+        <boxGeometry args={[3.7, 6, 0.5]} />
+        <primitive object={WoodPanelMaterial} attach="material" />
+      </mesh>
+
+      {/* Ścianki nad otworami wind (Sufit wnęki na windę) */}
+      <mesh position={[-14, 4.5, 4]} castShadow receiveShadow>
+        <boxGeometry args={[2.6, 3, 0.5]} />
+        <primitive object={WoodPanelMaterial} attach="material" />
+      </mesh>
+      <mesh position={[-30, 4.5, 4]} castShadow receiveShadow>
+        <boxGeometry args={[2.6, 3, 0.5]} />
         <primitive object={WoodPanelMaterial} attach="material" />
       </mesh>
 

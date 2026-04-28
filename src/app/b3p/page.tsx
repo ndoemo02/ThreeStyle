@@ -8,6 +8,8 @@ import { CreatorRoomMVP } from '../../3d/world/rooms/CreatorRoomMVP';
 import { BaseNavigationControls } from '../../3d/systems/BaseNavigationControls';
 import { HudOverlay } from '../../components/HudOverlay';
 import { NativeMobileJoystick } from '../../components/ui/NativeMobileJoystick';
+import { useTransitionStore } from '../../store/useTransitionStore';
+import { ElevatorA } from '../../3d/world/elevators/ElevatorA';
 
 type CameraPreset = {
   position: [number, number, number];
@@ -65,27 +67,35 @@ function getHubCameraPreset(width: number, height: number): CameraPreset {
 
 function ZoneController({ activeZone }: { activeZone: string }) {
   const { size } = useThree();
+  const elevatorState = useTransitionStore(s => s.elevatorState);
+  const activeElevator = useTransitionStore(s => s.activeElevator);
+
   const preset = useMemo(() => {
     return activeZone === 'hub'
       ? getHubCameraPreset(size.width, size.height)
       : getRoomCameraPreset(size.width, size.height);
   }, [activeZone, size.width, size.height]);
 
+  const shouldForcePosition = elevatorState === 'idle' && activeElevator === null;
+
   return (
     <PerspectiveCamera
       makeDefault
-      position={preset.position}
+      position={shouldForcePosition ? preset.position : undefined}
       fov={preset.fov}
       onUpdate={(cam) => {
-        cam.lookAt(...preset.target);
-        cam.updateProjectionMatrix();
+        if (shouldForcePosition) {
+          cam.lookAt(...preset.target);
+          cam.updateProjectionMatrix();
+        }
       }}
     />
   );
 }
 
 export default function B3PPage() {
-  const [activeZone, setActiveZone] = useState('hub');
+  const activeZone = useTransitionStore(s => s.activeZone);
+  const setActiveZone = useTransitionStore(s => s.setActiveZone);
 
   return (
     <div className="w-[100vw] h-[100dvh] bg-black fixed inset-0 z-50">
@@ -136,6 +146,9 @@ export default function B3PPage() {
 
         {activeZone === 'hub' && <GroundedHub onEnterRoom={(id) => setActiveZone(id)} />}
         {activeZone !== 'hub' && <CreatorRoomMVP onExit={() => setActiveZone('hub')} />}
+        
+        {/* Windy są niezależne od strefy, żeby mogły działać jako pomost */}
+        <ElevatorA />
 
         <BaseNavigationControls />
       </Canvas>

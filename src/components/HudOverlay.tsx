@@ -364,12 +364,12 @@ function HudContent({
   const jumpToPanel = useCallback((index: number) => {
     const node = scrollRef.current;
     if (!node) return;
-    node.scrollTo({ top: node.clientHeight * index, behavior: 'smooth' });
+    node.scrollTo({ left: node.clientWidth * index, behavior: 'smooth' });
   }, []);
 
   const handleScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
     const node = event.currentTarget;
-    const nextIndex = Math.round(node.scrollTop / Math.max(node.clientHeight, 1));
+    const nextIndex = Math.round(node.scrollLeft / Math.max(node.clientWidth, 1));
     if (nextIndex !== activePanelIndex) {
       setActivePanelIndex(nextIndex);
     }
@@ -409,7 +409,7 @@ function HudContent({
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="h-full snap-y snap-mandatory overflow-y-auto overscroll-y-contain pr-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          className="flex h-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
           <PanelViewport>
           <PanelFrame
@@ -570,7 +570,7 @@ function HudContent({
                     <p className="mt-2 text-base font-medium text-white/88">{queueItems.length > 0 ? `${queueItems.length} items ready` : 'Queue is empty'}</p>
                   </div>
                   <div className="rounded-full border border-white/10 bg-white/6 px-3 py-2 text-[10px] uppercase tracking-[0.24em] text-white/46">
-                    Vertical flow
+                    Swipe flow
                   </div>
                 </div>
               </div>
@@ -627,7 +627,7 @@ function HudContent({
                   ))}
                 </div>
                 <p className="mt-4 text-sm leading-6 text-white/54">
-                  Laptop otwiera teraz pionowy, sekwencyjny media flow. Każdy ekran skupia się na jednej funkcji, więc sterowanie jest czytelne nawet na telefonie.
+                  Laptop otwiera teraz poziomy, sekwencyjny media flow. Każdy ekran skupia się na jednej funkcji, więc sterowanie jest czytelne nawet na telefonie.
                 </p>
               </div>
             </div>
@@ -691,7 +691,7 @@ function HudContent({
 }
 
 function PanelViewport({ children }: { children: React.ReactNode }) {
-  return <section className="flex h-full snap-start flex-col pb-3">{children}</section>;
+  return <section className="flex h-full w-full shrink-0 snap-center flex-col px-1">{children}</section>;
 }
 
 interface PanelFrameProps {

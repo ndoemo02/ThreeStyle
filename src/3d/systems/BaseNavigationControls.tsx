@@ -6,6 +6,7 @@ import { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import type { PointerLockControls as PointerLockControlsImpl } from 'three-stdlib';
 import { useHudStore } from '../../stores/useHudStore';
+import { useTransitionStore } from '../../store/useTransitionStore';
 
 type JoystickVector = {
   x: number;
@@ -41,6 +42,7 @@ export function BaseNavigationControls() {
   const [isMobile, setIsMobile] = useState(false);
   const { camera } = useThree();
   const isHudOpen = useHudStore(s => s.isOpen);
+  const elevatorState = useTransitionStore(s => s.elevatorState);
 
   const startPointerLockCooldown = () => {
     pointerLockCooldownUntil.current = Date.now() + 450;
@@ -219,6 +221,11 @@ export function BaseNavigationControls() {
   }, [isMobile]);
 
   useFrame((state, delta) => {
+    if (elevatorState !== 'idle') {
+      // W trakcie jazdy windą blokujemy ruch kamery
+      return;
+    }
+
     const speed = 6.0 * delta; // standard walk speed
 
     if (isMobile) {
