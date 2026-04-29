@@ -36,9 +36,9 @@ export function Arena() {
     rightWallNormal.wrapS = rightWallNormal.wrapT = THREE.RepeatWrapping; rightWallNormal.repeat.set(9, 3)
 
     // 2. Load Brick Textures for Left Wall (9x3m) - ~4.5x1.5 repeat for realistic scale
-    const brickMap = useTexture('/textures/Bricks061_2K-JPG/Bricks061_2K-JPG_Color.jpg')
-    const brickRoughness = useTexture('/textures/Bricks061_2K-JPG/Bricks061_2K-JPG_Roughness.jpg')
-    const brickNormal = useTexture('/textures/Bricks061_2K-JPG/Bricks061_2K-JPG_NormalGL.jpg')
+    const brickMap = useTexture('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_Color.jpg')
+    const brickRoughness = useTexture('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_Roughness.jpg')
+    const brickNormal = useTexture('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_NormalGL.jpg')
     brickMap.wrapS = brickMap.wrapT = THREE.RepeatWrapping; brickMap.repeat.set(4.5, 1.5)
     brickRoughness.wrapS = brickRoughness.wrapT = THREE.RepeatWrapping; brickRoughness.repeat.set(4.5, 1.5)
     brickNormal.wrapS = brickNormal.wrapT = THREE.RepeatWrapping; brickNormal.repeat.set(4.5, 1.5)

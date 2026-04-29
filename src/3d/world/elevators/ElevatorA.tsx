@@ -5,7 +5,7 @@ import { useTransitionStore } from '../../../store/useTransitionStore';
 import { Html } from '@react-three/drei';
 
 export function ElevatorA() {
-  const { elevatorState, setElevatorState, activeElevator } = useTransitionStore();
+  const { elevatorState, setElevatorState, activeElevator, activeZone, enterElevator } = useTransitionStore();
   const { camera } = useThree();
   
   const leftDoorRef = useRef<THREE.Mesh>(null);
@@ -46,6 +46,24 @@ export function ElevatorA() {
       shaftGroupRef.current.position.y -= delta * 5;
       if (shaftGroupRef.current.position.y < -2) {
         shaftGroupRef.current.position.y += 2;
+      }
+    }
+
+    // ── Proximity trigger: automatyczne rozsuwanie drzwi przy podejściu ──
+    if (elevatorState === 'idle' && activeElevator === null) {
+      // Pozycja drzwi w świecie — liczona z pozycji grupy i rotacji 180°
+      const groupZ = groupRef.current?.position.z ?? (activeZone === 'room1' ? 9.5 : 1.5);
+      const groupX = groupRef.current?.position.x ?? (activeZone === 'room1' ? 0 : -24);
+      // Grupa obrócona o PI → drzwi (local Z=2.5) są na światowym Z = groupZ - 2.5
+      const doorWorldZ = groupZ - 2.5;
+      const doorWorldX = groupX;
+      const dx = camera.position.x - doorWorldX;
+      const dz = camera.position.z - doorWorldZ;
+      const dy = camera.position.y - 1.75;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (dist < 4.0 && Math.abs(dx) < 3.0) {
+        const target = activeZone === 'room1' ? 'hub' : 'room1';
+        enterElevator('A', target);
       }
     }
 
@@ -98,63 +116,157 @@ export function ElevatorA() {
 
   return (
     <group ref={groupRef}>
-      {/* Podłoga */}
+      {/* ═══════════════ PODŁOGA — ciemny kamień / lastryko ═══════════════ */}
       <mesh position={[0, 0.05, 0]} receiveShadow>
         <boxGeometry args={[4.4, 0.1, 5.0]} />
-        <meshStandardMaterial color="#0a0a0a" roughness={0.4} metalness={0.8} />
+        <meshStandardMaterial color="#141418" roughness={0.5} metalness={0.08} />
+      </mesh>
+      {/* Cienka listwa przypodłogowa — szczotkowany mosiądz */}
+      <mesh position={[-2.08, 0.16, 0]} castShadow>
+        <boxGeometry args={[0.04, 0.12, 5.0]} />
+        <meshStandardMaterial color="#b8875e" roughness={0.35} metalness={0.9} />
+      </mesh>
+      <mesh position={[2.08, 0.16, 0]} castShadow>
+        <boxGeometry args={[0.04, 0.12, 5.0]} />
+        <meshStandardMaterial color="#b8875e" roughness={0.35} metalness={0.9} />
+      </mesh>
+      <mesh position={[0, 0.16, -2.28]} castShadow>
+        <boxGeometry args={[4.0, 0.12, 0.04]} />
+        <meshStandardMaterial color="#b8875e" roughness={0.35} metalness={0.9} />
       </mesh>
 
-      {/* Sufit */}
+      {/* ═══════════════ SUFIT — cove z recessed panelem ═══════════════ */}
       <mesh position={[0, 3.45, 0]}>
-        <boxGeometry args={[4.4, 0.1, 5.0]} />
-        <meshStandardMaterial color="#0a0a0a" roughness={0.8} />
+        <boxGeometry args={[4.4, 0.15, 5.0]} />
+        <meshStandardMaterial color="#0d0d10" roughness={0.75} metalness={0.15} />
       </mesh>
-      
-      {/* Emisyjny panel na suficie */}
-      <mesh position={[0, 3.39, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[3.8, 4.6]} />
-        <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.8} />
+      {/* Wnęka sufitowa — cofnięta głębiej */}
+      <mesh position={[0, 3.34, 0]}>
+        <boxGeometry args={[3.4, 0.08, 4.2]} />
+        <meshStandardMaterial color="#16161a" roughness={0.7} metalness={0.2} />
       </mesh>
-      
-      {/* Światła w windzie */}
-      <pointLight position={[0, 2.8, 0]} intensity={3} distance={7} color="#ffffff" />
-      <pointLight position={[0, 1.5, -1.8]} intensity={inTransit && isActiveForUs ? 4 : 1.5} distance={5} color="#4fd1c5" />
+      {/* Emisyjny panel w recessie — mniejszy, słabszy */}
+      <mesh position={[0, 3.37, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[2.8, 3.6]} />
+        <meshStandardMaterial color="#fff8f0" emissive="#fff8f0" emissiveIntensity={0.35} />
+      </mesh>
+      {/* Obwódka cove LED — pojedyncza strona, niższa opacity */}
+      <mesh position={[-2.05, 3.25, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <planeGeometry args={[0.04, 4.2]} />
+        <meshBasicMaterial color="#e8b88a" transparent opacity={0.12} side={THREE.FrontSide} depthWrite={false} />
+      </mesh>
+      <mesh position={[2.05, 3.25, 0]} rotation={[0, 0, -Math.PI / 2]}>
+        <planeGeometry args={[0.04, 4.2]} />
+        <meshBasicMaterial color="#e8b88a" transparent opacity={0.12} side={THREE.FrontSide} depthWrite={false} />
+      </mesh>
 
-      {/* Ściana Lewa (Solidna) */}
+      {/* ═══════════════ OŚWIETLENIE ═══════════════ */}
+      <pointLight position={[0, 2.8, 0]} intensity={1.8} distance={6} color="#fff8f0" />
+      <pointLight position={[0, 1.5, -1.8]} intensity={inTransit && isActiveForUs ? 2.5 : 0.8} distance={4} color="#4fd1c5" />
+
+      {/* ═══════════════ ŚCIANA LEWA — szczotkowana czerń + pionowe lamele ═══════════════ */}
       <mesh position={[-2.1, 1.75, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.2, 3.5, 5.0]} />
-        <meshStandardMaterial color="#1a1a1a" metalness={0.6} roughness={0.2} />
+        <boxGeometry args={[0.35, 3.5, 5.0]} />
+        <meshStandardMaterial color="#16161a" metalness={0.82} roughness={0.38} />
+      </mesh>
+      {/* Pionowe lamele dekoracyjne — lewa ściana */}
+      {[-1.8, -0.6, 0.6, 1.8].map((z, i) => (
+        <mesh key={`left-slat-${i}`} position={[-2.0, 1.75, z]} castShadow>
+          <boxGeometry args={[0.008, 3.2, 0.03]} />
+          <meshStandardMaterial color="#2a2a30" metalness={0.88} roughness={0.3} />
+        </mesh>
+      ))}
+      {/* Listwa narożna lewa-tył */}
+      <mesh position={[-2.08, 1.75, -2.38]} castShadow>
+        <boxGeometry args={[0.04, 3.3, 0.04]} />
+        <meshStandardMaterial color="#b8875e" roughness={0.35} metalness={0.9} />
       </mesh>
 
-      {/* Ściana Prawa (Solidna) */}
+      {/* ═══════════════ ŚCIANA PRAWA — szczotkowana czerń + pionowe lamele ═══════════════ */}
       <mesh position={[2.1, 1.75, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.2, 3.5, 5.0]} />
-        <meshStandardMaterial color="#1a1a1a" metalness={0.6} roughness={0.2} />
+        <boxGeometry args={[0.35, 3.5, 5.0]} />
+        <meshStandardMaterial color="#16161a" metalness={0.82} roughness={0.38} />
+      </mesh>
+      {/* Pionowe lamele dekoracyjne — prawa ściana */}
+      {[-1.8, -0.6, 0.6, 1.8].map((z, i) => (
+        <mesh key={`right-slat-${i}`} position={[2.0, 1.75, z]} castShadow>
+          <boxGeometry args={[0.008, 3.2, 0.03]} />
+          <meshStandardMaterial color="#2a2a30" metalness={0.88} roughness={0.3} />
+        </mesh>
+      ))}
+      {/* Listwa narożna prawa-tył */}
+      <mesh position={[2.08, 1.75, -2.38]} castShadow>
+        <boxGeometry args={[0.04, 3.3, 0.04]} />
+        <meshStandardMaterial color="#b8875e" roughness={0.35} metalness={0.9} />
       </mesh>
 
-      {/* Tył (Solidna ściana z lustrzanym odbiciem) */}
+      {/* ═══════════════ TYŁ — przyciemniane lustro z brązowym tintem ═══════════════ */}
       <mesh position={[0, 1.75, -2.4]} castShadow receiveShadow>
-        <boxGeometry args={[4.0, 3.5, 0.2]} />
-        <meshStandardMaterial color="#050505" metalness={0.9} roughness={0.1} />
+        <boxGeometry args={[3.8, 3.5, 0.35]} />
+        <meshStandardMaterial color="#1a1816" metalness={0.95} roughness={0.06} />
+      </mesh>
+      {/* Subtelna rama wokół lustra */}
+      <mesh position={[-1.88, 1.75, -2.38]}>
+        <boxGeometry args={[0.04, 3.3, 0.04]} />
+        <meshStandardMaterial color="#b8875e" roughness={0.35} metalness={0.9} />
+      </mesh>
+      <mesh position={[1.88, 1.75, -2.38]}>
+        <boxGeometry args={[0.04, 3.3, 0.04]} />
+        <meshStandardMaterial color="#b8875e" roughness={0.35} metalness={0.9} />
+      </mesh>
+      <mesh position={[0, 3.28, -2.38]}>
+        <boxGeometry args={[3.84, 0.04, 0.04]} />
+        <meshStandardMaterial color="#b8875e" roughness={0.35} metalness={0.9} />
       </mesh>
 
-      {/* Drzwi Lewe (Przód, Z=2.5) */}
-      {/* Zmieniono materiał na nieprzezroczysty, matowy grafit */}
+      {/* ═══════════════ PORĘCZ — szczotkowany mosiądz na tylnej ścianie ═══════════════ */}
+      <mesh position={[0, 1.05, -2.35]} castShadow>
+        <boxGeometry args={[3.2, 0.04, 0.06]} />
+        <meshStandardMaterial color="#b8875e" roughness={0.3} metalness={0.92} />
+      </mesh>
+      {/* Uchwyty poręczy */}
+      {[-1.2, 1.2].map((x, i) => (
+        <mesh key={`rail-bracket-${i}`} position={[x, 0.95, -2.33]} castShadow>
+          <boxGeometry args={[0.04, 0.2, 0.04]} />
+          <meshStandardMaterial color="#9a6e4a" roughness={0.3} metalness={0.92} />
+        </mesh>
+      ))}
+
+      {/* ═══════════════ DRZWI — szczotkowana stal nierdzewna ═══════════════ */}
       <mesh ref={leftDoorRef} position={[-1.0, 1.75, 2.5]} castShadow>
         <boxGeometry args={[2.0, 3.5, 0.1]} />
-        <meshStandardMaterial color="#2a2a2a" roughness={0.8} metalness={0.2} />
+        <meshStandardMaterial color="#35353a" roughness={0.3} metalness={0.9} />
       </mesh>
+      {/* Pionowe frezy na lewych drzwiach */}
+      {[0, 0.55].map((ox, i) => (
+        <mesh key={`ld-groove-${i}`} position={[-1.0 + ox, 1.75, 2.56]} castShadow>
+          <boxGeometry args={[0.018, 3.2, 0.02]} />
+          <meshStandardMaterial color="#252528" metalness={0.9} roughness={0.25} />
+        </mesh>
+      ))}
 
-      {/* Drzwi Prawe (Przód, Z=2.5) */}
       <mesh ref={rightDoorRef} position={[1.0, 1.75, 2.5]} castShadow>
         <boxGeometry args={[2.0, 3.5, 0.1]} />
-        <meshStandardMaterial color="#2a2a2a" roughness={0.8} metalness={0.2} />
+        <meshStandardMaterial color="#35353a" roughness={0.3} metalness={0.9} />
+      </mesh>
+      {/* Pionowe frezy na prawych drzwiach */}
+      {[0, -0.55].map((ox, i) => (
+        <mesh key={`rd-groove-${i}`} position={[1.0 + ox, 1.75, 2.56]} castShadow>
+          <boxGeometry args={[0.018, 3.2, 0.02]} />
+          <meshStandardMaterial color="#252528" metalness={0.9} roughness={0.25} />
+        </mesh>
+      ))}
+
+      {/* Listwa nadprożowa nad drzwiami */}
+      <mesh position={[0, 3.28, 2.48]} castShadow>
+        <boxGeometry args={[3.84, 0.05, 0.06]} />
+        <meshStandardMaterial color="#b8875e" roughness={0.35} metalness={0.9} />
       </mesh>
 
       {/* Panel Wewnętrzny */}
       {elevatorState === 'idle' && (
         <Html transform scale={0.25} position={[0, 1.5, -2.28]} rotation={[0, 0, 0]}>
-          <div 
+          <div
             className="w-80 h-32 bg-black/90 border-2 border-teal-500/50 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 hover:border-teal-400 transition-all shadow-[0_0_25px_rgba(79,209,197,0.4)] backdrop-blur-md"
             onClick={(e) => {
               e.stopPropagation();

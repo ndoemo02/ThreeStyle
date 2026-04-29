@@ -133,16 +133,15 @@ export default function B3PPage() {
       <Canvas shadows camera={{ position: [0, 2.05, 5], fov: 60 }}>
         <ZoneController activeZone={activeZone} />
         
-        {/* Soft fill to prevent zero-value crushed blacks on mobile displays */}
-        <ambientLight intensity={0.15} />
+        {/* Subtelny ambient — podbija cienie na mobile */}
+        <ambientLight intensity={0.2} />
 
-        {/* Deep atmospheric fog blending into absolute black */}
-        <fog attach="fog" args={['#080808', 5, 25]} />
-        <color attach="background" args={['#080808']} />
-        
-        {/* Muted reflections, keeps it dark and moody but gives depth to concrete */}
-        {/* Raised slightly from 0.15 to 0.25 to lift overall environmental midtones */}
-        <Environment preset="city" environmentIntensity={0.25} />
+        {/* Jasna mgła w kolorze ścian — zamyka przestrzeń, eliminuje czarną pustkę */}
+        <fog attach="fog" args={['#e8e0d5', 18, 55]} />
+        <color attach="background" args={['#e8e0d5']} />
+
+        {/* Ciepłe, subtelne refleksy środowiskowe */}
+        <Environment preset="apartment" environmentIntensity={0.3} />
 
         {activeZone === 'hub' && <GroundedHub onEnterRoom={(id) => setActiveZone(id)} />}
         {activeZone !== 'hub' && <CreatorRoomMVP onExit={() => setActiveZone('hub')} />}

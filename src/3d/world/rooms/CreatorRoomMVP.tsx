@@ -32,10 +32,10 @@ function TechnicalTrim({ args, position, rotation = [0, 0, 0] }: { args: [number
 
 function BrickWall({ args, position }: { args: [number, number, number], position: [number, number, number] }) {
   const textures = useTexture([
-    '/textures/Bricks061_2K-JPG/Bricks061_2K-JPG_Color.jpg',
-    '/textures/Bricks061_2K-JPG/Bricks061_2K-JPG_AmbientOcclusion.jpg',
-    '/textures/Bricks061_2K-JPG/Bricks061_2K-JPG_NormalGL.jpg',
-    '/textures/Bricks061_2K-JPG/Bricks061_2K-JPG_Roughness.jpg',
+    '/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_Color.jpg',
+    '/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_AmbientOcclusion.jpg',
+    '/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_NormalGL.jpg',
+    '/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_Roughness.jpg',
   ]);
 
   const maps = useMemo(() => {
@@ -68,10 +68,10 @@ function BrickWall({ args, position }: { args: [number, number, number], positio
 
 export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat, textureOffset = [0, 0] }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number], repeat?: [number, number], textureOffset?: [number, number] }) {
   const textures = useTexture([
-    '/textures/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Color.jpg',
-    '/textures/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_NormalGL.jpg',
-    '/textures/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Roughness.jpg',
-    '/textures/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Metalness.jpg',
+    '/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Color.jpg',
+    '/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_NormalGL.jpg',
+    '/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Roughness.jpg',
+    '/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Metalness.jpg',
   ]);
 
   const maps = useMemo(() => {
@@ -135,8 +135,8 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
         aoMap={maps[4]}
         color="#999999" // Brighter base color
         normalScale={new THREE.Vector2(2.5, 2.5)} // Stronger normal map to pop the diamond plate
-        roughness={0.65} // Let it shine a bit more
-        metalness={0.75} // Metallic feel
+        roughness={0.75} // Less shiny for cleaner e-voting look
+        metalness={0.55} // Subtler metallic feel
       />
     </mesh>
   );
@@ -250,7 +250,7 @@ function Thr3StyleWallArt({ url, offsetX = 0, offsetY = 0, repeatX = 1, repeatY 
     }
     return 1344 / 768;
   }, [texture]);
-  const glowTexture = useMemo(() => createSoftFrameTexture({ color: [255, 170, 96], strength: 0.81, bottomFactor: 0.065 }), []);
+  const glowTexture = useMemo(() => createSoftFrameTexture({ color: [255, 170, 96], strength: 1.1, bottomFactor: 0.065 }), []);
   const shadowTexture = useMemo(() => createSoftFrameTexture({ color: [0, 0, 0], strength: 0.58, bottomFactor: 0.72, shadow: true }), []);
   const artworkHeight = 1.45;
   const padding = 0.18; // Uniform padding (passe-partout)
@@ -341,7 +341,7 @@ function StudioDisplayWall({
       {/* 1. Main outer wood casing (backplane) */}
       <mesh position={[0, 0, -0.08]} castShadow receiveShadow>
         <boxGeometry args={[3.98, 2.44, 0.10]} />
-        <meshStandardMaterial color="#4f301b" roughness={0.78} metalness={0.06} />
+        <meshStandardMaterial color="#5c3a1e" roughness={0.72} metalness={0.06} />
       </mesh>
 
       {/* 2. Inner dark wood casing */}
@@ -718,7 +718,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
   return (
     <group position={new THREE.Vector3(...position)} rotation={new THREE.Euler(...rotation)}>
-      <ambientLight intensity={0.05} color="#ffeedd" />
+      <ambientLight intensity={0.18} color="#ddeeff" />
       
       {/* Ceiling LED strip simulation (warm glow) */}
       <pointLight position={[0, 4.9, 0]} intensity={1.5} color="#ffa95c" distance={10} decay={1.5} />
@@ -754,7 +754,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       </spotLight>
 
       {/* Additional soft fill from the front of the room */}
-      <directionalLight position={[0, 3, 5]} intensity={0.2} color="#ffffff" />
+      <directionalLight position={[0, 3, 5]} intensity={0.4} color="#ffffff" />
 
       {/* STAGE 1: Static Architecture (Fastest Load) */}
       <Suspense fallback={null}>
@@ -787,6 +787,8 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
         {/* Back wall architecture */}
         <pointLight position={[1.9, 3.0, -4.8]} intensity={7} color="#ffe0a0" distance={5} decay={2} />
+        {/* Cool rim fill — przełamuje monochromatyczną pomarańczową paletę */}
+        <pointLight position={[-6.5, 4.0, -4.5]} intensity={4} color="#8899cc" distance={10} decay={2} />
         <mesh position={[0, 2.5, -6]} castShadow receiveShadow>
           <boxGeometry args={[14, 5, 0.5]} />
           <meshStandardMaterial color="#5c3a1e" roughness={0.65} metalness={0.05} />
@@ -988,7 +990,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
            ]}
            scale={[hudControls.hudScale, hudControls.hudScale, hudControls.hudScale]}
         >
-           <pointLight position={[0, 0, 0.34]} intensity={2.4} color="#ff8c42" distance={3.6} decay={2} />
+           <pointLight position={[0, 0, 0.34]} intensity={4.0} color="#ff8c42" distance={4.5} decay={2} />
            <StudioDisplayWall
              videoTexture={videoTex}
              fallbackVisible={!masterVideoRef}
