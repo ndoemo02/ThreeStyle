@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "./hud.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,8 +48,33 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pl" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Suppress WrongDocumentError from Pointer Lock during HMR/fast refresh
+              const _origRequestPointerLock = Element.prototype.requestPointerLock;
+              Element.prototype.requestPointerLock = function() {
+                try {
+                  const result = _origRequestPointerLock.call(this);
+                  if (result instanceof Promise) {
+                    return result.catch(e => {
+                      if (e.name === 'NotAllowedError' || e.name === 'WrongDocumentError') return;
+                      throw e;
+                    });
+                  }
+                  return result;
+                } catch (e) {
+                  if (e.name === 'WrongDocumentError' || e.name === 'NotAllowedError') return;
+                  throw e;
+                }
+              };
+            `,
+          }}
+        />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased h-dvh`}
         suppressHydrationWarning
       >
         {children}

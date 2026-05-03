@@ -47,6 +47,7 @@ export function ElevatorA() {
       if (shaftGroupRef.current.position.y < -2) {
         shaftGroupRef.current.position.y += 2;
       }
+      state.invalidate();
     }
 
     // ── Proximity trigger: automatyczne rozsuwanie drzwi przy podejściu ──
@@ -69,6 +70,8 @@ export function ElevatorA() {
 
     if (!leftDoorRef.current || !rightDoorRef.current) return;
 
+    const animating = elevatorState === 'doors_closing' || elevatorState === 'doors_opening' || elevatorState === 'moving';
+
     if (!isActiveForUs) {
       if (elevatorState === 'idle') {
         leftDoorRef.current.position.x = THREE.MathUtils.lerp(leftDoorRef.current.position.x, -3.0, 5 * delta);
@@ -78,17 +81,17 @@ export function ElevatorA() {
     }
 
     const speed = 3.5 * delta;
-    
+
     if (elevatorState === 'doors_closing') {
       leftDoorRef.current.position.x = THREE.MathUtils.lerp(leftDoorRef.current.position.x, -1.0, speed);
       rightDoorRef.current.position.x = THREE.MathUtils.lerp(rightDoorRef.current.position.x, 1.0, speed);
-      
+
       if (Math.abs(leftDoorRef.current.position.x - -1.0) < 0.02) {
         leftDoorRef.current.position.x = -1.0;
         rightDoorRef.current.position.x = 1.0;
         setElevatorState('moving');
       }
-    } 
+    }
     else if (elevatorState === 'moving') {
       leftDoorRef.current.position.x = -1.0;
       rightDoorRef.current.position.x = 1.0;
@@ -96,13 +99,15 @@ export function ElevatorA() {
     else if (elevatorState === 'doors_opening') {
       leftDoorRef.current.position.x = THREE.MathUtils.lerp(leftDoorRef.current.position.x, -3.0, speed);
       rightDoorRef.current.position.x = THREE.MathUtils.lerp(rightDoorRef.current.position.x, 3.0, speed);
-      
+
       if (Math.abs(leftDoorRef.current.position.x - -3.0) < 0.05) {
         leftDoorRef.current.position.x = -3.0;
         rightDoorRef.current.position.x = 3.0;
         setElevatorState('idle');
       }
     }
+
+    if (animating) state.invalidate();
   });
 
   useEffect(() => {

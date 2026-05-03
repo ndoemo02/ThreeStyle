@@ -28,8 +28,6 @@ type MediaLibraryResponse = {
 type LibraryStatus = 'loading' | 'ready' | 'error';
 
 const MEDIA_REFRESH_MS = 8000;
-const panelShellClass = 'relative overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(24,19,16,0.78),rgba(7,8,10,0.88))] shadow-[0_30px_120px_rgba(0,0,0,0.5),0_0_24px_rgba(243,160,93,0.08)] backdrop-blur-[24px]';
-const panelCardClass = 'relative overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.025))] shadow-[0_18px_50px_rgba(0,0,0,0.24),0_0_18px_rgba(243,160,93,0.05)] backdrop-blur-xl';
 
 const panelLabels = [
   'Now Playing',
@@ -152,13 +150,10 @@ export function HudOverlay() {
   useEffect(() => {
     const isVideoActive = activeMediaId
       ? mediaItems.some((item) => {
-          const match = item.id === activeMediaId && item.kind === 'video' && item.isVideoDisplayable !== false;
-          if (item.id === activeMediaId) console.log('[DEBUG HUD] isVideoActive evaluation:', item.id, item.kind, item.isVideoDisplayable, '=>', match);
-          return match;
+          return item.id === activeMediaId && item.kind === 'video' && item.isVideoDisplayable !== false;
         })
       : false;
 
-    console.log('[DEBUG HUD] Setting masterVideoRef, isVideoActive:', isVideoActive, 'Element:', isVideoActive ? masterVideoElementRef.current : null);
     mediaElementRef.current = isVideoActive ? masterVideoElementRef.current : masterAudioElementRef.current;
     setMasterVideoRef(isVideoActive ? masterVideoElementRef.current : null);
   }, [activeMediaId, mediaItems, setMasterVideoRef]);
@@ -215,12 +210,11 @@ export function HudOverlay() {
     if (!nextMediaElement) return;
 
     mediaElementRef.current = nextMediaElement;
-    console.log('[DEBUG HUD] Playing media:', selectedMedia.kind, 'Element:', nextMediaElement);
-    
+
     nextMediaElement.currentTime = 0;
     nextMediaElement.load();
     void nextMediaElement.play().then(() => {
-      console.log('[DEBUG HUD] Media playback started successfully! paused:', nextMediaElement.paused);
+      // playback started
     }).catch((error: unknown) => {
       console.warn('HUD media playback was blocked:', error);
       setIsPlaying(false);
@@ -229,7 +223,7 @@ export function HudOverlay() {
 
   const activeMedia = mediaItems.find((item) => item.id === activeMediaId) ?? null;
   const statusLabel = libraryStatus === 'loading' ? 'Scanning' : libraryStatus === 'error' ? 'Offline' : 'Session Live';
-  const visibilityClass = isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none';
+
   const masterMediaEventProps = {
     onTimeUpdate: (event: SyntheticEvent<HTMLMediaElement>) => setCurrentTime(event.currentTarget.currentTime),
     onLoadedMetadata: (event: SyntheticEvent<HTMLMediaElement>) => setDuration(event.currentTarget.duration),
@@ -240,79 +234,76 @@ export function HudOverlay() {
 
   return (
     <>
+      {/* Ukryty master player — NIE autoPlay, tylko preload="metadata", odpala się jawnie przez selectAndPlayMedia */}
       {mounted && (
-        <div 
-          style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: 1, height: 1, pointerEvents: 'none', zIndex: -9999, opacity: 0.0001, overflow: 'hidden' }}
-        >
+        <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: 1, height: 1, pointerEvents: 'none', zIndex: -9999, opacity: 0.0001, overflow: 'hidden' }}>
           <video
             ref={masterVideoElementRef}
             src={activeMedia?.kind === 'video' ? activeMedia.src : undefined}
             playsInline
-            autoPlay
-            preload="auto"
+            preload="metadata"
             loop
-            className="w-full h-full"
             {...masterMediaEventProps}
           />
           <audio
             ref={masterAudioElementRef}
             src={activeMedia?.kind === 'audio' ? activeMedia.src : undefined}
-            preload="auto"
+            preload="metadata"
             {...masterMediaEventProps}
           />
         </div>
       )}
 
+      {/* Główny overlay HUD */}
       <div
-        className={`fixed inset-0 z-50 bg-[radial-gradient(circle_at_top,rgba(243,160,93,0.16),rgba(0,0,0,0.82)_34%,rgba(0,0,0,0.92)_100%)] backdrop-blur-xl transition-opacity duration-300 ${visibilityClass}`}
+        className={`hud-overlay hud-overlay-bg ${isOpen ? 'hud-overlay-open' : 'hud-overlay-closed'}`}
         onClick={closeHud}
       >
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent_18%,transparent_84%,rgba(0,0,0,0.26))]" />
-        
-        <div className={`relative mx-auto flex h-dvh w-full ${isMobile ? 'max-w-full px-3 py-3' : 'max-w-[620px] px-5 py-4'} flex-col`} onClick={(event) => event.stopPropagation()}>
-        <div className="pointer-events-none absolute inset-y-0 left-1/2 w-[60%] -translate-x-1/2 bg-[radial-gradient(circle_at_top,rgba(243,160,93,0.08),transparent_38%)] blur-[100px]" />
+        <div className="hud-gradient-layer" />
 
-        <header className={`${panelShellClass} z-20 mb-3 shrink-0 p-4`}>
-          <div className="absolute inset-0 rounded-[32px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_18%,transparent_80%,rgba(243,160,93,0.04))] pointer-events-none" />
-          <div className="relative flex items-center gap-3">
-            <Thr3StyleHudMark compact className="shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] uppercase tracking-[0.34em] text-[#f3a05d]/75">Laptop Media Session</p>
-              <h1 className="mt-1 truncate text-[1.15rem] font-semibold tracking-[-0.03em] text-white">BLOK TRZECH PIĘTER</h1>
+        <div
+          className={`hud-inner ${isMobile ? 'hud-inner-mobile' : 'hud-inner-desktop'}`}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="hud-header">
+            <div className="hud-panel-gradient" />
+            <div className="hud-header-row">
+              <Thr3StyleHudMark compact className="shrink-0" />
+              <div className="hud-header-title-group">
+                <p className="hud-header-eyebrow">Laptop Media Session</p>
+                <h1 className="hud-header-heading">BLOK TRZECH PIĘTER</h1>
+              </div>
+              <div className="hud-status-badge">
+                <p className="hud-status-label">Status</p>
+                <p className="hud-status-value">{statusLabel}</p>
+              </div>
+              <button onClick={closeHud} className="hud-close-btn">
+                Close
+              </button>
             </div>
-            <div className="hidden min-w-[120px] rounded-full border border-white/10 bg-white/6 px-3 py-2 text-right md:block">
-              <p className="text-[10px] uppercase tracking-[0.26em] text-white/42">Status</p>
-              <p className="mt-1 text-xs font-medium text-white/82">{statusLabel}</p>
-            </div>
-            <button
-              onClick={closeHud}
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[10px] uppercase tracking-[0.26em] text-white/56 transition hover:border-[#f3a05d]/30 hover:text-white"
-            >
-              Close
-            </button>
           </div>
-        </header>
 
-        <HudContent
-          activeScreenId={activeScreenId}
-          activeMedia={activeMedia}
-          mediaItems={mediaItems}
-          libraryStatus={libraryStatus}
-          libraryError={libraryError}
-          isPlaying={isPlaying}
-          currentTime={currentTime}
-          duration={duration}
-          togglePlay={togglePlay}
-          selectAndPlayMedia={selectAndPlayMedia}
-          setCurrentTime={setCurrentTime}
-          setDuration={setDuration}
-          setIsPlaying={setIsPlaying}
-          mounted={mounted}
-          isMobile={isMobile}
-          masterVideoElementRef={masterVideoElementRef}
-        />
+          <HudContent
+            activeScreenId={activeScreenId}
+            activeMedia={activeMedia}
+            mediaItems={mediaItems}
+            libraryStatus={libraryStatus}
+            libraryError={libraryError}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            togglePlay={togglePlay}
+            selectAndPlayMedia={selectAndPlayMedia}
+            setCurrentTime={setCurrentTime}
+            setDuration={setDuration}
+            setIsPlaying={setIsPlaying}
+            mounted={mounted}
+            isMobile={isMobile}
+            masterVideoElementRef={masterVideoElementRef}
+          />
+        </div>
       </div>
-    </div>
     </>
   );
 }
@@ -383,10 +374,11 @@ function HudContent({
   ];
 
   return (
-    <div className="relative min-h-0 flex-1">
-      <div className="pointer-events-none absolute bottom-0 left-1/2 h-48 w-[80%] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(243,160,93,0.14),transparent_62%)] blur-[90px]" />
+    <div className="hud-content">
+      <div className="hud-ambient-glow" />
 
-      <div className="absolute right-0 top-1/2 z-20 hidden -translate-y-1/2 md:flex md:flex-col md:gap-2">
+      {/* Pionowe kropki nawigacji (desktop) */}
+      <div className="hud-tab-nav">
         {panelLabels.map((label, index) => {
           const isActive = index === activePanelIndex;
           return (
@@ -394,23 +386,24 @@ function HudContent({
               key={label}
               type="button"
               onClick={() => jumpToPanel(index)}
-              className={`group flex items-center justify-end gap-2 ${isActive ? 'opacity-100' : 'opacity-55 hover:opacity-90'}`}
+              className={`hud-tab-btn ${isActive ? 'hud-tab-btn-active' : ''}`}
             >
-              <span className={`max-w-0 overflow-hidden text-[10px] uppercase tracking-[0.24em] text-white/60 transition-all group-hover:max-w-[120px] ${isActive ? 'max-w-[120px] text-[#f3a05d]' : ''}`}>
+              <span className={`hud-tab-label ${isActive ? 'hud-tab-label-active' : ''}`}>
                 {label}
               </span>
-              <span className={`h-2.5 w-2.5 rounded-full border ${isActive ? 'border-[#f3a05d] bg-[#f3a05d] shadow-[0_0_16px_rgba(243,160,93,0.9)]' : 'border-white/22 bg-white/10'}`} />
+              <span className={`hud-tab-dot ${isActive ? 'hud-tab-dot-active' : ''}`} />
             </button>
           );
         })}
       </div>
 
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div className="hud-content" style={{ display: 'flex', flexDirection: 'column' }}>
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex h-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          className="hud-scroll-container"
         >
+          {/* Panel 01: Now Playing */}
           <PanelViewport>
           <PanelFrame
             eyebrow="Panel 01"
@@ -418,82 +411,82 @@ function HudContent({
             subtitle="A focused playback surface with enough context to keep the room immersive."
             footer={`Swipe for more • ${activePanelIndex + 1}/${panelLabels.length}`}
           >
-            <div className="flex min-h-0 flex-1 flex-col gap-4">
-              <div className={`${panelCardClass} group relative min-h-0 flex-1 overflow-hidden`}>
-                <div className="absolute inset-0 rounded-[26px] border border-white/10 pointer-events-none" />
+            <div className="hud-nowplaying-content">
+              {/* Video / audio / empty preview card */}
+              <div className="hud-nowplaying-card">
+                <div className="hud-nowplaying-card-border" />
                 {mounted && activeMedia?.kind === 'video' && !isDisplayableVideo(activeMedia) ? (
-                  <div className="flex h-full flex-col items-center justify-center bg-[radial-gradient(circle_at_center,rgba(243,160,93,0.14),rgba(0,0,0,0.92)_64%)] px-8 text-center">
-                    <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-[24px] border border-[#f3a05d]/24 bg-white/6 text-2xl font-semibold text-[#f3a05d]">
-                      H
-                    </div>
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-[#f3a05d]/78">Video codec warning</p>
-                    <p className="mt-3 text-xl font-semibold tracking-[-0.03em] text-white">{activeMedia.title}</p>
-                    <p className="mt-3 max-w-[320px] text-sm leading-6 text-white/55">
+                  <div className="hud-media-state hud-bg-codec">
+                    <div className="hud-media-icon">H</div>
+                    <p className="hud-media-eyebrow">Video codec warning</p>
+                    <p className="hud-media-title">{activeMedia.title}</p>
+                    <p className="hud-media-desc">
                       {activeMedia.compatibilityNote ?? 'Ten plik moze wymagac konwersji do H.264, zeby pokazac obraz w HUD i na ekranie pokoju.'}
                     </p>
                   </div>
                 ) : mounted && activeMedia?.kind === 'video' ? (
-                  <VideoCanvasPreview masterVideoRef={masterVideoElementRef} activeMediaId={activeMedia.id} />
+                  <VideoCanvasPreview masterVideoRef={masterVideoElementRef} activeMediaId={activeMedia.id} onClick={togglePlay} />
                 ) : mounted && activeMedia?.kind === 'audio' ? (
-                  <div className="flex h-full flex-col items-center justify-center bg-[radial-gradient(circle_at_center,rgba(243,160,93,0.18),rgba(0,0,0,0.9)_62%)] px-8 text-center">
-                    <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-[24px] border border-[#f3a05d]/28 bg-white/6 text-2xl font-semibold text-[#f3a05d]">
-                      A
-                    </div>
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-[#f3a05d]/78">Audio track</p>
-                    <p className="mt-3 text-xl font-semibold tracking-[-0.03em] text-white">{activeMedia.title}</p>
+                  <div className="hud-media-state hud-bg-audio">
+                    <div className="hud-media-icon">A</div>
+                    <p className="hud-media-eyebrow">Audio track</p>
+                    <p className="hud-media-title">{activeMedia.title}</p>
                   </div>
                 ) : mounted ? (
-                  <div className="flex h-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,rgba(243,160,93,0.08),rgba(0,0,0,0.94)_62%)] px-8 text-center">
-                    <p className="text-[10px] uppercase tracking-[0.3em] text-white/36">No media found</p>
-                    <p className="mt-3 max-w-[320px] text-sm leading-6 text-white/46">Wrzuć pliki do `public/media/video` albo `public/media/audio`, a HUD zaciągnie je automatycznie.</p>
+                  <div className="hud-media-state hud-bg-empty">
+                    <p className="hud-media-eyebrow" style={{ color: 'rgba(255,255,255,0.36)', letterSpacing: '0.3em' }}>No media found</p>
+                    <p className="hud-media-desc" style={{ color: 'rgba(255,255,255,0.46)' }}>Wrzuć pliki do `public/media/video` albo `public/media/audio`, a HUD zaciągnie je automatycznie.</p>
                   </div>
                 ) : (
-                  <div className="flex h-full items-center justify-center bg-black text-[10px] uppercase tracking-[0.24em] text-white/24">Loading viewport</div>
+                  <div className="hud-loading-state">Loading viewport</div>
                 )}
 
+                {/* Play/Pause overlay — klik w canvas lub panel */}
                 {activeMedia && (
                   <button
                     type="button"
                     onClick={togglePlay}
-                    className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-100 transition group-hover:bg-black/26"
+                    className="hud-play-overlay"
+                    aria-label={isPlaying ? 'Pause' : 'Play'}
                   >
-                    <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/14 bg-white/10 shadow-[0_0_35px_rgba(243,160,93,0.16)] backdrop-blur-md">
+                    <div className="hud-play-btn">
                       {isPlaying ? (
-                        <span className="h-5 w-5 border-l-[6px] border-r-[6px] border-white" />
+                        <span className="hud-play-pause-icon hud-play-pause-icon-pause" />
                       ) : (
-                        <span className="ml-1 h-0 w-0 border-y-[11px] border-y-transparent border-l-[17px] border-l-white" />
+                        <span className="hud-play-pause-icon" />
                       )}
                     </div>
                   </button>
                 )}
               </div>
 
-              <div className={`${panelCardClass} p-5`}>
-                <div className="mb-4 flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">{isPlaying ? 'Playing now' : 'Ready to play'}</p>
-                    <p className="mt-2 truncate text-[1.15rem] font-semibold tracking-[-0.03em] text-white">{activeMedia?.title ?? 'Media library empty'}</p>
-                    <p className="mt-2 text-sm text-white/52">
+              {/* Info card z progress barem */}
+              <div className="hud-info-card">
+                <div className="hud-info-row">
+                  <div style={{ minWidth: 0 }}>
+                    <p className="hud-info-eyebrow">{isPlaying ? 'Playing now' : 'Ready to play'}</p>
+                    <p className="hud-info-title">{activeMedia?.title ?? 'Media library empty'}</p>
+                    <p className="hud-info-meta">
                       {activeMedia ? `${activeMedia.kind.toUpperCase()} • ${formatBytes(activeMedia.size)} • ${formatStamp(activeMedia.modifiedAt)}` : 'Dodaj pliki do biblioteki, aby uruchomić sesję.'}
                     </p>
                   </div>
-                  <div className="flex h-10 items-end gap-1 opacity-80">
+                  <div className="hud-viz-bars">
                     {Array.from({ length: 12 }).map((_, index) => (
                       <span
                         key={index}
-                        className="w-1.5 rounded-full bg-[linear-gradient(180deg,rgba(255,241,227,0.92),rgba(243,160,93,0.42))]"
+                        className="hud-viz-bar"
                         style={{ height: isPlaying ? `${26 + (index % 5) * 11}%` : '24%' }}
                       />
                     ))}
                   </div>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-white/8">
+                <div className="hud-progress-track">
                   <div
-                    className="h-full rounded-full bg-[linear-gradient(90deg,rgba(243,160,93,0.88),rgba(255,241,227,0.96))]"
+                    className="hud-progress-fill"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
-                <div className="mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-white/40">
+                <div className="hud-progress-times">
                   <span>{formatTime(currentTime)}</span>
                   <span>{formatTime(duration)}</span>
                 </div>
@@ -502,22 +495,23 @@ function HudContent({
           </PanelFrame>
         </PanelViewport>
 
+        {/* Panel 02: Vote / Discovery */}
         <PanelViewport>
           <PanelFrame
             eyebrow="Panel 02"
             title="Vote / Discovery"
             subtitle="One decision surface, one action path, no desktop-dashboard clutter."
           >
-            <div className="flex min-h-0 flex-1 flex-col gap-4">
-              <div className={`${panelCardClass} p-5`}>
-                <p className="text-[10px] uppercase tracking-[0.24em] text-[#f3a05d]/78">Current prompt</p>
-                <h2 className="mt-3 text-[1.35rem] font-semibold tracking-[-0.04em] text-white">Which media state should guide the room next?</h2>
-                <p className="mt-3 text-sm leading-6 text-white/56">
+            <div className="hud-flex-col-gap4">
+              <div className="hud-info-card">
+                <p className="hud-media-eyebrow" style={{ color: 'rgba(243,160,93,0.78)' }}>Current prompt</p>
+                <h2 style={{ marginTop: '12px', fontSize: '1.35rem', fontWeight: 600, letterSpacing: '-0.04em', color: '#fff' }}>Which media state should guide the room next?</h2>
+                <p style={{ marginTop: '12px', fontSize: '14px', lineHeight: 1.5, color: 'rgba(255,255,255,0.56)' }}>
                   Discovery is intentionally reduced to one focused choice so the laptop feels like a cinematic controller, not a dashboard.
                 </p>
               </div>
 
-              <div className="grid gap-3">
+              <div style={{ display: 'grid', gap: '12px' }}>
                 {quickVoteItems.length === 0 ? (
                   <EmptyCard message="Brak mediów do panelu discovery." />
                 ) : (
@@ -531,19 +525,15 @@ function HudContent({
                           setSelectedVoteId(item.id);
                           selectAndPlayMedia(item.id);
                         }}
-                        className={`relative overflow-hidden rounded-[24px] border p-4 text-left transition ${
-                          isSelected
-                            ? 'border-[#f3a05d]/34 bg-[linear-gradient(180deg,rgba(243,160,93,0.16),rgba(255,255,255,0.05))] shadow-[0_18px_42px_rgba(243,160,93,0.08)]'
-                            : 'border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] hover:bg-white/8'
-                        }`}
+                        className={`hud-vote-btn ${isSelected ? 'hud-vote-btn-active' : ''}`}
                       >
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="min-w-0">
-                            <p className="text-[10px] uppercase tracking-[0.24em] text-white/38">Option 0{index + 1}</p>
-                            <p className="mt-2 truncate text-base font-medium text-white/92">{item.title}</p>
-                            <p className="mt-2 text-sm text-white/50">{item.kind === 'video' ? 'Video focus' : 'Audio focus'} • {formatBytes(item.size)}</p>
+                        <div className="hud-vote-row">
+                          <div style={{ minWidth: 0 }}>
+                            <p className="hud-vote-label">Option 0{index + 1}</p>
+                            <p className="hud-vote-title">{item.title}</p>
+                            <p className="hud-vote-kind">{item.kind === 'video' ? 'Video focus' : 'Audio focus'} • {formatBytes(item.size)}</p>
                           </div>
-                          <span className={`rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.22em] ${isSelected ? 'bg-white/12 text-[#f3a05d]' : 'bg-white/6 text-white/48'}`}>
+                          <span className={`hud-vote-badge ${isSelected ? 'hud-vote-badge-active' : 'hud-vote-badge-default'}`}>
                             {isSelected ? 'Active' : 'Select'}
                           </span>
                         </div>
@@ -556,26 +546,27 @@ function HudContent({
           </PanelFrame>
         </PanelViewport>
 
+        {/* Panel 03: Queue / Next */}
         <PanelViewport>
           <PanelFrame
             eyebrow="Panel 03"
             title="Queue / Next"
             subtitle="A thumb-friendly queue surface for moving through the session one media item at a time."
           >
-            <div className="flex min-h-0 flex-1 flex-col gap-4">
-              <div className={`${panelCardClass} p-5`}>
-                <div className="flex items-center justify-between gap-4">
+            <div className="hud-flex-col-gap4">
+              <div className="hud-info-card">
+                <div className="hud-vote-row">
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">Up next</p>
-                    <p className="mt-2 text-base font-medium text-white/88">{queueItems.length > 0 ? `${queueItems.length} items ready` : 'Queue is empty'}</p>
+                    <p className="hud-info-eyebrow">Up next</p>
+                    <p style={{ marginTop: '8px', fontSize: '16px', fontWeight: 500, color: 'rgba(255,255,255,0.88)' }}>{queueItems.length > 0 ? `${queueItems.length} items ready` : 'Queue is empty'}</p>
                   </div>
-                  <div className="rounded-full border border-white/10 bg-white/6 px-3 py-2 text-[10px] uppercase tracking-[0.24em] text-white/46">
+                  <div className="hud-vote-badge hud-vote-badge-default" style={{ color: 'rgba(255,255,255,0.46)', letterSpacing: '0.24em' }}>
                     Swipe flow
                   </div>
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+              <div className="hud-overflow-y hud-space-y-3" style={{ flex: 1, minHeight: 0 }}>
                 {queueItems.length === 0 ? (
                   <EmptyCard message="Brak kolejnych pozycji. Dodaj więcej plików do biblioteki." />
                 ) : (
@@ -593,40 +584,41 @@ function HudContent({
           </PanelFrame>
         </PanelViewport>
 
+        {/* Panel 04: Session / Room State */}
         <PanelViewport>
           <PanelFrame
             eyebrow="Panel 04"
             title="Session / Room State"
             subtitle="Ambient session info that supports the room instead of overpowering it."
           >
-            <div className="grid min-h-0 flex-1 gap-4">
-              <div className={`${panelCardClass} p-5`}>
-                <p className="text-[10px] uppercase tracking-[0.24em] text-[#f3a05d]/78">Session status</p>
-                <div className="mt-4 grid grid-cols-2 gap-3">
+            <div style={{ display: 'grid', gap: '16px', flex: 1, minHeight: 0 }}>
+              <div className="hud-info-card">
+                <p className="hud-media-eyebrow" style={{ color: 'rgba(243,160,93,0.78)' }}>Session status</p>
+                <div className="hud-grid-cols2" style={{ marginTop: '16px' }}>
                   {sessionMetrics.map((metric) => (
-                    <div key={metric.label} className="rounded-[22px] border border-white/8 bg-black/14 p-4">
-                      <p className="text-[10px] uppercase tracking-[0.22em] text-white/38">{metric.label}</p>
-                      <p className="mt-2 truncate text-base font-medium text-white/88">{metric.value}</p>
+                    <div key={metric.label} className="hud-metric-card">
+                      <p className="hud-metric-label">{metric.label}</p>
+                      <p className="hud-metric-value">{metric.value}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className={`${panelCardClass} p-5`}>
-                <div className="mb-4 flex items-center justify-between">
-                  <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">Room pulse</p>
-                  <span className="text-[10px] uppercase tracking-[0.22em] text-white/38">{libraryStatus}</span>
+              <div className="hud-info-card">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <p className="hud-info-eyebrow">Room pulse</p>
+                  <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(255,255,255,0.38)' }}>{libraryStatus}</span>
                 </div>
-                <div className="flex h-24 items-end gap-2">
+                <div style={{ display: 'flex', height: '96px', alignItems: 'flex-end', gap: '2px' }}>
                   {Array.from({ length: 18 }).map((_, index) => (
                     <span
                       key={index}
-                      className="flex-1 rounded-full bg-[linear-gradient(180deg,rgba(255,244,232,0.92),rgba(243,160,93,0.4))]"
+                      className="hud-pulse-bar"
                       style={{ height: `${30 + ((index * 17) % 55)}%`, opacity: index % 4 === 0 ? 0.95 : 0.72 }}
                     />
                   ))}
                 </div>
-                <p className="mt-4 text-sm leading-6 text-white/54">
+                <p className="hud-session-desc">
                   Laptop otwiera teraz poziomy, sekwencyjny media flow. Każdy ekran skupia się na jednej funkcji, więc sterowanie jest czytelne nawet na telefonie.
                 </p>
               </div>
@@ -634,20 +626,19 @@ function HudContent({
           </PanelFrame>
         </PanelViewport>
 
+        {/* Panel 05: Media Library */}
         <PanelViewport>
           <PanelFrame
             eyebrow="Panel 05"
             title="Media Library"
             subtitle="The full asset list remains available, but inside one focused viewport instead of multiple side modules."
           >
-            <div className="flex min-h-0 flex-1 flex-col gap-4">
+            <div className="hud-flex-col-gap4">
               {libraryStatus === 'error' && libraryError ? (
-                <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">
-                  {libraryError}
-                </div>
+                <div className="hud-error-banner">{libraryError}</div>
               ) : null}
 
-              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+              <div className="hud-overflow-y hud-space-y-5" style={{ flex: 1, minHeight: 0 }}>
                 <LibrarySection
                   title="Video Assets"
                   emptyText="Brak filmów w public/media/video."
@@ -670,15 +661,16 @@ function HudContent({
         </PanelViewport>
         </div>
 
+        {/* Mobile bottom tabs */}
         {isMobile ? (
-          <div className="absolute bottom-3 left-0 right-0 flex justify-center pointer-events-none">
-            <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-[rgba(8,9,11,0.72)] px-3 py-2 backdrop-blur-xl">
+          <div className="hud-mobile-tabs-wrap">
+            <div className="hud-mobile-tabs">
               {panelLabels.map((label, index) => (
                 <button
                   key={label}
                   type="button"
                   onClick={() => jumpToPanel(index)}
-                  className={`h-2.5 rounded-full transition-all ${index === activePanelIndex ? 'w-7 bg-[#f3a05d]' : 'w-2.5 bg-white/20'}`}
+                  className={`hud-mobile-tab-dot ${index === activePanelIndex ? 'hud-mobile-tab-dot-active' : ''}`}
                   aria-label={label}
                 />
               ))}
@@ -691,7 +683,7 @@ function HudContent({
 }
 
 function PanelViewport({ children }: { children: React.ReactNode }) {
-  return <section className="flex h-full w-full shrink-0 snap-center flex-col px-1">{children}</section>;
+  return <section className="hud-viewport">{children}</section>;
 }
 
 interface PanelFrameProps {
@@ -704,16 +696,16 @@ interface PanelFrameProps {
 
 function PanelFrame({ eyebrow, title, subtitle, footer, children }: PanelFrameProps) {
   return (
-    <div className={`${panelShellClass} flex h-full flex-col p-5 pb-16 md:pb-5`}>
-      <div className="pointer-events-none absolute inset-0 rounded-[32px] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_18%,transparent_80%,rgba(243,160,93,0.04))]" />
-      <div className="relative mb-4 shrink-0">
-        <p className="text-[10px] uppercase tracking-[0.3em] text-[#f3a05d]/76">{eyebrow}</p>
-        <h2 className="mt-3 text-[1.55rem] font-semibold tracking-[-0.04em] text-white">{title}</h2>
-        <p className="mt-2 max-w-[420px] text-sm leading-6 text-white/54">{subtitle}</p>
+    <div className="hud-frame">
+      <div className="hud-panel-gradient" />
+      <div className="hud-frame-header">
+        <p className="hud-frame-eyebrow">{eyebrow}</p>
+        <h2 className="hud-frame-title">{title}</h2>
+        <p className="hud-frame-subtitle">{subtitle}</p>
       </div>
-      <div className="relative min-h-0 flex-1">{children}</div>
+      <div className="hud-frame-body">{children}</div>
       {footer ? (
-        <div className="relative mt-4 shrink-0 border-t border-white/8 pt-3 text-[10px] uppercase tracking-[0.24em] text-white/34">
+        <div className="hud-frame-footer">
           {footer}
         </div>
       ) : null}
@@ -723,7 +715,7 @@ function PanelFrame({ eyebrow, title, subtitle, footer, children }: PanelFramePr
 
 function EmptyCard({ message }: { message: string }) {
   return (
-    <div className={`${panelCardClass} p-4 text-sm text-white/42`}>
+    <div className="hud-empty-card">
       {message}
     </div>
   );
@@ -742,27 +734,27 @@ function QueueRow({
     <button
       type="button"
       onClick={() => onSelect(item.id)}
-      className={`${panelCardClass} flex w-full items-center justify-between gap-4 p-4 text-left transition hover:bg-white/8`}
+      className="hud-queue-btn"
     >
-      <div className="flex items-center gap-4 min-w-0">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-white/6 text-sm font-medium text-white/82">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0 }}>
+        <div className="hud-queue-index">
           0{index + 1}
         </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-white/92">{item.title}</p>
-          <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-white/38">
+        <div style={{ minWidth: 0 }}>
+          <p className="hud-queue-title">{item.title}</p>
+          <p className="hud-queue-meta">
             {item.kind} • {formatBytes(item.size)}
           </p>
         </div>
       </div>
-      <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/50">
+      <span className="hud-queue-badge">
         Open
       </span>
     </button>
   );
 }
 
-function VideoCanvasPreview({ masterVideoRef, activeMediaId }: { masterVideoRef: RefObject<HTMLVideoElement | null>; activeMediaId: string }) {
+function VideoCanvasPreview({ masterVideoRef, activeMediaId, onClick }: { masterVideoRef: RefObject<HTMLVideoElement | null>; activeMediaId: string; onClick?: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -780,7 +772,16 @@ function VideoCanvasPreview({ masterVideoRef, activeMediaId }: { masterVideoRef:
     return () => cancelAnimationFrame(animationFrameId);
   }, [masterVideoRef, activeMediaId]);
 
-  return <canvas ref={canvasRef} width={640} height={360} className="h-full w-full object-cover" />;
+  return (
+    <canvas
+      ref={canvasRef}
+      width={640}
+      height={360}
+      className="hud-canvas-preview"
+      onClick={onClick}
+      style={{ cursor: 'pointer' }}
+    />
+  );
 }
 
 interface LibrarySectionProps {
@@ -795,11 +796,11 @@ interface LibrarySectionProps {
 function LibrarySection({ title, emptyText, items, activeMediaId, isPlaying, onSelect }: LibrarySectionProps) {
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">{title}</p>
-        <div className="h-px flex-1 bg-[linear-gradient(90deg,rgba(255,255,255,0.12),rgba(243,160,93,0.14),transparent)]" />
+      <div className="hud-section-header">
+        <p className="hud-library-title">{title}</p>
+        <div className="hud-library-divider" />
       </div>
-      <div className="space-y-3">
+      <div className="hud-space-y-3">
         {items.length === 0 ? (
           <EmptyCard message={emptyText} />
         ) : (
@@ -810,20 +811,16 @@ function LibrarySection({ title, emptyText, items, activeMediaId, isPlaying, onS
                 key={item.id}
                 type="button"
                 onClick={() => onSelect(item.id)}
-                className={`relative w-full overflow-hidden rounded-[24px] border p-4 text-left transition ${
-                  isActive
-                    ? 'border-[#f3a05d]/34 bg-[linear-gradient(180deg,rgba(243,160,93,0.14),rgba(255,255,255,0.05))] shadow-[0_18px_40px_rgba(243,160,93,0.08)]'
-                    : 'border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] hover:bg-white/8'
-                }`}
+                className={`hud-library-item ${isActive ? 'hud-library-item-active' : ''}`}
               >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-white/92">{item.title}</p>
-                    <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-white/38">
+                <div className="hud-library-item-row">
+                  <div style={{ minWidth: 0 }}>
+                    <p className="hud-library-item-title">{item.title}</p>
+                    <p className="hud-library-item-meta">
                       {item.kind === 'video' ? (item.videoCodec ?? 'unknown') : item.kind} • {formatBytes(item.size)}
                     </p>
                   </div>
-                  <span className={`shrink-0 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.22em] ${isActive ? 'bg-white/12 text-[#f3a05d]' : 'bg-white/6 text-white/48'}`}>
+                  <span className={`hud-library-badge ${isActive ? 'hud-library-badge-active' : 'hud-library-badge-default'}`}>
                     {isActive ? (isPlaying ? 'Playing' : 'Ready') : 'Open'}
                   </span>
                 </div>

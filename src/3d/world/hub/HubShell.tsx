@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from 'react';
-import { useTexture } from '@react-three/drei';
+import { useTexture, useGLTF } from '@react-three/drei';
+import { useControls } from 'leva';
 import { WarmWhiteMaterial, MatteDarkAccentMaterial, FoliageGreenMaterial } from '../../core/AcousticDarkMaterial';
 import * as THREE from 'three';
 
@@ -51,7 +52,81 @@ function Shrub({ position, scale = 1 }: { position: [number, number, number]; sc
   );
 }
 
+function StylizedTree({ position, scale = 1, rotation = 0 }: { position: [number, number, number]; scale?: number; rotation?: number }) {
+  const { scene } = useGLTF('/models/new/stylized_tree.glb');
+  const cloned = useMemo(() => scene.clone(), [scene]);
+  return <primitive object={cloned} position={position} scale={scale} rotation={[0, rotation, 0]} />;
+}
+
+const SOFA_PATH = '/models/new/venetian_sofa.glb';
+
+function VenetianSofa({ position, scale = 1, rotation = 0 }: { position: [number, number, number]; scale?: number; rotation?: number }) {
+  const { scene } = useGLTF(SOFA_PATH);
+  
+  const processed = useMemo(() => {
+    const clone = scene.clone();
+    
+    // 1. Traverse to enable shadows
+    clone.traverse((node) => {
+      if (node instanceof THREE.Mesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+      }
+    });
+
+    // 2. Normalize and Center
+    clone.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(clone);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    
+    const maxDim = Math.max(size.x, size.y, size.z);
+    if (maxDim > 0.0001) {
+      const invScale = 1.0 / maxDim;
+      clone.scale.multiplyScalar(invScale);
+      clone.position.sub(center.multiplyScalar(invScale));
+    }
+    
+    return clone;
+  }, [scene]);
+
+  return (
+    <group position={position} scale={scale} rotation={[0, rotation, 0]}>
+      <primitive object={processed} />
+    </group>
+  );
+}
+
 export function HubShell() {
+  const tree1 = useControls('Stylized Tree 01', {
+    t1x: { value: -8.3, min: -15, max: 15, step: 0.1 },
+    t1y: { value: 0.0, min: -2, max: 10, step: 0.1 },
+    t1z: { value: -8.0, min: -15, max: 15, step: 0.1 },
+    t1s: { value: 5.80, min: 0.1, max: 8, step: 0.05 },
+    t1r: { value: 0.30, min: -Math.PI, max: Math.PI, step: 0.01 },
+  });
+  const tree2 = useControls('Stylized Tree 02', {
+    t2x: { value: 8.0, min: -15, max: 15, step: 0.1 },
+    t2y: { value: 0.0, min: -2, max: 10, step: 0.1 },
+    t2z: { value: -8.0, min: -15, max: 15, step: 0.1 },
+    t2s: { value: 6.15, min: 0.1, max: 8, step: 0.05 },
+    t2r: { value: -0.40, min: -Math.PI, max: Math.PI, step: 0.01 },
+  });
+  const tree3 = useControls('Stylized Tree 03', {
+    t3x: { value: -8.0, min: -15, max: 15, step: 0.1 },
+    t3y: { value: 0.0, min: -2, max: 10, step: 0.1 },
+    t3z: { value: 8.8, min: -15, max: 15, step: 0.1 },
+    t3s: { value: 2.00, min: 0.1, max: 8, step: 0.05 },
+    t3r: { value: 0.10, min: -Math.PI, max: Math.PI, step: 0.01 },
+  });
+  const sofaControls = useControls('Venetian Sofa', {
+    x: { value: -8.8, min: -15, max: 15, step: 0.1 },
+    y: { value: 0.9, min: -2, max: 10, step: 0.1 },
+    z: { value: 2.8, min: -15, max: 15, step: 0.1 },
+    scale: { value: 6.20, min: 0.01, max: 100, step: 0.05 },
+    rotation: { value: 1.61, min: -Math.PI, max: Math.PI, step: 0.01 },
+  });
+
   const textures = useTexture({
     map: '/textures/Concrete035_2K.jpg',
     woodMap: '/textures/oak_veneer_01_diff_2k.jpg',
@@ -289,15 +364,22 @@ export function HubShell() {
       <Shrub position={[8.8, 0, -4.5]} scale={0.8} />
       <Shrub position={[8.8, 0, 0.5]} scale={0.9} />
       <Shrub position={[8.8, 0, 5.5]} scale={0.85} />
+      {/* Stylizowane drzewa z GLB */}
+      <StylizedTree position={[tree1.t1x, tree1.t1y, tree1.t1z]} scale={tree1.t1s} rotation={tree1.t1r} />
+      <StylizedTree position={[tree2.t2x, tree2.t2y, tree2.t2z]} scale={tree2.t2s} rotation={tree2.t2r} />
+      <StylizedTree position={[tree3.t3x, tree3.t3y, tree3.t3z]} scale={tree3.t3s} rotation={tree3.t3r} />
+      <VenetianSofa position={[sofaControls.x, sofaControls.y, sofaControls.z]} scale={sofaControls.scale} rotation={sofaControls.rotation} />
 
       {/* ═══════════════ OŚWIETLENIE ═══════════════ */}
-      <pointLight position={[-8, 5.5, -9]} intensity={3.0} distance={7} decay={2} color="#f5e6d0" />
-      <pointLight position={[0, 5.5, -8.5]} intensity={4.0} distance={7} decay={2} color="#f5e6d0" />
-      <pointLight position={[8, 5.5, -9]} intensity={3.0} distance={7} decay={2} color="#f5e6d0" />
-      <pointLight position={[-8, 7.0, -7]} intensity={2.0} distance={10} decay={2} color="#f5e6d0" />
-      <pointLight position={[8, 7.0, -7]} intensity={2.0} distance={10} decay={2} color="#f5e6d0" />
+      {/* Back wall cove — 2 słabsze pointLight zamiast 3 */}
+      <pointLight position={[-8, 5.5, -9]} intensity={1.8} distance={7} decay={2} color="#f5e6d0" />
+      <pointLight position={[8, 5.5, -9]} intensity={1.8} distance={7} decay={2} color="#f5e6d0" />
+      {/* Górny akcent */}
+      <pointLight position={[0, 7.0, -7]} intensity={2.0} distance={10} decay={2} color="#f5e6d0" />
+      {/* Front fill */}
       <pointLight position={[0, 5, 5]} intensity={1.5} distance={14} decay={2} color="#faf5ed" />
-      <pointLight position={[8.5, 3, 0]} intensity={1.8} distance={8} decay={2} color="#f0ebe0" />
+      {/* Boczny akcent dla głębi */}
+      <pointLight position={[8.5, 3, 0]} intensity={1.2} distance={8} decay={2} color="#f0ebe0" />
     </group>
   );
 }

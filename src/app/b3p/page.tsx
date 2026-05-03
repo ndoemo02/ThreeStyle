@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Environment, PerspectiveCamera } from '@react-three/drei';
 import { GroundedHub } from '../../3d/world/hub/GroundedHub';
@@ -8,6 +9,7 @@ import { CreatorRoomMVP } from '../../3d/world/rooms/CreatorRoomMVP';
 import { BaseNavigationControls } from '../../3d/systems/BaseNavigationControls';
 import { HudOverlay } from '../../components/HudOverlay';
 import { NativeMobileJoystick } from '../../components/ui/NativeMobileJoystick';
+import { PerformanceCounter } from '../../components/PerformanceCounter';
 import { useTransitionStore } from '../../store/useTransitionStore';
 import { ElevatorA } from '../../3d/world/elevators/ElevatorA';
 
@@ -65,6 +67,19 @@ function getHubCameraPreset(width: number, height: number): CameraPreset {
   };
 }
 
+function AdaptiveEnvironment() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768 || window.innerHeight < 500);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  return <Environment preset="apartment" environmentIntensity={isMobile ? 0.12 : 0.3} />;
+}
+
 function ZoneController({ activeZone }: { activeZone: string }) {
   const { size } = useThree();
   const elevatorState = useTransitionStore(s => s.elevatorState);
@@ -98,8 +113,8 @@ export default function B3PPage() {
   const setActiveZone = useTransitionStore(s => s.setActiveZone);
 
   return (
-    <div className="w-[100vw] h-[100dvh] bg-black fixed inset-0 z-50">
-      
+    <div className="b3p-fullscreen">
+
       {/* UI Overlay Help */}
       <div className="absolute top-4 left-4 z-10 p-4 font-mono text-xs text-white/50 pointer-events-none drop-shadow-md">
         <div>B3P (Blok Trzech Pięter)</div>
@@ -126,11 +141,22 @@ export default function B3PPage() {
       </button>
 
 
-      
+
       {/* Permanent Crosshair indicating user focus */}
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white rounded-full z-20 pointer-events-none mix-blend-difference opacity-70 shadow-[0_0_5px_rgba(255,255,255,0.5)]" />
 
-      <Canvas shadows camera={{ position: [0, 2.05, 5], fov: 60 }}>
+      <div className="b3p-canvas-wrap">
+        <Canvas
+          shadows
+          dpr={[1, 2]}
+          onCreated={({ gl }) => {
+            gl.shadowMap.type = THREE.PCFSoftShadowMap;
+            gl.toneMapping = THREE.ACESFilmicToneMapping;
+            gl.toneMappingExposure = 1.0;
+          }}
+          camera={{ position: [0, 2.05, 5], fov: 60 }}
+          style={{ width: '100%', height: '100%', display: 'block' }}
+        >
         <ZoneController activeZone={activeZone} />
         
         {/* Subtelny ambient — podbija cienie na mobile */}
@@ -140,8 +166,10 @@ export default function B3PPage() {
         <fog attach="fog" args={['#e8e0d5', 18, 55]} />
         <color attach="background" args={['#e8e0d5']} />
 
-        {/* Ciepłe, subtelne refleksy środowiskowe */}
-        <Environment preset="apartment" environmentIntensity={0.3} />
+        {/* Ciepłe, subtelne refleksy środowiskowe — zredukowane na mobile */}
+        <AdaptiveEnvironment />
+
+        <PerformanceCounter />
 
         {activeZone === 'hub' && <GroundedHub onEnterRoom={(id) => setActiveZone(id)} />}
         {activeZone !== 'hub' && <CreatorRoomMVP onExit={() => setActiveZone('hub')} />}
@@ -151,6 +179,7 @@ export default function B3PPage() {
 
         <BaseNavigationControls />
       </Canvas>
+      </div>
       <HudOverlay />
       <NativeMobileJoystick />
     </div>

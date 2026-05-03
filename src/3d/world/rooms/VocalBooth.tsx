@@ -82,11 +82,11 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
   }, [W, H, D, slatCount, slatMatrix]);
 
   const light = useControls('Vocal Booth Lighting', {
-    mainIntensity: { value: 6, min: 0, max: 100, step: 1, label: 'Main (overhead)' },
-    fillIntensity: { value: 3, min: 0, max: 80, step: 1, label: 'Fill (front)' },
-    accentIntensity: { value: 14, min: 0, max: 40, step: 1, label: 'Accent (mic rim)' },
-    ceilingIntensity: { value: 15, min: 0, max: 40, step: 1, label: 'Ceiling bounce' },
-    ambientIntensity: { value: 0.2, min: 0, max: 5, step: 0.05, label: 'Ambient' },
+    mainIntensity: { value: 3.5, min: 0, max: 100, step: 1, label: 'Main (overhead)' },
+    fillIntensity: { value: 1.8, min: 0, max: 80, step: 1, label: 'Fill (front)' },
+    accentIntensity: { value: 8, min: 0, max: 40, step: 1, label: 'Accent (mic rim)' },
+    ceilingIntensity: { value: 8, min: 0, max: 40, step: 1, label: 'Ceiling bounce' },
+    ambientIntensity: { value: 0.15, min: 0, max: 5, step: 0.05, label: 'Ambient' },
     lightColor: { value: '#ffffff', label: 'Light color' },
   });
 
@@ -107,6 +107,8 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
       <pointLight position={[0.3, 1.7, -D * 0.45]} intensity={light.accentIntensity} color="#ff9944" distance={2.5} decay={2} />
       <pointLight position={[0, H - 0.1, -D * 0.3]} intensity={light.ceilingIntensity} color={light.lightColor} distance={4} decay={2} />
       <ambientLight intensity={light.ambientIntensity} color="#fff8ee" />
+      {/* ON AIR neon glow */}
+      <pointLight position={[0, H - 0.08, -0.05]} intensity={1.2} color="#ff2200" distance={1.2} decay={2} />
 
       {/* ── Floor / Ceiling ── */}
       <mesh position={[0, 0.02, -D / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -158,12 +160,11 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
         <meshStandardMaterial color="#bbb" metalness={0.8} roughness={0.2} />
       </mesh>
 
-      {/* ── ON AIR neon strip ── */}
+      {/* ── ON AIR neon strip (meshBasicMaterial = self-illuminating, no extra light needed) ── */}
       <mesh position={[0, H - 0.08, -0.05]}>
         <boxGeometry args={[0.62, 0.1, 0.04]} />
         <meshBasicMaterial color="#cc0000" />
       </mesh>
-      <pointLight position={[0, H - 0.08, -0.05]} intensity={2} color="#ff2200" distance={1.2} decay={2} />
 
       {/* ── Floor skirting ── */}
       <mesh position={[0, 0.02, -D]}>

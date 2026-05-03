@@ -560,8 +560,6 @@ function SofaRaw() {
     clone.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(clone);
     const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-    console.log('[SofaRaw] center:', center.toArray(), 'size:', size.toArray());
 
     // Shift entire root so center is at [0,0,0] in local space,
     // BEFORE scale is applied by the parent group
@@ -718,42 +716,41 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
   return (
     <group position={new THREE.Vector3(...position)} rotation={new THREE.Euler(...rotation)}>
-      <ambientLight intensity={0.18} color="#ddeeff" />
-      
-      {/* Ceiling LED strip simulation (warm glow) */}
-      <pointLight position={[0, 4.9, 0]} intensity={1.5} color="#ffa95c" distance={10} decay={1.5} />
-      <pointLight position={[-4, 4.9, -4]} intensity={1.2} color="#ffa95c" distance={8} decay={1.5} />
-      <pointLight position={[4, 4.9, 4]} intensity={1.2} color="#ffa95c" distance={8} decay={1.5} />
+      <ambientLight intensity={0.2} color="#ddeeff" />
+
+      {/* Górny sufit — 2 słabsze pointLight zamiast przepalającego directionala */}
+      <pointLight position={[0, 4.9, 0]} intensity={0.9} color="#ffa95c" distance={10} decay={1.5} />
+      <pointLight position={[-4, 4.9, -4]} intensity={0.8} color="#ffa95c" distance={8} decay={1.5} />
 
       {/* Desk SpotLight (Soft & Focused) */}
-      <spotLight 
-        position={[3.5, 4.5, -3.4]} 
-        intensity={40} 
-        angle={0.8} 
-        penumbra={0.8} 
+      <spotLight
+        position={[3.5, 4.5, -3.4]}
+        intensity={40}
+        angle={0.8}
+        penumbra={0.8}
         decay={1.5}
-        color="#ffecd6" 
-        distance={9} 
-        castShadow 
+        color="#ffecd6"
+        distance={9}
+        castShadow
       >
         <object3D position={[3.5, 0, -3.4]} attach="target" />
       </spotLight>
 
       {/* RTV Cabinet SpotLight (Soft) */}
-      <spotLight 
-        position={[-5.0, 4.0, 3.2]} 
-        intensity={35} 
-        angle={0.9} 
-        penumbra={1} 
+      <spotLight
+        position={[-5.0, 4.0, 3.2]}
+        intensity={35}
+        angle={0.9}
+        penumbra={1}
         decay={1.5}
-        color="#ffe4c4" 
-        distance={8} 
-        castShadow 
+        color="#ffe4c4"
+        distance={8}
+        castShadow
       >
         <object3D position={[-6.0, 0.6, 3.2]} attach="target" />
       </spotLight>
 
-      {/* Additional soft fill from the front of the room */}
+      {/* Soft fill z frontu */}
       <directionalLight position={[0, 3, 5]} intensity={0.4} color="#ffffff" />
 
       {/* STAGE 1: Static Architecture (Fastest Load) */}
@@ -785,10 +782,10 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           <pointLight position={[0, 2.5, -2]} intensity={5} color="#ff8c42" distance={6} decay={2} />
         </group>
 
-        {/* Back wall architecture */}
-        <pointLight position={[1.9, 3.0, -4.8]} intensity={7} color="#ffe0a0" distance={5} decay={2} />
-        {/* Cool rim fill — przełamuje monochromatyczną pomarańczową paletę */}
-        <pointLight position={[-6.5, 4.0, -4.5]} intensity={4} color="#8899cc" distance={10} decay={2} />
+        {/* Back wall — ciepły akcent */}
+        <pointLight position={[1.9, 3.0, -4.8]} intensity={3.5} color="#ffe0a0" distance={5} decay={2} />
+        {/* Cool rim fill — przełamuje pomarańczową paletę */}
+        <pointLight position={[-6.5, 4.0, -4.5]} intensity={2.0} color="#8899cc" distance={10} decay={2} />
         <mesh position={[0, 2.5, -6]} castShadow receiveShadow>
           <boxGeometry args={[14, 5, 0.5]} />
           <meshStandardMaterial color="#5c3a1e" roughness={0.65} metalness={0.05} />

@@ -226,6 +226,7 @@ export function BaseNavigationControls() {
       return;
     }
 
+    let moved = false;
     const speed = 6.0 * delta; // standard walk speed
 
     if (isMobile) {
@@ -234,41 +235,62 @@ export function BaseNavigationControls() {
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(state.camera.quaternion);
         forward.y = 0;
         forward.normalize();
-        
+
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(state.camera.quaternion);
         right.y = 0;
         right.normalize();
-        
+
         const moveX = joystick.x * speed;
-        const moveZ = joystick.y * speed; 
+        const moveZ = joystick.y * speed;
 
         state.camera.position.addScaledVector(right, moveX);
-        state.camera.position.addScaledVector(forward, moveZ); 
+        state.camera.position.addScaledVector(forward, moveZ);
+        moved = true;
       }
-      
+
       // Keep grounded at natural human eye level
       state.camera.position.y = 2.05;
+      if (moved) state.invalidate();
       return;
     }
 
     if (controlsRef.current && controlsRef.current.isLocked) {
-      
+
       direction.current.z = Number(moveState.current.forward) - Number(moveState.current.backward);
       direction.current.x = Number(moveState.current.right) - Number(moveState.current.left);
       direction.current.normalize();
 
-      if (moveState.current.forward || moveState.current.backward) controlsRef.current.moveForward(direction.current.z * speed);
-      if (moveState.current.left || moveState.current.right) controlsRef.current.moveRight(direction.current.x * speed);
-      
+      if (moveState.current.forward || moveState.current.backward) {
+        controlsRef.current.moveForward(direction.current.z * speed);
+        moved = true;
+      }
+      if (moveState.current.left || moveState.current.right) {
+        controlsRef.current.moveRight(direction.current.x * speed);
+        moved = true;
+      }
+
       // Keep grounded at natural human eye level
       state.camera.position.y = 2.05;
     }
+
+    // PointerLockControls rotates camera via its own internal RAF — always invalidate when locked
+    if (controlsRef.current?.isLocked || moved) {
+      state.invalidate();
+    }
   });
 
-  if (isMobile) {
-    return null; // Custom touch controls are active via effect above
+  if (isMobile || isHudOpen) {
+    return null; // Custom touch controls are active, or HUD is open (don't lock)
   }
 
-  return <PointerLockControls ref={controlsRef} />;
+  return (
+    <PointerLockControls 
+      ref={controlsRef} 
+      selector=".b3p-canvas-wrap" // Restrict lock trigger to the canvas area
+      onPointerLockError={() => {
+        // Explicitly swallow errors from R3F-internal listener
+      }}
+    />
+  );
 }
 
