@@ -29,7 +29,7 @@ function VenetianSofa({ position, scale = 1, rotation = 0 }: { position: [number
     <primitive 
       object={clonedScene} 
       position={position} 
-      scale={scale * 0.008} // Significant reduction since model was huge
+      scale={scale * 0.0005} // Significant reduction since model was huge
       rotation={[0, rotation, 0]} 
       castShadow 
       receiveShadow 
@@ -74,7 +74,7 @@ export function HubShell() {
     t3s: { value: 2.00, min: 0.1, max: 8, step: 0.05 },
     t3r: { value: 0.10, min: -Math.PI, max: Math.PI, step: 0.01 },
   });
-  const sofaControls = useControls('Venetian Sofa v2', {
+  const sofaControls = useControls('Venetian Sofa v4 - RESET', {
     x: { value: -8.8, min: -15, max: 15, step: 0.1 },
     y: { value: 0.9, min: -2, max: 10, step: 0.1 },
     z: { value: 2.8, min: -15, max: 15, step: 0.1 },

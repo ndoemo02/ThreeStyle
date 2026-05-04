@@ -5,12 +5,3 @@
 *.exr filter=lfs diff=lfs merge=lfs -text
 *.zip filter=lfs diff=lfs merge=lfs -text
 
-# Modele przeniesione do normalnego binarnego storage dla Vercela
-# Zostawiamy w LFS tylko te ktore nie sa krytyczne dla wejscia do pokoju
-public/models/models/base_basic_pbr.glb filter=lfs diff=lfs merge=lfs -text
-public/models/models/base_basic_shaded.glb filter=lfs diff=lfs merge=lfs -text
-public/models/models/virtual_studio_ver_02.glb filter=lfs diff=lfs merge=lfs -text
-public/models/models/ipad_pro_2024.glb filter=lfs diff=lfs merge=lfs -text
-public/models/models/table.glb filter=lfs diff=lfs merge=lfs -text
-public/models/models/sample_model.glb filter=lfs diff=lfs merge=lfs -text
-public/models/models/ipad10.glb filter=lfs diff=lfs merge=lfs -text
