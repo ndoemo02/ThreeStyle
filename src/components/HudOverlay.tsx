@@ -77,6 +77,7 @@ function getMediaItems(response: MediaLibraryResponse) {
 export function HudOverlay() {
   const { isOpen, closeHud, activeScreenId, isPlaying, setIsPlaying, camEnabled, setCamEnabled } = useHudStore();
   const setMasterVideoRef = useHudStore((state) => state.setMasterVideoRef);
+  const setCamVideoElement = useHudStore((state) => state.setCamVideoElement);
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [mediaItems, setMediaItems] = useState<HudMediaItem[]>([]);
@@ -250,6 +251,11 @@ export function HudOverlay() {
             src={activeMedia?.kind === 'audio' ? activeMedia.src : undefined}
             preload="metadata"
             {...masterMediaEventProps}
+          />
+          <video
+            ref={(el) => { setCamVideoElement(el); }}
+            muted
+            playsInline
           />
         </div>
       )}

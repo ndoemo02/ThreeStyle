@@ -589,27 +589,39 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   // ══════════════════════════════════════════════════════════════════════════
   const [videoTex, setVideoTex] = useState<THREE.VideoTexture | null>(null);
   const camEnabled = useHudStore(s => s.camEnabled);
+  const camVideoElement = useHudStore(s => s.camVideoElement);
   const [camTex, setCamTex] = useState<THREE.VideoTexture | null>(null);
   const camStreamRef = useRef<MediaStream | null>(null);
 
-  // Selfie camera toggle — creates/destroys stream when camEnabled changes
+  // Selfie camera toggle — uses persistent camVideoElement from HudOverlay (always in DOM)
   useEffect(() => {
     if (!camEnabled) {
       camStreamRef.current?.getTracks().forEach(t => t.stop());
       camStreamRef.current = null;
+      if (camVideoElement) {
+        camVideoElement.pause();
+        camVideoElement.srcObject = null;
+      }
       if (camTex) { camTex.dispose(); setCamTex(null); }
       return;
     }
 
-    const videoEl = document.createElement('video');
-    videoEl.muted = true;
-    videoEl.playsInline = true;
-    videoEl.setAttribute('playsinline', '');
+    const videoEl = camVideoElement;
+    if (!videoEl) {
+      useHudStore.getState().setCamEnabled(false);
+      return;
+    }
+
+    let cancelled = false;
 
     navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'user', width: 640, height: 480 },
       audio: false,
     }).then(stream => {
+      if (cancelled) {
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
       camStreamRef.current = stream;
       videoEl.srcObject = stream;
       videoEl.play().catch(() => {});
@@ -621,16 +633,17 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       tex.magFilter = THREE.LinearFilter;
       setCamTex(tex);
     }).catch(err => {
+      if (cancelled) return;
       console.warn('[SelfieCam] getUserMedia failed:', err.message);
       useHudStore.getState().setCamEnabled(false);
     });
 
     return () => {
+      cancelled = true;
       camStreamRef.current?.getTracks().forEach(t => t.stop());
       camStreamRef.current = null;
-      videoEl.remove();
     };
-  }, [camEnabled]);
+  }, [camEnabled, camVideoElement]);
 
   const screenTex = camEnabled && camTex ? camTex : videoTex;
 
