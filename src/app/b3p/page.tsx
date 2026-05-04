@@ -148,7 +148,8 @@ export default function B3PPage() {
       <div className="b3p-canvas-wrap">
         <Canvas
           shadows
-          dpr={[1, 2]}
+          frameloop="always"
+          dpr={[1, 1.5]}
           onCreated={({ gl }) => {
             gl.shadowMap.type = THREE.PCFSoftShadowMap;
             gl.toneMapping = THREE.ACESFilmicToneMapping;

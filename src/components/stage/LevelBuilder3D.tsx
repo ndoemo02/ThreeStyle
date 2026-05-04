@@ -212,7 +212,7 @@ export function LevelBuilder3D({ topTrackName = 'TRANSYLVANIA' }: LevelBuilder3D
                 intensity={3.5}
                 color="#ffaa00"
                 castShadow
-                shadow-mapSize={[2048, 2048]}
+                shadow-mapSize={[1024, 1024]}
                 shadow-camera-left={-100}
                 shadow-camera-right={100}
                 shadow-camera-top={100}

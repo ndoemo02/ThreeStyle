@@ -39,13 +39,15 @@ export default function Home() {
 
       {/* 📍 STAGE 2: Safe House (3D Immersive) */}
       <div className={`absolute inset-0 z-0 transition-opacity duration-1000 ${isAccessGranted ? 'opacity-100' : 'opacity-20 pointer-events-none grayscale'}`}>
-        <Canvas 
-          shadows 
-          camera={{ position: [15, 12, 15], fov: 55 }} 
-          gl={{ 
-            toneMapping: THREE.ACESFilmicToneMapping, 
+        <Canvas
+          shadows
+          frameloop="always"
+          dpr={[1, 1.5]}
+          camera={{ position: [15, 12, 15], fov: 55 }}
+          gl={{
+            toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 0.85,
-            antialias: true 
+            antialias: true
           }}
         >
           <color attach="background" args={['#050505']} />
@@ -64,7 +66,7 @@ export default function Home() {
             <Sparkles count={80} scale={20} size={1} speed={0.4} color="#ffaa44" opacity={0.2} />
 
             {/* --- Post-Processing --- */}
-            <EffectComposer multisampling={4}>
+            <EffectComposer multisampling={0}>
               <Bloom luminanceThreshold={0.8} luminanceSmoothing={0.5} intensity={1.0} mipmapBlur />
               {/* <ChromaticAberration offset={[0.0018, 0.0018]} /> */}
               {/* <Noise opacity={0.3} /> */}
