@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Environment, PerspectiveCamera } from '@react-three/drei';
+import { Environment } from '@react-three/drei';
 import { GroundedHub } from '../../3d/world/hub/GroundedHub';
 import { CreatorRoomMVP } from '../../3d/world/rooms/CreatorRoomMVP';
 import { BaseNavigationControls } from '../../3d/systems/BaseNavigationControls';
@@ -81,7 +81,7 @@ function AdaptiveEnvironment() {
 }
 
 function ZoneController({ activeZone }: { activeZone: string }) {
-  const { size } = useThree();
+  const { size, camera } = useThree();
   const elevatorState = useTransitionStore(s => s.elevatorState);
   const activeElevator = useTransitionStore(s => s.activeElevator);
 
@@ -93,19 +93,23 @@ function ZoneController({ activeZone }: { activeZone: string }) {
 
   const shouldForcePosition = elevatorState === 'idle' && activeElevator === null;
 
-  return (
-    <PerspectiveCamera
-      makeDefault
-      position={shouldForcePosition ? preset.position : undefined}
-      fov={preset.fov}
-      onUpdate={(cam) => {
-        if (shouldForcePosition) {
-          cam.lookAt(...preset.target);
-          cam.updateProjectionMatrix();
-        }
-      }}
-    />
-  );
+  // Force camera to zone preset on mount and on zone change (not during elevator transit)
+  useEffect(() => {
+    if (!shouldForcePosition) return;
+    camera.position.set(...preset.position);
+    camera.lookAt(...preset.target);
+    camera.updateProjectionMatrix();
+  }, [activeZone, shouldForcePosition, camera, preset]);
+
+  // Also keep fov synced and prevent camera drift via onUpdate
+  useEffect(() => {
+    if (camera instanceof THREE.PerspectiveCamera) {
+      camera.fov = preset.fov;
+      camera.updateProjectionMatrix();
+    }
+  }, [preset.fov, camera]);
+
+  return null;
 }
 
 export default function B3PPage() {

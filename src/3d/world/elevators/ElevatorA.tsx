@@ -4,42 +4,39 @@ import * as THREE from 'three';
 import { useTransitionStore } from '../../../store/useTransitionStore';
 import { Html } from '@react-three/drei';
 
+const LOBBY_POS = new THREE.Vector3(-24, 0, 1.5);
+const ROOM_POS = new THREE.Vector3(0, 0, 9.5);
+
 export function ElevatorA() {
-  const { elevatorState, setElevatorState, activeElevator, activeZone, enterElevator } = useTransitionStore();
+  const elevatorState = useTransitionStore(s => s.elevatorState);
+  const setElevatorState = useTransitionStore(s => s.setElevatorState);
+  const activeElevator = useTransitionStore(s => s.activeElevator);
+  const activeZone = useTransitionStore(s => s.activeZone);
+  const enterElevator = useTransitionStore(s => s.enterElevator);
   const { camera } = useThree();
-  
+
   const leftDoorRef = useRef<THREE.Mesh>(null);
   const rightDoorRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
-  
+
   const inTransit = elevatorState !== 'idle';
   const isActiveForUs = activeElevator === 'A';
-  
-  // Winda głęboka na 5.0m. Drzwi są na lokalnym Z=2.5.
-  // Lobby: drzwi mają być na globalnym Z=-1.0. Grupa obrócona o 180°, więc drzwi globalnie są na Z_group - 2.5.
-  // Z_group - 2.5 = -1.0 => Z_group = 1.5
-  const lobbyPosition = new THREE.Vector3(-24, 0, 1.5);
-  // Pokój: drzwi mają być na globalnym Z=7.0.
-  // Z_group - 2.5 = 7.0 => Z_group = 9.5
-  const roomPosition = new THREE.Vector3(0, 0, 9.5);
-
   const shaftGroupRef = useRef<THREE.Group>(null);
 
   useEffect(() => {
     if (!groupRef.current) return;
-    
-    const targetPos = useTransitionStore.getState().activeZone === 'room1' ? roomPosition : lobbyPosition;
-    
+
+    const targetPos = activeZone === 'room1' ? ROOM_POS : LOBBY_POS;
     groupRef.current.position.copy(targetPos);
-    groupRef.current.rotation.set(0, Math.PI, 0); 
-    
+    groupRef.current.rotation.set(0, Math.PI, 0);
+
     if (elevatorState === 'moving' && isActiveForUs) {
-      if (useTransitionStore.getState().activeZone === 'room1') {
-        camera.position.set(roomPosition.x, 1.7, roomPosition.z);
-        camera.rotation.set(0, 0, 0); 
+      if (activeZone === 'room1') {
+        camera.position.set(ROOM_POS.x, 1.7, ROOM_POS.z);
+        camera.rotation.set(0, 0, 0);
       }
     }
-  }, [useTransitionStore.getState().activeZone, elevatorState, isActiveForUs, camera, lobbyPosition, roomPosition]);
+  }, [activeZone, elevatorState, isActiveForUs, camera]);
 
   useFrame((state, delta) => {
     if (shaftGroupRef.current && elevatorState === 'moving') {
