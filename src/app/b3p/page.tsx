@@ -142,10 +142,26 @@ export default function B3PPage() {
 
 
 
-      {/* Permanent Crosshair — celownik */}
-      <div className="fixed top-1/2 left-1/2 z-20 pointer-events-none" style={{ transform: 'translate(-50%, -50%)' }}>
-        <div className="w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.6)]" style={{ mixBlendMode: 'difference' }} />
-        <div className="absolute top-1/2 left-1/2 w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/30" style={{ mixBlendMode: 'difference' }} />
+      {/* Permanent Crosshair — celownik (inline styles — Tailwind broken) */}
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%',
+        transform: 'translate(-50%, -50%)',
+        zIndex: 20, pointerEvents: 'none',
+      }}>
+        <div style={{
+          width: '4px', height: '4px',
+          background: 'white', borderRadius: '50%',
+          mixBlendMode: 'difference',
+          boxShadow: '0 0 6px rgba(255,255,255,0.6)',
+        }} />
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%',
+          width: '16px', height: '16px',
+          transform: 'translate(-50%, -50%)',
+          borderRadius: '50%',
+          border: '1px solid rgba(255,255,255,0.3)',
+          mixBlendMode: 'difference',
+        }} />
       </div>
 
       <div className="b3p-canvas-wrap">

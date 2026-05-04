@@ -1050,7 +1050,15 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
               e.stopPropagation();
               if (document.pointerLockElement) {
                 document.exitPointerLock();
-                // open HUD on next frame after pointer lock releases
+                requestAnimationFrame(() => openHud('master_catalog'));
+              } else {
+                openHud('master_catalog');
+              }
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              if (document.pointerLockElement) {
+                document.exitPointerLock();
                 requestAnimationFrame(() => openHud('master_catalog'));
               } else {
                 openHud('master_catalog');
@@ -1061,7 +1069,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           >
             {/* 2.0×1.6 covers the full iPad Pro screen at scale 3.3 */}
             <planeGeometry args={[2.0, 1.6]} />
-            <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+            <meshBasicMaterial transparent opacity={0.001} depthWrite={false} side={THREE.DoubleSide} />
           </mesh>
 
           {/* Hover hint – NO transform, renders as screen-space HTML anchored to 3D pos */}
