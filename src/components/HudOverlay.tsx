@@ -301,24 +301,22 @@ export function HudOverlay() {
                   border: camEnabled ? '1px solid rgba(255,60,60,0.5)' : '1px solid rgba(255,255,255,0.2)',
                 }}
               >
-                📷 {camEnabled ? 'ON' : 'OFF'}
+                {camEnabled ? '📷 ON' : '📷 OFF'}
               </button>
-              {camEnabled && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); setCamFacingMode(camFacingMode === 'user' ? 'environment' : 'user'); }}
-                  className="hud-close-btn"
-                  style={{
-                    marginRight: '8px',
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    fontSize: '18px',
-                    lineHeight: '1',
-                  }}
-                  title={camFacingMode === 'user' ? 'Przełącz na tylną kamerę' : 'Przełącz na przednią kamerę'}
-                >
-                  🔄
-                </button>
-              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); if (camEnabled) setCamFacingMode(camFacingMode === 'user' ? 'environment' : 'user'); }}
+                className="hud-close-btn"
+                style={{
+                  marginRight: '8px',
+                  background: camEnabled ? 'rgba(0,200,200,0.15)' : 'rgba(255,255,255,0.04)',
+                  border: camEnabled ? '1px solid rgba(0,200,200,0.35)' : '1px solid rgba(255,255,255,0.1)',
+                  opacity: camEnabled ? 1 : 0.4,
+                  fontSize: '11px',
+                  letterSpacing: '0.1em',
+                }}
+              >
+                {camFacingMode === 'user' ? 'FRONT' : 'BACK'}
+              </button>
               <button onClick={closeHud} className="hud-close-btn">
                 Close
               </button>
