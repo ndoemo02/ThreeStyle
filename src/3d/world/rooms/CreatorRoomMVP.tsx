@@ -593,7 +593,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   const [camTex, setCamTex] = useState<THREE.VideoTexture | null>(null);
   const camStreamRef = useRef<MediaStream | null>(null);
 
-  // Selfie camera toggle — uses persistent camVideoElement from HudOverlay (always in DOM)
+  // Selfie camera toggle — prefers persistent camVideoElement, falls back to DOM-attached el
   useEffect(() => {
     if (!camEnabled) {
       camStreamRef.current?.getTracks().forEach(t => t.stop());
@@ -606,16 +606,27 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       return;
     }
 
-    const videoEl = camVideoElement;
+    let cancelled = false;
+    let fallbackEl: HTMLVideoElement | null = null;
+
+    const videoEl: HTMLVideoElement | null = camVideoElement ?? (() => {
+      const el = document.createElement('video');
+      el.muted = true;
+      el.playsInline = true;
+      el.setAttribute('playsinline', '');
+      el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0.001;pointer-events:none';
+      document.body.appendChild(el);
+      fallbackEl = el;
+      return el;
+    })();
+
     if (!videoEl) {
       useHudStore.getState().setCamEnabled(false);
       return;
     }
 
-    let cancelled = false;
-
     navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: 640, height: 480 },
+      video: true,
       audio: false,
     }).then(stream => {
       if (cancelled) {
@@ -635,13 +646,16 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     }).catch(err => {
       if (cancelled) return;
       console.warn('[SelfieCam] getUserMedia failed:', err.message);
-      useHudStore.getState().setCamEnabled(false);
+      // Don't flip camEnabled — let the user see the error state
     });
 
     return () => {
       cancelled = true;
       camStreamRef.current?.getTracks().forEach(t => t.stop());
       camStreamRef.current = null;
+      if (fallbackEl && fallbackEl.parentNode) {
+        fallbackEl.parentNode.removeChild(fallbackEl);
+      }
     };
   }, [camEnabled, camVideoElement]);
 
