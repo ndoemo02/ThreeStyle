@@ -12,14 +12,19 @@ export function NativeMobileJoystick() {
   const { isOpen } = useHudStore();
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0);
+    const checkMobile = () => {
+      const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+      const hasTouch = navigator.maxTouchPoints > 0;
+      const narrowScreen = window.innerWidth <= 1024;
+      setIsMobile(coarsePointer || hasTouch || narrowScreen);
+    };
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const emitVector = (x: number, y: number) => {
-    (window as any).joystickVector = { x, y };
+    (window as unknown as { joystickVector: { x: number; y: number } }).joystickVector = { x, y };
   };
 
   const computeAndEmit = useCallback((clientX: number, clientY: number) => {
@@ -31,7 +36,7 @@ export function NativeMobileJoystick() {
     let dx = clientX - centerX;
     let dy = clientY - centerY;
 
-    const radius = 30;
+    const radius = 35;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance > radius) {
@@ -82,33 +87,63 @@ export function NativeMobileJoystick() {
     <div
       ref={baseRef}
       onPointerDown={handlePointerDown}
-      className={`fixed z-[100] shadow-2xl transition-opacity duration-300 ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
       style={{
+        position: 'fixed',
         bottom: '40px',
-        left: '70px',
-        width: '120px',
-        height: '120px',
+        left: '50px',
+        width: '130px',
+        height: '130px',
         borderRadius: '50%',
         backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        border: '2px solid rgba(255, 255, 255, 0.15)',
+        border: '2px solid rgba(255, 255, 255, 0.20)',
         touchAction: 'none',
-        pointerEvents: 'auto',
+        pointerEvents: isOpen ? 'none' : 'auto',
+        opacity: isOpen ? 0 : 1,
+        zIndex: 9999,
+        transition: 'opacity 300ms ease',
+        boxShadow: active
+          ? '0 0 0 4px rgba(255,255,255,0.12), 0 8px 32px rgba(0,0,0,0.5)'
+          : '0 4px 24px rgba(0,0,0,0.4)',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
       }}
     >
-      <div style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        width: '50px',
-        height: '50px',
-        borderRadius: '50%',
-        backgroundColor: 'rgba(255, 255, 255, 0.5)',
-        backdropFilter: 'blur(8px)',
-        transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`,
-        transition: active ? 'none' : 'transform 0.05s ease-out',
-        pointerEvents: 'none',
-        boxShadow: '0 0 20px rgba(0,0,0,0.5)'
-      }} />
+      {/* Thumb */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          width: '54px',
+          height: '54px',
+          borderRadius: '50%',
+          backgroundColor: active ? 'rgba(255, 255, 255, 0.72)' : 'rgba(255, 255, 255, 0.48)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`,
+          transition: active ? 'none' : 'transform 0.08s ease-out, background-color 0.15s',
+          pointerEvents: 'none',
+          boxShadow: '0 0 20px rgba(0,0,0,0.4)',
+        }}
+      />
+      {/* Label */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '-24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          fontSize: '9px',
+          letterSpacing: '0.2em',
+          textTransform: 'uppercase',
+          color: 'rgba(255,255,255,0.35)',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          fontFamily: 'monospace',
+        }}
+      >
+        MOVE
+      </div>
     </div>
   );
 }
