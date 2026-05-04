@@ -156,9 +156,7 @@ export function HubShell() {
   });
 
   const textures = useTexture({
-    map: '/textures/drewno/Concrete035_2K-JPG/Concrete035_2K-JPG_Color.jpg',
-    normalMap: '/textures/drewno/Concrete035_2K-JPG/Concrete035_2K-JPG_NormalGL.jpg',
-    roughnessMap: '/textures/drewno/Concrete035_2K-JPG/Concrete035_2K-JPG_Roughness.jpg',
+    map: '/textures/Concrete035_2K.jpg',
     woodMap: '/textures/oak_veneer_01_diff_2k.jpg',
     woodNormalMap: '/textures/oak_veneer_01_nor_gl_2k.jpg',
     woodRoughnessMap: '/textures/oak_veneer_01_rough_2k.jpg',
@@ -173,16 +171,10 @@ export function HubShell() {
   const materials = useMemo(() => {
     // Klonowanie tekstur przed modyfikacją (hook immutability)
     const concreteTex = textures.map.clone();
-    const concreteNormTex = textures.normalMap.clone();
-    const concreteRoughTex = textures.roughnessMap.clone();
-    [concreteTex, concreteNormTex, concreteRoughTex].forEach(t => {
-      t.wrapS = t.wrapT = THREE.RepeatWrapping;
-      t.needsUpdate = true;
-    });
+    concreteTex.wrapS = concreteTex.wrapT = THREE.RepeatWrapping;
     concreteTex.colorSpace = THREE.SRGBColorSpace;
     concreteTex.repeat.set(8, 3);
-    concreteNormTex.repeat.set(8, 3);
-    concreteRoughTex.repeat.set(8, 3);
+    concreteTex.needsUpdate = true;
 
     const barkTex = textures.barkMap.clone();
     barkTex.wrapS = barkTex.wrapT = THREE.RepeatWrapping;
@@ -206,9 +198,7 @@ export function HubShell() {
     floorTex.repeat.set(12, 8);
 
     const concreteWall = new THREE.MeshStandardMaterial({
-      map: concreteTex,
-      normalMap: concreteNormTex, roughnessMap: concreteRoughTex,
-      color: '#e8e0d5', roughness: 0.55, metalness: 0.02,
+      map: concreteTex, color: '#e8e0d5', roughness: 0.55, metalness: 0.02,
     });
     const woodSlat = new THREE.MeshStandardMaterial({
       map: woodTex, normalMap: woodNormTex, roughnessMap: woodRoughTex,
@@ -404,9 +394,6 @@ export function HubShell() {
       </DistanceCulledModel>
 
       {/* ═══════════════ OŚWIETLENIE ═══════════════ */}
-      {/* Raking light — grazing angle na betonową ścianę tylną, uwydatnia fakturę z normalMap */}
-      <pointLight position={[-10, 2.5, -8.2]} intensity={0.3} distance={9} decay={2} color="#faf5ed" />
-      <pointLight position={[10, 2.5, -8.2]} intensity={0.25} distance={9} decay={2} color="#faf5ed" />
       {/* Back wall cove — 2 słabsze pointLight zamiast 3 */}
       <pointLight position={[-8, 5.5, -9]} intensity={1.8} distance={7} decay={2} color="#f5e6d0" />
       <pointLight position={[8, 5.5, -9]} intensity={1.8} distance={7} decay={2} color="#f5e6d0" />

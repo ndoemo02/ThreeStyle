@@ -142,8 +142,11 @@ export default function B3PPage() {
 
 
 
-      {/* Permanent Crosshair indicating user focus */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white rounded-full z-20 pointer-events-none mix-blend-difference opacity-70 shadow-[0_0_5px_rgba(255,255,255,0.5)]" />
+      {/* Permanent Crosshair — celownik */}
+      <div className="fixed top-1/2 left-1/2 z-20 pointer-events-none" style={{ transform: 'translate(-50%, -50%)' }}>
+        <div className="w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.6)]" style={{ mixBlendMode: 'difference' }} />
+        <div className="absolute top-1/2 left-1/2 w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/30" style={{ mixBlendMode: 'difference' }} />
+      </div>
 
       <div className="b3p-canvas-wrap">
         <Canvas

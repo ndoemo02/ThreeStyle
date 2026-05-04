@@ -1047,23 +1047,17 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           {/* Large invisible hit-test plane covering full iPad screen */}
           <mesh
             onClick={(e) => {
-              if (document.pointerLockElement) return;
               e.stopPropagation();
-              openHud('master_catalog');
+              if (document.pointerLockElement) {
+                document.exitPointerLock();
+                // open HUD on next frame after pointer lock releases
+                requestAnimationFrame(() => openHud('master_catalog'));
+              } else {
+                openHud('master_catalog');
+              }
             }}
             onPointerOver={() => setLaptopHovered(true)}
             onPointerOut={() => setLaptopHovered(false)}
-            onPointerEnter={() => {
-              if (document.pointerLockElement) {
-                const onKeyDown = (ke: KeyboardEvent) => {
-                  if (ke.code === 'KeyE' || ke.key === 'e') {
-                    document.exitPointerLock();
-                    openHud('master_catalog');
-                  }
-                };
-                document.addEventListener('keydown', onKeyDown, { once: true });
-              }
-            }}
           >
             {/* 2.0×1.6 covers the full iPad Pro screen at scale 3.3 */}
             <planeGeometry args={[2.0, 1.6]} />
