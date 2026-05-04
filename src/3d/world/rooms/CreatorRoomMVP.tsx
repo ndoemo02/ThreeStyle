@@ -855,7 +855,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
         {/* RTV Cabinet */}
         <AutoCenteredModel 
-          url="/models/modern_wooden_cabinet_4k.blend/modern_wooden_cabinet_4k.glb"
+          url="/models/modern_wooden_cabinet_4k.blend/modern_wooden_cabinet_4k_bin.glb"
           position={[decorControls.rtvPosX, decorControls.rtvPosY, decorControls.rtvPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.rtvRotY), 0]}
           scale={decorControls.rtvScale}
@@ -867,7 +867,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
         {/* Office Chair */}
         <AutoCenteredModel 
-          url="/models/office_chair.glb" 
+          url="/models/office_chair_bin.glb" 
           position={[decorControls.chairPosX, decorControls.chairPosY, decorControls.chairPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.chairRotY), 0]}
           scale={decorControls.chairScale}
@@ -901,7 +901,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
         {/* iPad Pro on table (replacing laptop) */}
         <AutoCenteredModel 
-          url="/models/models/ipad_pro_2024.glb" 
+          url="/models/models/ipad_pro_2024_bin.glb" 
           position={[decorControls.laptopPosX, decorControls.laptopPosY, decorControls.laptopPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.laptopRotY), 0]}
           scale={decorControls.laptopScale}
@@ -919,7 +919,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
         {/* RTV Cabinet */}
         <AutoCenteredModel 
-          url="/models/modern_wooden_cabinet_4k.blend/modern_wooden_cabinet_4k.glb"
+          url="/models/modern_wooden_cabinet_4k.blend/modern_wooden_cabinet_4k_bin.glb"
           position={[decorControls.rtvPosX, decorControls.rtvPosY, decorControls.rtvPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.rtvRotY), 0]}
           scale={decorControls.rtvScale}

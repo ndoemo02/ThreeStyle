@@ -22,7 +22,7 @@ function Tree({ position, scale = 1 }: { position: [number, number, number]; sca
 }
 
 function VenetianSofa({ position, scale = 1, rotation = 0 }: { position: [number, number, number]; scale?: number; rotation?: number }) {
-  const { scene } = useGLTF('/models/new/Nowy folder/refined_venetian_3-seater_sofa.glb');
+  const { scene } = useGLTF('/models/new/Nowy folder/refined_venetian_3-seater_sofa_bin.glb');
   const clonedScene = useMemo(() => scene.clone(), [scene]);
   
   return (
