@@ -19,7 +19,7 @@ function Tree({ position, scale = 1 }: { position: [number, number, number]; sca
     <primitive
       object={clonedScene}
       position={position}
-      scale={scale * 0.4} // Adjusted scale based on model units
+      scale={scale * 0.5} // Increased base scale for more presence
       castShadow
       receiveShadow
     />
@@ -122,32 +122,32 @@ function InstancedShrubs() {
 
 
 export function HubShell() {
-  const tree1 = useControls('Stylized Tree 01', {
+  const tree1 = useControls('Stylized Tree 01 - v6', {
     t1x: { value: -8.3, min: -15, max: 15, step: 0.1 },
     t1y: { value: 0.0, min: -2, max: 10, step: 0.1 },
     t1z: { value: -8.0, min: -15, max: 15, step: 0.1 },
-    t1s: { value: 5.80, min: 0.1, max: 8, step: 0.05 },
+    t1s: { value: 6.5, min: 0.1, max: 20, step: 0.05 }, // Increased default and max
     t1r: { value: 0.30, min: -Math.PI, max: Math.PI, step: 0.01 },
   });
-  const tree2 = useControls('Stylized Tree 02', {
+  const tree2 = useControls('Stylized Tree 02 - v6', {
     t2x: { value: 8.0, min: -15, max: 15, step: 0.1 },
     t2y: { value: 0.0, min: -2, max: 10, step: 0.1 },
     t2z: { value: -8.0, min: -15, max: 15, step: 0.1 },
-    t2s: { value: 6.15, min: 0.1, max: 8, step: 0.05 },
+    t2s: { value: 7.0, min: 0.1, max: 20, step: 0.05 }, // Increased default and max
     t2r: { value: -0.40, min: -Math.PI, max: Math.PI, step: 0.01 },
   });
-  const tree3 = useControls('Stylized Tree 03', {
+  const tree3 = useControls('Stylized Tree 03 - v6', {
     t3x: { value: -8.0, min: -15, max: 15, step: 0.1 },
     t3y: { value: 0.0, min: -2, max: 10, step: 0.1 },
     t3z: { value: 8.8, min: -15, max: 15, step: 0.1 },
-    t3s: { value: 2.00, min: 0.1, max: 8, step: 0.05 },
+    t3s: { value: 5.0, min: 0.1, max: 20, step: 0.05 }, // Increased default and max
     t3r: { value: 0.10, min: -Math.PI, max: Math.PI, step: 0.01 },
   });
-  const sofaControls = useControls('Venetian Sofa v5 - SCALE FIX', {
+  const sofaControls = useControls('Venetian Sofa v6 - FINAL', {
     x: { value: -8.8, min: -15, max: 15, step: 0.1 },
-    y: { value: 0.0, min: -2, max: 10, step: 0.1 }, // Default to floor
+    y: { value: 0.0, min: -2, max: 10, step: 0.1 },
     z: { value: 2.8, min: -15, max: 15, step: 0.1 },
-    scale: { value: 1.0, min: 0.01, max: 50, step: 0.1 },
+    scale: { value: 2.3, min: 0.01, max: 50, step: 0.1 }, // Set to user's picked 2.3
     rotation: { value: 1.61, min: -Math.PI, max: Math.PI, step: 0.01 },
   });
 
