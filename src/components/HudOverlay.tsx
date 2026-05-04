@@ -76,6 +76,8 @@ function getMediaItems(response: MediaLibraryResponse) {
 
 export function HudOverlay() {
   const { isOpen, closeHud, activeScreenId, isPlaying, setIsPlaying, camEnabled, setCamEnabled } = useHudStore();
+  const camFacingMode = useHudStore((state) => state.camFacingMode);
+  const setCamFacingMode = useHudStore((state) => state.setCamFacingMode);
   const setMasterVideoRef = useHudStore((state) => state.setMasterVideoRef);
   const setCamVideoElement = useHudStore((state) => state.setCamVideoElement);
   const camVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -301,6 +303,22 @@ export function HudOverlay() {
               >
                 📷 {camEnabled ? 'ON' : 'OFF'}
               </button>
+              {camEnabled && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setCamFacingMode(camFacingMode === 'user' ? 'environment' : 'user'); }}
+                  className="hud-close-btn"
+                  style={{
+                    marginRight: '8px',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    fontSize: '18px',
+                    lineHeight: '1',
+                  }}
+                  title={camFacingMode === 'user' ? 'Przełącz na tylną kamerę' : 'Przełącz na przednią kamerę'}
+                >
+                  🔄
+                </button>
+              )}
               <button onClick={closeHud} className="hud-close-btn">
                 Close
               </button>

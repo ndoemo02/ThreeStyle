@@ -589,6 +589,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   // ══════════════════════════════════════════════════════════════════════════
   const [videoTex, setVideoTex] = useState<THREE.VideoTexture | null>(null);
   const camEnabled = useHudStore(s => s.camEnabled);
+  const camFacingMode = useHudStore(s => s.camFacingMode);
   const camVideoElement = useHudStore(s => s.camVideoElement);
   const [camTex, setCamTex] = useState<THREE.VideoTexture | null>(null);
   const camStreamRef = useRef<MediaStream | null>(null);
@@ -626,7 +627,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     }
 
     navigator.mediaDevices.getUserMedia({
-      video: true,
+      video: { facingMode: camFacingMode },
       audio: false,
     }).then(stream => {
       if (cancelled) {
@@ -657,7 +658,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         fallbackEl.parentNode.removeChild(fallbackEl);
       }
     };
-  }, [camEnabled, camVideoElement]);
+  }, [camEnabled, camFacingMode, camVideoElement]);
 
   const screenTex = camEnabled && camTex ? camTex : videoTex;
 
