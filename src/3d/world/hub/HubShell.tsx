@@ -29,7 +29,7 @@ function VenetianSofa({ position, scale = 1, rotation = 0 }: { position: [number
     <primitive 
       object={clonedScene} 
       position={position} 
-      scale={scale * 0.0005} // Significant reduction since model was huge
+      scale={scale * 0.01} // Corrected scale multiplier
       rotation={[0, rotation, 0]} 
       castShadow 
       receiveShadow 
@@ -74,11 +74,11 @@ export function HubShell() {
     t3s: { value: 2.00, min: 0.1, max: 8, step: 0.05 },
     t3r: { value: 0.10, min: -Math.PI, max: Math.PI, step: 0.01 },
   });
-  const sofaControls = useControls('Venetian Sofa v4 - RESET', {
+  const sofaControls = useControls('Venetian Sofa v5 - SCALE FIX', {
     x: { value: -8.8, min: -15, max: 15, step: 0.1 },
-    y: { value: 0.9, min: -2, max: 10, step: 0.1 },
+    y: { value: 0.0, min: -2, max: 10, step: 0.1 }, // Default to floor
     z: { value: 2.8, min: -15, max: 15, step: 0.1 },
-    scale: { value: 1.0, min: 0.01, max: 10, step: 0.01 },
+    scale: { value: 1.0, min: 0.01, max: 50, step: 0.1 },
     rotation: { value: 1.61, min: -Math.PI, max: Math.PI, step: 0.01 },
   });
 
