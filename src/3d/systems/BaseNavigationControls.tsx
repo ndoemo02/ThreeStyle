@@ -123,32 +123,42 @@ export function BaseNavigationControls() {
 
   const { gl } = useThree();
 
-  // Mobile First-Person Touch Controls
+  // Mobile First-Person Touch Controls — multitouch: joystick + obrót równocześnie
   useEffect(() => {
     if (!isMobile) return;
-    let activeTouchId: number | null = null;
+    let rotateTouchId: number | null = null;
     let previousTouch: { x: number, y: number } | null = null;
     const euler = new THREE.Euler(0, 0, 0, 'YXZ');
 
+    const isInJoystickZone = (clientX: number, clientY: number) => {
+      // Joystick area: bottom-left, ~130px wide, ~170px tall from bottom
+      return clientX < 200 && clientY > window.innerHeight - 200;
+    };
+
     const onTouchStart = (e: TouchEvent) => {
-      if (activeTouchId !== null) return;
-      
-      const touch = e.changedTouches[0];
-      activeTouchId = touch.identifier;
-      previousTouch = { x: touch.clientX, y: touch.clientY };
+      if (rotateTouchId !== null) return; // already tracking a rotation finger
+
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (!isInJoystickZone(touch.clientX, touch.clientY)) {
+          rotateTouchId = touch.identifier;
+          previousTouch = { x: touch.clientX, y: touch.clientY };
+          return;
+        }
+      }
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (activeTouchId === null || !previousTouch) return;
-      
+      if (rotateTouchId === null || !previousTouch) return;
+
       let activeTouch: Touch | null = null;
       for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === activeTouchId) {
+        if (e.changedTouches[i].identifier === rotateTouchId) {
           activeTouch = e.changedTouches[i];
           break;
         }
       }
-      
+
       if (!activeTouch) return;
 
       const movementX = activeTouch.clientX - previousTouch.x;
@@ -163,11 +173,21 @@ export function BaseNavigationControls() {
     };
 
     const onTouchEnd = (e: TouchEvent) => {
-      if (activeTouchId === null) return;
+      if (rotateTouchId === null) return;
       for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === activeTouchId) {
-          activeTouchId = null;
+        if (e.changedTouches[i].identifier === rotateTouchId) {
+          // Check if there's another non-joystick touch we can switch to
+          rotateTouchId = null;
           previousTouch = null;
+          // Scan remaining active touches for a new rotation candidate
+          for (let j = 0; j < e.touches.length; j++) {
+            const t = e.touches[j];
+            if (!isInJoystickZone(t.clientX, t.clientY)) {
+              rotateTouchId = t.identifier;
+              previousTouch = { x: t.clientX, y: t.clientY };
+              break;
+            }
+          }
           break;
         }
       }

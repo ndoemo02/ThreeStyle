@@ -466,10 +466,11 @@ function AutoCenteredModel({ url, ...props }: { url: string } & SceneObjectProps
   const processed = useMemo(() => {
     const clone = scene.clone(true);
 
-    // Force double-side rendering and ensure everything is visible
+    // Force double-side rendering, ensure visibility, and recompute bounding spheres
     clone.traverse((node) => {
       if (node instanceof THREE.Mesh) {
         node.visible = true;
+        if (node.geometry) node.geometry.computeBoundingSphere();
         if (node.material) {
           const mats = Array.isArray(node.material) ? node.material : [node.material];
           mats.forEach((mat) => {
@@ -540,9 +541,10 @@ function SofaRaw() {
   const processed = useMemo(() => {
     const clone = scene.clone(true);
 
-    // Force materials
+    // Force materials and recompute bounding spheres for frustum culling
     clone.traverse((node) => {
       if (node instanceof THREE.Mesh) {
+        if (node.geometry) node.geometry.computeBoundingSphere();
         const mats = Array.isArray(node.material) ? node.material : [node.material];
         mats.forEach((mat) => {
           if (mat) {

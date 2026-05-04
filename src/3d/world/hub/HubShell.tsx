@@ -9,22 +9,30 @@ import * as THREE from 'three';
 
 function Tree({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
   const { scene } = useGLTF('/models/new/stylized_tree.glb');
-  const clonedScene = useMemo(() => scene.clone(), [scene]);
-  
+  const clonedScene = useMemo(() => {
+    const c = scene.clone();
+    c.traverse((n) => { if (n instanceof THREE.Mesh && n.geometry) n.geometry.computeBoundingSphere(); });
+    return c;
+  }, [scene]);
+
   return (
-    <primitive 
-      object={clonedScene} 
-      position={position} 
+    <primitive
+      object={clonedScene}
+      position={position}
       scale={scale * 0.4} // Adjusted scale based on model units
-      castShadow 
-      receiveShadow 
+      castShadow
+      receiveShadow
     />
   );
 }
 
 function VenetianSofa({ position, scale = 1, rotation = 0 }: { position: [number, number, number]; scale?: number; rotation?: number }) {
   const { scene } = useGLTF('/models/new/Nowy folder/refined_venetian_3-seater_sofa_bin.glb');
-  const clonedScene = useMemo(() => scene.clone(), [scene]);
+  const clonedScene = useMemo(() => {
+    const c = scene.clone();
+    c.traverse((n) => { if (n instanceof THREE.Mesh && n.geometry) n.geometry.computeBoundingSphere(); });
+    return c;
+  }, [scene]);
   
   return (
     <primitive 
