@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from 'react';
-import { useTexture, useGLTF } from '@react-three/drei';
+import { useTexture } from '@react-three/drei';
 import { useControls } from 'leva';
 import { WarmWhiteMaterial, MatteDarkAccentMaterial, FoliageGreenMaterial } from '../../core/AcousticDarkMaterial';
 import * as THREE from 'three';
@@ -52,50 +52,31 @@ function Shrub({ position, scale = 1 }: { position: [number, number, number]; sc
   );
 }
 
-function StylizedTree({ position, scale = 1, rotation = 0 }: { position: [number, number, number]; scale?: number; rotation?: number }) {
-  const { scene } = useGLTF('/models/new/stylized_tree.glb');
-  const cloned = useMemo(() => scene.clone(), [scene]);
-  return <primitive object={cloned} position={position} scale={scale} rotation={[0, rotation, 0]} />;
-}
-
-const SOFA_PATH = '/models/new/venetian_sofa.glb';
-
 function VenetianSofa({ position, scale = 1, rotation = 0 }: { position: [number, number, number]; scale?: number; rotation?: number }) {
-  const { scene } = useGLTF(SOFA_PATH);
-  
-  const processed = useMemo(() => {
-    const clone = scene.clone();
-    
-    // 1. Traverse to enable shadows
-    clone.traverse((node) => {
-      if (node instanceof THREE.Mesh) {
-        node.castShadow = true;
-        node.receiveShadow = true;
-      }
-    });
-
-    // 2. Normalize and Center
-    clone.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(clone);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    
-    const maxDim = Math.max(size.x, size.y, size.z);
-    if (maxDim > 0.0001) {
-      const invScale = 1.0 / maxDim;
-      clone.scale.multiplyScalar(invScale);
-      clone.position.sub(center.multiplyScalar(invScale));
-    }
-    
-    return clone;
-  }, [scene]);
-
+  // Placeholder procedural sofa — GLB hosted separately from git
   return (
-    <group position={position} scale={scale} rotation={[0, rotation, 0]}>
-      <primitive object={processed} />
+    <group position={position} scale={scale * 0.15} rotation={[0, rotation, 0]}>
+      {/* Siedzisko */}
+      <mesh position={[0, 0.25, 0]} castShadow receiveShadow>
+        <boxGeometry args={[3.0, 0.3, 1.0]} />
+        <meshStandardMaterial color="#8b7355" roughness={0.8} metalness={0.02} />
+      </mesh>
+      {/* Oparcie */}
+      <mesh position={[0, 0.7, -0.45]} castShadow receiveShadow>
+        <boxGeometry args={[3.0, 0.7, 0.15]} />
+        <meshStandardMaterial color="#8b7355" roughness={0.8} metalness={0.02} />
+      </mesh>
+      {/* Nóżki */}
+      {[[-1.3, -1.3], [1.3, -1.3], [-1.3, 0.4], [1.3, 0.4]].map(([x, z], i) => (
+        <mesh key={i} position={[x, 0.05, z]} castShadow>
+          <boxGeometry args={[0.1, 0.2, 0.1]} />
+          <meshStandardMaterial color="#5c4a32" roughness={0.7} metalness={0.1} />
+        </mesh>
+      ))}
     </group>
   );
 }
+
 
 export function HubShell() {
   const tree1 = useControls('Stylized Tree 01', {
@@ -364,10 +345,10 @@ export function HubShell() {
       <Shrub position={[8.8, 0, -4.5]} scale={0.8} />
       <Shrub position={[8.8, 0, 0.5]} scale={0.9} />
       <Shrub position={[8.8, 0, 5.5]} scale={0.85} />
-      {/* Stylizowane drzewa z GLB */}
-      <StylizedTree position={[tree1.t1x, tree1.t1y, tree1.t1z]} scale={tree1.t1s} rotation={tree1.t1r} />
-      <StylizedTree position={[tree2.t2x, tree2.t2y, tree2.t2z]} scale={tree2.t2s} rotation={tree2.t2r} />
-      <StylizedTree position={[tree3.t3x, tree3.t3y, tree3.t3z]} scale={tree3.t3s} rotation={tree3.t3r} />
+      {/* Dodatkowe proceduralne drzewa */}
+      <Tree position={[tree1.t1x, tree1.t1y, tree1.t1z]} scale={tree1.t1s} />
+      <Tree position={[tree2.t2x, tree2.t2y, tree2.t2z]} scale={tree2.t2s} />
+      <Tree position={[tree3.t3x, tree3.t3y, tree3.t3z]} scale={tree3.t3s} />
       <VenetianSofa position={[sofaControls.x, sofaControls.y, sofaControls.z]} scale={sofaControls.scale} rotation={sofaControls.rotation} />
 
       {/* ═══════════════ OŚWIETLENIE ═══════════════ */}
