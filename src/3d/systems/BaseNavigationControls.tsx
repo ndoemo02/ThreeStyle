@@ -287,9 +287,6 @@ export function BaseNavigationControls() {
     <PointerLockControls 
       ref={controlsRef} 
       selector=".b3p-canvas-wrap" // Restrict lock trigger to the canvas area
-      onPointerLockError={() => {
-        // Explicitly swallow errors from R3F-internal listener
-      }}
     />
   );
 }
