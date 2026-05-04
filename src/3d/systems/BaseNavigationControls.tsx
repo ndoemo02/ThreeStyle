@@ -141,6 +141,7 @@ export function BaseNavigationControls() {
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
         if (!isInJoystickZone(touch.clientX, touch.clientY)) {
+          e.preventDefault(); // block browser scroll/zoom during rotation
           rotateTouchId = touch.identifier;
           previousTouch = { x: touch.clientX, y: touch.clientY };
           return;
@@ -160,6 +161,8 @@ export function BaseNavigationControls() {
       }
 
       if (!activeTouch) return;
+
+      e.preventDefault();
 
       const movementX = activeTouch.clientX - previousTouch.x;
       const movementY = activeTouch.clientY - previousTouch.y;
@@ -194,10 +197,10 @@ export function BaseNavigationControls() {
     };
 
     const dom = gl.domElement;
-    dom.addEventListener('touchstart', onTouchStart, { passive: true });
-    dom.addEventListener('touchmove', onTouchMove, { passive: true });
-    dom.addEventListener('touchend', onTouchEnd, { passive: true });
-    dom.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    dom.addEventListener('touchstart', onTouchStart, { passive: false });
+    dom.addEventListener('touchmove', onTouchMove, { passive: false });
+    dom.addEventListener('touchend', onTouchEnd);
+    dom.addEventListener('touchcancel', onTouchEnd);
 
     return () => {
       dom.removeEventListener('touchstart', onTouchStart);

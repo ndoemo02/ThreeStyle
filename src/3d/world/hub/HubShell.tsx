@@ -30,14 +30,18 @@ function VenetianSofa({ position, scale = 1, rotation = 0 }: { position: [number
   const { scene } = useGLTF('/models/new/Nowy folder/refined_venetian_3-seater_sofa_bin.glb');
   const clonedScene = useMemo(() => {
     const c = scene.clone();
-    c.traverse((n) => { if (n instanceof THREE.Mesh && n.geometry) n.geometry.computeBoundingSphere(); });
+    c.traverse((n) => {
+      if (n instanceof THREE.Mesh) {
+        n.frustumCulled = false;
+      }
+    });
     return c;
   }, [scene]);
-  
+
   return (
-    <primitive 
-      object={clonedScene} 
-      position={position} 
+    <primitive
+      object={clonedScene}
+      position={position}
       scale={scale * 0.01} // Corrected scale multiplier
       rotation={[0, rotation, 0]} 
       castShadow 

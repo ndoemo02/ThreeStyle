@@ -8,7 +8,7 @@ export function NativeMobileJoystick() {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isMobile, setIsMobile] = useState(false);
   const baseRef = useRef<HTMLDivElement>(null);
-  const activeRef = useRef(false);
+  const capturedPointerId = useRef<number | null>(null);
   const { isOpen } = useHudStore();
 
   useEffect(() => {
@@ -50,36 +50,36 @@ export function NativeMobileJoystick() {
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (isOpen) return;
-    e.stopPropagation();
-    activeRef.current = true;
+    // Capture this specific finger so rotation finger events don't interfere
+    (e.target as Element).setPointerCapture(e.pointerId);
+    capturedPointerId.current = e.pointerId;
     setActive(true);
     computeAndEmit(e.clientX, e.clientY);
   }, [isOpen, computeAndEmit]);
 
-  useEffect(() => {
-    const handleWindowPointerMove = (e: PointerEvent) => {
-      if (!activeRef.current || isOpen) return;
-      computeAndEmit(e.clientX, e.clientY);
-    };
-
-    const handleWindowPointerUp = () => {
-      if (!activeRef.current) return;
-      activeRef.current = false;
-      setActive(false);
-      setPosition({ x: 0, y: 0 });
-      emitVector(0, 0);
-    };
-
-    window.addEventListener('pointermove', handleWindowPointerMove);
-    window.addEventListener('pointerup', handleWindowPointerUp);
-    window.addEventListener('pointercancel', handleWindowPointerUp);
-
-    return () => {
-      window.removeEventListener('pointermove', handleWindowPointerMove);
-      window.removeEventListener('pointerup', handleWindowPointerUp);
-      window.removeEventListener('pointercancel', handleWindowPointerUp);
-    };
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!capturedPointerId.current || isOpen) return;
+    // Only process movement from our captured finger
+    if (e.pointerId !== capturedPointerId.current) return;
+    computeAndEmit(e.clientX, e.clientY);
   }, [isOpen, computeAndEmit]);
+
+  const releaseJoystick = useCallback(() => {
+    capturedPointerId.current = null;
+    setActive(false);
+    setPosition({ x: 0, y: 0 });
+    emitVector(0, 0);
+  }, [emitVector]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (e.pointerId !== capturedPointerId.current) return;
+    releaseJoystick();
+  }, [releaseJoystick]);
+
+  const handlePointerCancel = useCallback((e: React.PointerEvent) => {
+    if (e.pointerId !== capturedPointerId.current) return;
+    releaseJoystick();
+  }, [releaseJoystick]);
 
   if (!isMobile) return null;
 
@@ -87,6 +87,9 @@ export function NativeMobileJoystick() {
     <div
       ref={baseRef}
       onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       style={{
         position: 'fixed',
         bottom: '40px',

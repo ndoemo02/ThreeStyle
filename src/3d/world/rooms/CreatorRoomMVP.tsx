@@ -466,11 +466,13 @@ function AutoCenteredModel({ url, ...props }: { url: string } & SceneObjectProps
   const processed = useMemo(() => {
     const clone = scene.clone(true);
 
-    // Force double-side rendering, ensure visibility, and recompute bounding spheres
+    // Force double-side rendering, ensure visibility.
+    // frustumCulled=false on imported models — GLTF bounding spheres are unreliable
+    // after clone+recenter, causing false culling and visual regressions.
     clone.traverse((node) => {
       if (node instanceof THREE.Mesh) {
         node.visible = true;
-        if (node.geometry) node.geometry.computeBoundingSphere();
+        node.frustumCulled = false;
         if (node.material) {
           const mats = Array.isArray(node.material) ? node.material : [node.material];
           mats.forEach((mat) => {
@@ -541,10 +543,10 @@ function SofaRaw() {
   const processed = useMemo(() => {
     const clone = scene.clone(true);
 
-    // Force materials and recompute bounding spheres for frustum culling
+    // Force materials. frustumCulled=false — see AutoCenteredModel note above.
     clone.traverse((node) => {
       if (node instanceof THREE.Mesh) {
-        if (node.geometry) node.geometry.computeBoundingSphere();
+        node.frustumCulled = false;
         const mats = Array.isArray(node.material) ? node.material : [node.material];
         mats.forEach((mat) => {
           if (mat) {
