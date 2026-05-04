@@ -1,7 +1,19 @@
+# LFS - tylko duże pliki (bez wildcard *.glb - Vercel nie obsługuje LFS)
 *.mp4 filter=lfs diff=lfs merge=lfs -text
-*.glb filter=lfs diff=lfs merge=lfs -text
 *.obj filter=lfs diff=lfs merge=lfs -text
 *.blend filter=lfs diff=lfs merge=lfs -text
-*.fbx filter=lfs diff=lfs merge=lfs -text
 *.exr filter=lfs diff=lfs merge=lfs -text
 *.zip filter=lfs diff=lfs merge=lfs -text
+
+# Duze GLB (>10MB) w LFS - te nie sa uzywane aktualnie w appce
+public/models/modern_wooden_cabinet_4k.blend/modern_wooden_cabinet_4k.glb filter=lfs diff=lfs merge=lfs -text
+public/models/models/base_basic_pbr.glb filter=lfs diff=lfs merge=lfs -text
+public/models/models/base_basic_shaded.glb filter=lfs diff=lfs merge=lfs -text
+public/models/models/virtual_studio_ver_02.glb filter=lfs diff=lfs merge=lfs -text
+public/models/models/ipad_pro_2024.glb filter=lfs diff=lfs merge=lfs -text
+public/models/office_chair.glb filter=lfs diff=lfs merge=lfs -text
+public/models/models/table.glb filter=lfs diff=lfs merge=lfs -text
+public/models/models/sample_model.glb filter=lfs diff=lfs merge=lfs -text
+public/models/models/ipad10.glb filter=lfs diff=lfs merge=lfs -text
+public/models/new/stylized_tree.glb filter=lfs diff=lfs merge=lfs -text
+public/models/models/kula-led.glb filter=lfs diff=lfs merge=lfs -text
