@@ -75,7 +75,7 @@ function getMediaItems(response: MediaLibraryResponse) {
 }
 
 export function HudOverlay() {
-  const { isOpen, closeHud, activeScreenId, isPlaying, setIsPlaying } = useHudStore();
+  const { isOpen, closeHud, activeScreenId, isPlaying, setIsPlaying, camEnabled, setCamEnabled } = useHudStore();
   const setMasterVideoRef = useHudStore((state) => state.setMasterVideoRef);
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -278,6 +278,17 @@ export function HudOverlay() {
                 <p className="hud-status-label">Status</p>
                 <p className="hud-status-value">{statusLabel}</p>
               </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); setCamEnabled(!camEnabled); }}
+                className="hud-close-btn"
+                style={{
+                  marginRight: '8px',
+                  background: camEnabled ? 'rgba(255,60,60,0.25)' : 'rgba(255,255,255,0.06)',
+                  border: camEnabled ? '1px solid rgba(255,60,60,0.5)' : '1px solid rgba(255,255,255,0.2)',
+                }}
+              >
+                📷 {camEnabled ? 'ON' : 'OFF'}
+              </button>
               <button onClick={closeHud} className="hud-close-btn">
                 Close
               </button>

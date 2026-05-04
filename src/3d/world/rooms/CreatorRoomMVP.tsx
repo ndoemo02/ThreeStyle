@@ -585,9 +585,54 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   // console.log('[MVP] render – masterVideoRef:', !!masterVideoRef);
 
   // ══════════════════════════════════════════════════════════════════════════
-  // 5. Native Video Texture Pipeline with Demand-Frameloop Support
+  // 5. Native Video Texture Pipeline + Selfie Camera Override
   // ══════════════════════════════════════════════════════════════════════════
   const [videoTex, setVideoTex] = useState<THREE.VideoTexture | null>(null);
+  const camEnabled = useHudStore(s => s.camEnabled);
+  const [camTex, setCamTex] = useState<THREE.VideoTexture | null>(null);
+  const camStreamRef = useRef<MediaStream | null>(null);
+
+  // Selfie camera toggle — creates/destroys stream when camEnabled changes
+  useEffect(() => {
+    if (!camEnabled) {
+      camStreamRef.current?.getTracks().forEach(t => t.stop());
+      camStreamRef.current = null;
+      if (camTex) { camTex.dispose(); setCamTex(null); }
+      return;
+    }
+
+    const videoEl = document.createElement('video');
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    videoEl.setAttribute('playsinline', '');
+
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: 640, height: 480 },
+      audio: false,
+    }).then(stream => {
+      camStreamRef.current = stream;
+      videoEl.srcObject = stream;
+      videoEl.play().catch(() => {});
+
+      const tex = new THREE.VideoTexture(videoEl);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.generateMipmaps = false;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      setCamTex(tex);
+    }).catch(err => {
+      console.warn('[SelfieCam] getUserMedia failed:', err.message);
+      useHudStore.getState().setCamEnabled(false);
+    });
+
+    return () => {
+      camStreamRef.current?.getTracks().forEach(t => t.stop());
+      camStreamRef.current = null;
+      videoEl.remove();
+    };
+  }, [camEnabled]);
+
+  const screenTex = camEnabled && camTex ? camTex : videoTex;
 
   useEffect(() => {
     const video = masterVideoRef || document.querySelector('video');
@@ -595,7 +640,6 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
     const tex = new THREE.VideoTexture(video);
     tex.colorSpace = THREE.SRGBColorSpace;
-    // PERFORMANCE OPTIMIZATION: Disable mipmaps for video (huge CPU/GPU saving)
     tex.generateMipmaps = false;
     tex.minFilter = THREE.LinearFilter;
     tex.magFilter = THREE.LinearFilter;
@@ -606,11 +650,13 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   }, [masterVideoRef]);
 
   useFrame(({ invalidate }) => {
-    if (videoTex) {
+    const activeTex = screenTex;
+    if (activeTex) {
+      // Invalidate on every frame when camera is active (live feed)
+      if (camEnabled) { invalidate(); return; }
       const vid = masterVideoRef || document.querySelector('video');
-      // If the video is actively playing, force the scene to rerender
       if (vid && !vid.paused && vid.readyState >= 2) {
-        invalidate(); 
+        invalidate();
       }
     }
   });
@@ -988,8 +1034,8 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         >
            <pointLight position={[0, 0, 0.34]} intensity={4.0} color="#ff8c42" distance={4.5} decay={2} />
            <StudioDisplayWall
-             videoTexture={videoTex}
-             fallbackVisible={!masterVideoRef}
+             videoTexture={screenTex}
+             fallbackVisible={!masterVideoRef && !camEnabled}
            />
         </group>
 

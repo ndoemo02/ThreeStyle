@@ -24,7 +24,9 @@ const DOORS: Array<{
 
 export function LeftWingCorridor({ onEnterRoom }: { onEnterRoom: (id: string) => void }) {
   const textures = useTexture({
-    map: '/textures/Concrete035_2K.jpg',
+    map: '/textures/drewno/Concrete035_2K-JPG/Concrete035_2K-JPG_Color.jpg',
+    normalMap: '/textures/drewno/Concrete035_2K-JPG/Concrete035_2K-JPG_NormalGL.jpg',
+    roughnessMap: '/textures/drewno/Concrete035_2K-JPG/Concrete035_2K-JPG_Roughness.jpg',
     woodMap: '/textures/oak_veneer_01_diff_2k.jpg',
     woodNormalMap: '/textures/oak_veneer_01_nor_gl_2k.jpg',
     woodRoughnessMap: '/textures/oak_veneer_01_rough_2k.jpg',
@@ -36,10 +38,16 @@ export function LeftWingCorridor({ onEnterRoom }: { onEnterRoom: (id: string) =>
   const materials = useMemo(() => {
     // Klonowanie tekstur przed modyfikacją (hook immutability)
     const concreteTex = textures.map.clone();
-    concreteTex.wrapS = concreteTex.wrapT = THREE.RepeatWrapping;
+    const concreteNormTex = textures.normalMap.clone();
+    const concreteRoughTex = textures.roughnessMap.clone();
+    [concreteTex, concreteNormTex, concreteRoughTex].forEach(t => {
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.needsUpdate = true;
+    });
     concreteTex.colorSpace = THREE.SRGBColorSpace;
     concreteTex.repeat.set(10, 3);
-    concreteTex.needsUpdate = true;
+    concreteNormTex.repeat.set(10, 3);
+    concreteRoughTex.repeat.set(10, 3);
 
     const woodTex = textures.woodMap.clone();
     const woodNormTex = textures.woodNormalMap.clone();
@@ -57,7 +65,9 @@ export function LeftWingCorridor({ onEnterRoom }: { onEnterRoom: (id: string) =>
     floorTex.repeat.set(12, 2);
 
     const concreteWall = new THREE.MeshStandardMaterial({
-      map: concreteTex, color: '#e8e0d5', roughness: 0.55, metalness: 0.02,
+      map: concreteTex,
+      normalMap: concreteNormTex, roughnessMap: concreteRoughTex,
+      color: '#e8e0d5', roughness: 0.55, metalness: 0.02,
     });
     const woodSlat = new THREE.MeshStandardMaterial({
       map: woodTex, normalMap: woodNormTex, roughnessMap: woodRoughTex,
