@@ -85,9 +85,9 @@ export function SafeHouse({ topTrackName = "TRANSYLVANIA" }: SafeHouseProps) {
 
     return (
         <group>
-            {/* 🌍 HDRI — subtelne odbicia środowiskowe */}
+            {/* HDRI — subtelne odbicia środowiskowe (preset zamiast 4K EXR oszczędza ~64MB VRAM) */}
             <Environment
-                files="/hdri/studio_small_08_4k.exr"
+                preset="studio"
                 environmentIntensity={0.05}
                 backgroundIntensity={0}
             />

@@ -3,6 +3,7 @@ import { Html, useTexture, useGLTF, useAnimations } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { EditingTable } from '../../modules/furniture/EditingTable';
+import { DistanceCulledModel } from '../../systems/DistanceCulledModel';
 import { VocalBooth } from './VocalBooth';
 import { useControls } from 'leva';
 import { useHudStore } from '../../../stores/useHudStore';
@@ -469,7 +470,6 @@ function AutoCenteredModel({ url, ...props }: { url: string } & SceneObjectProps
     clone.traverse((node) => {
       if (node instanceof THREE.Mesh) {
         node.visible = true;
-        node.frustumCulled = false;
         if (node.material) {
           const mats = Array.isArray(node.material) ? node.material : [node.material];
           mats.forEach((mat) => {
@@ -543,7 +543,6 @@ function SofaRaw() {
     // Force materials
     clone.traverse((node) => {
       if (node instanceof THREE.Mesh) {
-        node.frustumCulled = false;
         const mats = Array.isArray(node.material) ? node.material : [node.material];
         mats.forEach((mat) => {
           if (mat) {
@@ -853,13 +852,15 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           <VocalBooth />
         </group>
 
-        {/* RTV Cabinet */}
-        <AutoCenteredModel 
-          url="/models/modern_wooden_cabinet_4k.blend/modern_wooden_cabinet_4k_bin.glb"
-          position={[decorControls.rtvPosX, decorControls.rtvPosY, decorControls.rtvPosZ]}
-          rotation={[0, THREE.MathUtils.degToRad(decorControls.rtvRotY), 0]}
-          scale={decorControls.rtvScale}
-        />
+        {/* RTV Cabinet — heavy 4K model, distance-culled */}
+        <DistanceCulledModel maxDistance={16}>
+          <AutoCenteredModel
+            url="/models/modern_wooden_cabinet_4k.blend/modern_wooden_cabinet_4k_bin.glb"
+            position={[decorControls.rtvPosX, decorControls.rtvPosY, decorControls.rtvPosZ]}
+            rotation={[0, THREE.MathUtils.degToRad(decorControls.rtvRotY), 0]}
+            scale={decorControls.rtvScale}
+          />
+        </DistanceCulledModel>
       </Suspense>
 
       {/* STAGE 3: Props & Interactive Elements (Heaviest/Lowest Priority) */}
@@ -907,23 +908,17 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           scale={decorControls.laptopScale}
         />
 
-        {/* Sofa in the room */}
-        <group 
-          position={[decorControls.sofaPosX, decorControls.sofaPosY, decorControls.sofaPosZ]}
-          rotation={[0, THREE.MathUtils.degToRad(decorControls.sofaRotY), 0]}
-          scale={decorControls.sofaScale}
-        >
-          {/* SofaRaw self-centers via bbox; scale is on the GROUP, not on primitive */}
-          <SofaRaw />
-        </group>
-
-        {/* RTV Cabinet */}
-        <AutoCenteredModel 
-          url="/models/modern_wooden_cabinet_4k.blend/modern_wooden_cabinet_4k_bin.glb"
-          position={[decorControls.rtvPosX, decorControls.rtvPosY, decorControls.rtvPosZ]}
-          rotation={[0, THREE.MathUtils.degToRad(decorControls.rtvRotY), 0]}
-          scale={decorControls.rtvScale}
-        />
+        {/* Sofa in the room — heavy model, distance-culled */}
+        <DistanceCulledModel maxDistance={16}>
+          <group
+            position={[decorControls.sofaPosX, decorControls.sofaPosY, decorControls.sofaPosZ]}
+            rotation={[0, THREE.MathUtils.degToRad(decorControls.sofaRotY), 0]}
+            scale={decorControls.sofaScale}
+          >
+            {/* SofaRaw self-centers via bbox; scale is on the GROUP, not on primitive */}
+            <SofaRaw />
+          </group>
+        </DistanceCulledModel>
 
         {/* Horizontal vocal booth window integrated into the left acoustic wall. */}
         <group

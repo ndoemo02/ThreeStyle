@@ -13,7 +13,6 @@ function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, n
     const clone = scene.clone();
     clone.traverse((n) => {
       if (n instanceof THREE.Mesh && n.material) {
-        n.frustumCulled = false;
         const sourceMaterial = Array.isArray(n.material) ? n.material[0] : n.material;
         const material = sourceMaterial.clone();
         if ('metalness' in material && typeof material.metalness === 'number' && material.name?.toLowerCase().includes('metal')) {

@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useRef, useLayoutEffect } from 'react';
 import { useTexture, useGLTF } from '@react-three/drei';
+import { DistanceCulledModel } from '../../systems/DistanceCulledModel';
 import { useControls } from 'leva';
 import { WarmWhiteMaterial, MatteDarkAccentMaterial, FoliageGreenMaterial } from '../../core/AcousticDarkMaterial';
 import * as THREE from 'three';
@@ -36,18 +37,78 @@ function VenetianSofa({ position, scale = 1, rotation = 0 }: { position: [number
     />
   );
 }
-function Shrub({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
+// InstancedMesh helpers — redukują draw calls z O(n) do O(1) dla powtarzalnej geometrii
+
+function BackWallSlats({ material }: { material: THREE.MeshStandardMaterial }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const count = 41;
+
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    const matrix = new THREE.Matrix4();
+    const pos = new THREE.Vector3();
+    const quat = new THREE.Quaternion();
+    const scl = new THREE.Vector3(1, 1, 1);
+
+    for (let i = 0; i < count; i++) {
+      pos.set(-10 + i * 0.5, 4, -9.65);
+      matrix.compose(pos, quat, scl);
+      ref.current.setMatrixAt(i, matrix);
+    }
+    ref.current.instanceMatrix.needsUpdate = true;
+  }, []);
+
   return (
-    <group position={position} scale={scale}>
-      <mesh position={[0, 0.3, 0]} castShadow>
+    <instancedMesh ref={ref} args={[undefined, undefined, count]} castShadow material={material}>
+      <boxGeometry args={[0.06, 7.4, 0.08]} />
+    </instancedMesh>
+  );
+}
+
+const shrubData = [
+  { pos: [-6, 0.3, 8.8] as [number, number, number], scale: 1.0 },
+  { pos: [8.8, 0.3, -4.5] as [number, number, number], scale: 0.8 },
+  { pos: [8.8, 0.3, 0.5] as [number, number, number], scale: 0.9 },
+  { pos: [8.8, 0.3, 5.5] as [number, number, number], scale: 0.85 },
+];
+
+function InstancedShrubs() {
+  const bigRef = useRef<THREE.InstancedMesh>(null);
+  const smallRef = useRef<THREE.InstancedMesh>(null);
+  const count = shrubData.length;
+
+  useLayoutEffect(() => {
+    const matrix = new THREE.Matrix4();
+    const pos = new THREE.Vector3();
+    const quat = new THREE.Quaternion();
+
+    shrubData.forEach((s, i) => {
+      // Big sphere at local offset [0, 0, 0]
+      pos.set(s.pos[0], s.pos[1], s.pos[2]);
+      matrix.compose(pos, quat, new THREE.Vector3(s.scale, s.scale, s.scale));
+      bigRef.current?.setMatrixAt(i, matrix);
+
+      // Small sphere at local offset [0.15, 0.45, 0.1] relative to group center
+      pos.set(s.pos[0] + 0.15 * s.scale, s.pos[1] + 0.45 * s.scale, s.pos[2] + 0.1 * s.scale);
+      matrix.compose(pos, quat, new THREE.Vector3(s.scale, s.scale, s.scale));
+      smallRef.current?.setMatrixAt(i, matrix);
+    });
+
+    if (bigRef.current) bigRef.current.instanceMatrix.needsUpdate = true;
+    if (smallRef.current) smallRef.current.instanceMatrix.needsUpdate = true;
+  }, []);
+
+  return (
+    <>
+      <instancedMesh ref={bigRef} args={[undefined, undefined, count]} castShadow>
         <sphereGeometry args={[0.35, 16, 12]} />
         <meshStandardMaterial color="#4a6b3a" roughness={0.9} metalness={0.0} />
-      </mesh>
-      <mesh position={[0.15, 0.45, 0.1]} castShadow>
+      </instancedMesh>
+      <instancedMesh ref={smallRef} args={[undefined, undefined, count]} castShadow>
         <sphereGeometry args={[0.25, 12, 10]} />
         <meshStandardMaterial color="#4a6b3a" roughness={0.9} metalness={0.0} />
-      </mesh>
-    </group>
+      </instancedMesh>
+    </>
   );
 }
 
@@ -183,13 +244,8 @@ export function HubShell() {
         <boxGeometry args={[28, 8, 0.6]} />
         <primitive object={materials.concreteWall} attach="material" />
       </mesh>
-      {/* Pionowe lamele — dębowy fornir */}
-      {[...Array(41)].map((_, i) => (
-        <mesh key={`bs-${i}`} position={[-10 + i * 0.5, 4, -9.65]} castShadow>
-          <boxGeometry args={[0.06, 7.4, 0.08]} />
-          <primitive object={materials.woodSlat} attach="material" />
-        </mesh>
-      ))}
+      {/* Pionowe lamele — dębowy fornir (InstancedMesh: 41→1 draw call) */}
+      <BackWallSlats material={materials.woodSlat} />
       {/* Szerokie panele akcentowe — kora */}
       {[-6, 0, 6].map((x, i) => (
         <mesh key={`bp-${i}`} position={[x, 4, -9.5]} castShadow receiveShadow>
@@ -315,15 +371,15 @@ export function HubShell() {
       <Tree position={[9.2, 0, 3]} scale={0.9} />
       <Tree position={[9.2, 0, 8]} scale={1.0} />
       <Tree position={[-8, 0, 8.8]} scale={1.1} />
-      <Shrub position={[-6, 0, 8.8]} scale={1.0} />
-      <Shrub position={[8.8, 0, -4.5]} scale={0.8} />
-      <Shrub position={[8.8, 0, 0.5]} scale={0.9} />
-      <Shrub position={[8.8, 0, 5.5]} scale={0.85} />
+      {/* Krzewy — 4 instancje × 2 geometrie = 2 draw calls zamiast 8 */}
+      <InstancedShrubs />
       {/* Dodatkowe proceduralne drzewa */}
       <Tree position={[tree1.t1x, tree1.t1y, tree1.t1z]} scale={tree1.t1s} />
       <Tree position={[tree2.t2x, tree2.t2y, tree2.t2z]} scale={tree2.t2s} />
       <Tree position={[tree3.t3x, tree3.t3y, tree3.t3z]} scale={tree3.t3s} />
-      <VenetianSofa position={[sofaControls.x, sofaControls.y, sofaControls.z]} scale={sofaControls.scale} rotation={sofaControls.rotation} />
+      <DistanceCulledModel maxDistance={16}>
+        <VenetianSofa position={[sofaControls.x, sofaControls.y, sofaControls.z]} scale={sofaControls.scale} rotation={sofaControls.rotation} />
+      </DistanceCulledModel>
 
       {/* ═══════════════ OŚWIETLENIE ═══════════════ */}
       {/* Back wall cove — 2 słabsze pointLight zamiast 3 */}
