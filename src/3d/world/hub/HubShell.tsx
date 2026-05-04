@@ -1,78 +1,52 @@
 "use client";
 
 import { useMemo } from 'react';
-import { useTexture } from '@react-three/drei';
+import { useTexture, useGLTF } from '@react-three/drei';
 import { useControls } from 'leva';
 import { WarmWhiteMaterial, MatteDarkAccentMaterial, FoliageGreenMaterial } from '../../core/AcousticDarkMaterial';
 import * as THREE from 'three';
 
 function Tree({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
+  const { scene } = useGLTF('/models/new/stylized_tree.glb');
+  const clonedScene = useMemo(() => scene.clone(), [scene]);
+  
   return (
-    <group position={position} scale={scale}>
-      <mesh position={[0, 0.35, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.9, 0.7, 0.9]} />
-        <primitive object={MatteDarkAccentMaterial} attach="material" />
-      </mesh>
-      <mesh position={[0, 0.7, 0]}>
-        <boxGeometry args={[0.94, 0.04, 0.94]} />
-        <meshStandardMaterial color="#4a4540" roughness={0.5} metalness={0.1} />
-      </mesh>
-      <mesh position={[0, 1.3, 0]} castShadow>
-        <cylinderGeometry args={[0.06, 0.08, 1.2, 8]} />
-        <meshStandardMaterial color="#6b5e4e" roughness={0.9} metalness={0.0} />
-      </mesh>
-      <mesh position={[0, 2.1, 0]} castShadow>
-        <coneGeometry args={[0.55, 1.4, 12]} />
-        <primitive object={FoliageGreenMaterial} attach="material" />
-      </mesh>
-      <mesh position={[0, 2.7, 0]} castShadow>
-        <coneGeometry args={[0.4, 1.1, 12]} />
-        <meshStandardMaterial color="#4a6b3a" roughness={0.9} metalness={0.0} />
-      </mesh>
-      <mesh position={[0, 3.15, 0]} castShadow>
-        <coneGeometry args={[0.25, 0.8, 12]} />
-        <meshStandardMaterial color="#557a42" roughness={0.85} metalness={0.0} />
-      </mesh>
-    </group>
+    <primitive 
+      object={clonedScene} 
+      position={position} 
+      scale={scale * 0.4} // Adjusted scale based on model units
+      castShadow 
+      receiveShadow 
+    />
   );
 }
 
+function VenetianSofa({ position, scale = 1, rotation = 0 }: { position: [number, number, number]; scale?: number; rotation?: number }) {
+  const { scene } = useGLTF('/models/new/Nowy folder/refined_venetian_3-seater_sofa.glb');
+  const clonedScene = useMemo(() => scene.clone(), [scene]);
+  
+  return (
+    <primitive 
+      object={clonedScene} 
+      position={position} 
+      scale={scale * 0.15} 
+      rotation={[0, rotation, 0]} 
+      castShadow 
+      receiveShadow 
+    />
+  );
+}
 function Shrub({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
   return (
     <group position={position} scale={scale}>
       <mesh position={[0, 0.3, 0]} castShadow>
         <sphereGeometry args={[0.35, 16, 12]} />
-        <primitive object={FoliageGreenMaterial} attach="material" />
+        <meshStandardMaterial color="#4a6b3a" roughness={0.9} metalness={0.0} />
       </mesh>
       <mesh position={[0.15, 0.45, 0.1]} castShadow>
         <sphereGeometry args={[0.25, 12, 10]} />
         <meshStandardMaterial color="#4a6b3a" roughness={0.9} metalness={0.0} />
       </mesh>
-    </group>
-  );
-}
-
-function VenetianSofa({ position, scale = 1, rotation = 0 }: { position: [number, number, number]; scale?: number; rotation?: number }) {
-  // Placeholder procedural sofa — GLB hosted separately from git
-  return (
-    <group position={position} scale={scale * 0.15} rotation={[0, rotation, 0]}>
-      {/* Siedzisko */}
-      <mesh position={[0, 0.25, 0]} castShadow receiveShadow>
-        <boxGeometry args={[3.0, 0.3, 1.0]} />
-        <meshStandardMaterial color="#8b7355" roughness={0.8} metalness={0.02} />
-      </mesh>
-      {/* Oparcie */}
-      <mesh position={[0, 0.7, -0.45]} castShadow receiveShadow>
-        <boxGeometry args={[3.0, 0.7, 0.15]} />
-        <meshStandardMaterial color="#8b7355" roughness={0.8} metalness={0.02} />
-      </mesh>
-      {/* Nóżki */}
-      {[[-1.3, -1.3], [1.3, -1.3], [-1.3, 0.4], [1.3, 0.4]].map(([x, z], i) => (
-        <mesh key={i} position={[x, 0.05, z]} castShadow>
-          <boxGeometry args={[0.1, 0.2, 0.1]} />
-          <meshStandardMaterial color="#5c4a32" roughness={0.7} metalness={0.1} />
-        </mesh>
-      ))}
     </group>
   );
 }
