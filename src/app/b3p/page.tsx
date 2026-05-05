@@ -96,11 +96,11 @@ function BloomLight({ lightRef }: { lightRef: React.MutableRefObject<THREE.Point
 
 function FacePositioner() {
   const face = useControls('Audio Reactive Face', {
-    facePosX: { value: 0, min: -20, max: 20, step: 0.05 },
-    facePosY: { value: 1.65, min: -5, max: 15, step: 0.05 },
-    facePosZ: { value: 0, min: -20, max: 20, step: 0.05 },
+    facePosX: { value: -8.4, min: -20, max: 20, step: 0.05 },
+    facePosY: { value: 1.95, min: -5, max: 15, step: 0.05 },
+    facePosZ: { value: -4.7, min: -20, max: 20, step: 0.05 },
     faceRotY: { value: 0, min: -180, max: 180, step: 1 },
-    faceScale: { value: 1.0, min: 0.1, max: 5, step: 0.05 },
+    faceScale: { value: 1.05, min: 0.1, max: 5, step: 0.05 },
   });
 
   return (

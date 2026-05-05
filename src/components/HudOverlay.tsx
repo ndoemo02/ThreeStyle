@@ -1,6 +1,7 @@
 "use client";
 
 import { useHudStore } from '../stores/useHudStore';
+import { useAudioStore } from '../stores/useAudioStore';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject, type SyntheticEvent, type UIEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { Thr3StyleHudMark } from './branding/Thr3StyleHudMark';
@@ -80,7 +81,15 @@ export function HudOverlay() {
   const setCamFacingMode = useHudStore((state) => state.setCamFacingMode);
   const setMasterVideoRef = useHudStore((state) => state.setMasterVideoRef);
   const setCamVideoElement = useHudStore((state) => state.setCamVideoElement);
+  const setAnalyserNode = useAudioStore((state) => state.setAnalyserNode);
+  const setAudioContext = useAudioStore((state) => state.setAudioContext);
   const camVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  // ── Native Web Audio pipeline (created during user gesture) ──────────
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const videoSourceCreatedRef = useRef(false);
+  const audioSourceCreatedRef = useRef(false);
 
   // Sync camera video element to store after mount (avoids React error #185)
   useEffect(() => {
@@ -167,15 +176,47 @@ export function HudOverlay() {
     setMasterVideoRef(isVideoActive ? masterVideoElementRef.current : null);
   }, [activeMediaId, mediaItems, setMasterVideoRef]);
 
+  // ── Audio pipeline helper (idempotent — call at every play) ──────────
+  const ensureAudioPipeline = useCallback((mediaElement: HTMLMediaElement) => {
+    if (!audioCtxRef.current) {
+      const ctx = new AudioContext();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.connect(ctx.destination);
+      audioCtxRef.current = ctx;
+      analyserRef.current = analyser;
+      setAnalyserNode(analyser);
+      setAudioContext(ctx);
+    }
+
+    const ctx = audioCtxRef.current;
+    ctx.resume();
+
+    // createMediaElementSource must be called once per element
+    const isVideo = mediaElement instanceof HTMLVideoElement;
+    const alreadyCreated = isVideo ? videoSourceCreatedRef.current : audioSourceCreatedRef.current;
+    if (!alreadyCreated) {
+      try {
+        const source = ctx.createMediaElementSource(mediaElement);
+        source.connect(analyserRef.current!);
+        if (isVideo) videoSourceCreatedRef.current = true;
+        else audioSourceCreatedRef.current = true;
+      } catch {
+        // element already claimed by another context — ignore
+      }
+    }
+  }, [setAnalyserNode, setAudioContext]);
+
   const playCurrentMedia = useCallback(() => {
     const mediaElement = mediaElementRef.current;
     if (!mediaElement) return;
 
+    ensureAudioPipeline(mediaElement);
     void mediaElement.play().catch((error: unknown) => {
       console.warn('HUD media playback was blocked:', error);
       setIsPlaying(false);
     });
-  }, [setIsPlaying]);
+  }, [setIsPlaying, ensureAudioPipeline]);
 
   const togglePlay = useCallback(() => {
     const mediaElement = mediaElementRef.current;
@@ -222,13 +263,14 @@ export function HudOverlay() {
 
     nextMediaElement.currentTime = 0;
     nextMediaElement.load();
+    ensureAudioPipeline(nextMediaElement);
     void nextMediaElement.play().then(() => {
       // playback started
     }).catch((error: unknown) => {
       console.warn('HUD media playback was blocked:', error);
       setIsPlaying(false);
     });
-  }, [activeMediaId, mediaItems, setIsPlaying, togglePlay]);
+  }, [activeMediaId, mediaItems, setIsPlaying, togglePlay, ensureAudioPipeline]);
 
   const activeMedia = mediaItems.find((item) => item.id === activeMediaId) ?? null;
   const statusLabel = libraryStatus === 'loading' ? 'Scanning' : libraryStatus === 'error' ? 'Offline' : 'Session Live';
