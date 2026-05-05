@@ -1,9 +1,13 @@
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Environment } from '@react-three/drei';
+import { EffectComposer, SelectiveBloom } from '@react-three/postprocessing';
+import { useControls } from 'leva';
+import AudioVisualizer from '../../3d/modules/fx/AudioVisualizer';
+import AudioReactiveFace from '../../3d/modules/fx/AudioReactiveFace';
 import { GroundedHub } from '../../3d/world/hub/GroundedHub';
 import { CreatorRoomMVP } from '../../3d/world/rooms/CreatorRoomMVP';
 import { BaseNavigationControls } from '../../3d/systems/BaseNavigationControls';
@@ -78,6 +82,35 @@ function AdaptiveEnvironment() {
   }, []);
 
   return <Environment preset="apartment" environmentIntensity={isMobile ? 0.12 : 0.3} />;
+}
+
+/** Token light that enables bloom layer 1 (required by SelectiveBloomEffect). */
+function BloomLight() {
+  const ref = useRef<THREE.PointLight>(null);
+  useEffect(() => {
+    ref.current?.layers.enable(1);
+  }, []);
+  return <pointLight ref={ref} position={[0, 4.9, 0]} intensity={0.01} color="#000000" />;
+}
+
+function FacePositioner() {
+  const face = useControls('Audio Reactive Face', {
+    facePosX: { value: 0, min: -20, max: 20, step: 0.05 },
+    facePosY: { value: 1.65, min: -5, max: 15, step: 0.05 },
+    facePosZ: { value: 0, min: -20, max: 20, step: 0.05 },
+    faceRotY: { value: 0, min: -180, max: 180, step: 1 },
+    faceScale: { value: 1.0, min: 0.1, max: 5, step: 0.05 },
+  });
+
+  return (
+    <group
+      position={[face.facePosX, face.facePosY, face.facePosZ]}
+      rotation={[0, THREE.MathUtils.degToRad(face.faceRotY), 0]}
+      scale={face.faceScale}
+    >
+      <AudioReactiveFace />
+    </group>
+  );
 }
 
 function ZoneController({ activeZone }: { activeZone: string }) {
@@ -193,7 +226,26 @@ export default function B3PPage() {
         {/* Ciepłe, subtelne refleksy środowiskowe — zredukowane na mobile */}
         <AdaptiveEnvironment />
 
+        {/* ── Selective Bloom + Audio-Reactive Fat Lines ── */}
+        <BloomLight />
+        <EffectComposer multisampling={0}>
+          <SelectiveBloom
+            selectionLayer={1}
+            lights={[]}
+            intensity={1.8}
+            luminanceThreshold={0.25}
+            luminanceSmoothing={0.35}
+            mipmapBlur
+          />
+        </EffectComposer>
+        <AudioVisualizer />
+
         <PerformanceCounter />
+
+        {/* ── Audio-Reactive Face — always visible ── */}
+        <Suspense fallback={null}>
+          <FacePositioner />
+        </Suspense>
 
         {activeZone === 'hub' && <GroundedHub onEnterRoom={(id) => setActiveZone(id)} />}
         {activeZone !== 'hub' && <CreatorRoomMVP onExit={() => setActiveZone('hub')} />}
