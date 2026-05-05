@@ -185,11 +185,22 @@
   color: #ffffff;
 }
 
-/* ── Content area ── */
+/* ── Content area (outer wrapper) ── */
 .hud-content {
   position: relative;
   min-height: 0;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Content inner (scroll host — propagates flex height) ── */
+.hud-content-inner {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Bottom ambient glow ── */
@@ -264,7 +275,7 @@
   box-shadow: 0 0 16px rgba(243, 160, 93, 0.9);
 }
 
-/* ── Scroll container ── */
+/* ── Scroll container (horizontal snap on desktop, vertical-friendly on mobile) ── */
 .hud-scroll-container {
   display: flex;
   height: 100%;
@@ -274,8 +285,18 @@
   overscroll-behavior-x: contain;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
 }
 .hud-scroll-container::-webkit-scrollbar { display: none; }
+
+/* Mobile: block horizontal swipe — use bottom tabs to switch panels.
+   This frees the vertical axis for list scrolling inside panels. */
+@media (max-width: 767px) {
+  .hud-scroll-container {
+    overflow-x: hidden;
+    touch-action: pan-y;
+  }
+}
 
 /* ── Panel viewport ── */
 .hud-viewport {
@@ -286,6 +307,9 @@
   scroll-snap-align: center;
   flex-direction: column;
   padding: 0 4px;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── Panel frame ── */
@@ -299,11 +323,16 @@
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   display: flex;
-  height: 100%;
+  min-height: 100%;
   flex-direction: column;
   padding: 20px 20px 64px 20px;
 }
 @media (min-width: 768px) { .hud-frame { padding-bottom: 20px; } }
+@media (max-width: 767px) {
+  .hud-frame {
+    padding-bottom: 80px; /* space for bottom tabs */
+  }
+}
 
 .hud-frame-eyebrow {
   font-size: 10px;
@@ -893,6 +922,19 @@
   background: #f3a05d;
 }
 
+/* ── Mobile touch optimization ── */
+@media (max-width: 767px) {
+  .hud-vote-btn,
+  .hud-queue-btn,
+  .hud-library-item,
+  .hud-mobile-tab-dot,
+  .hud-play-overlay,
+  .hud-close-btn,
+  .hud-tab-btn {
+    touch-action: manipulation;
+  }
+}
+
 /* ── Loading state ── */
 .hud-loading-state {
   display: flex;
@@ -930,7 +972,16 @@
 .hud-space-y-3 > * + * { margin-top: 12px; }
 .hud-space-y-5 > * + * { margin-top: 20px; }
 .hud-flex-col-gap4 { display: flex; flex-direction: column; gap: 16px; }
-.hud-overflow-y { overflow-y: auto; }
+.hud-overflow-y {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+@media (max-width: 767px) {
+  .hud-overflow-y {
+    touch-action: pan-y;
+  }
+}
 .hud-pr1 { padding-right: 4px; }
 
 /* ── Section header with divider ── */

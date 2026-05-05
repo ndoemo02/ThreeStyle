@@ -478,7 +478,7 @@ function HudContent({
         })}
       </div>
 
-      <div className="hud-content" style={{ display: 'flex', flexDirection: 'column' }}>
+      <div className="hud-content-inner">
         <div
           ref={scrollRef}
           onScroll={handleScroll}
