@@ -9,15 +9,12 @@ interface TransitionState {
   elevatorState: ElevatorState;
   activeElevator: ElevatorId;
   targetZone: ZoneId | null;
-  
-  // Bezpośrednia zmiana strefy (np. dev / szybkie wyjście)
+
   setActiveZone: (zone: ZoneId) => void;
-  
-  // Rozpoczęcie sekwencji wejścia do windy
   enterElevator: (elevator: ElevatorId, targetZone: ZoneId) => void;
-  
-  // Zmiana kroku animacji windy
   setElevatorState: (state: ElevatorState) => void;
+  /** Reset windy po odejściu gracza — nie zmienia strefy */
+  releaseElevator: () => void;
 }
 
 export const useTransitionStore = create<TransitionState>((set) => ({
@@ -40,15 +37,15 @@ export const useTransitionStore = create<TransitionState>((set) => ({
   }),
 
   setElevatorState: (state) => set((prev) => {
-    // Gdy drzwi się zamkną i zaczynamy jazdę ('moving'), przełączamy strefę docelową
     if (state === 'moving' && prev.targetZone) {
       return { elevatorState: state, activeZone: prev.targetZone };
     }
-    // Po zakończeniu przejazdu czyścimy stan windy — przywraca możliwość
-    // repozycjonowania kamery przez ZoneController
-    if (state === 'idle') {
-      return { elevatorState: state, activeElevator: null, targetZone: null };
-    }
     return { elevatorState: state };
+  }),
+
+  releaseElevator: () => set({
+    activeElevator: null,
+    targetZone: null,
+    elevatorState: 'idle',
   }),
 }));

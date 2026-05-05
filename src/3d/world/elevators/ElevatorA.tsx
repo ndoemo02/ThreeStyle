@@ -67,6 +67,18 @@ export function ElevatorA() {
       }
     }
 
+    // ── Distance-based reset: gdy gracz odejdzie od windy po przejezdzie ──
+    if (elevatorState === 'idle' && activeElevator === 'A' && groupRef.current) {
+      const doorWorldX = groupRef.current.position.x;
+      const doorWorldZ = groupRef.current.position.z - 2.5;
+      const dx = camera.position.x - doorWorldX;
+      const dz = camera.position.z - doorWorldZ;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist > 8.0) {
+        useTransitionStore.getState().releaseElevator();
+      }
+    }
+
     if (!leftDoorRef.current || !rightDoorRef.current) return;
 
     const animating = elevatorState === 'doors_closing' || elevatorState === 'doors_opening' || elevatorState === 'moving';
