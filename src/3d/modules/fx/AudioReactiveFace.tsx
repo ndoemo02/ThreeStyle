@@ -69,6 +69,10 @@ export default function AudioReactiveFace() {
         if (!headFound && node.morphTargetDictionary && Object.keys(node.morphTargetDictionary).length > 0) {
           headRef.current = node;
           headFound = true;
+          // Zero out all morph target influences to start from neutral pose
+          if (node.morphTargetInfluences) {
+            node.morphTargetInfluences.fill(0);
+          }
           console.log('[AudioReactiveFace] Head mesh:', node.name || '(unnamed)');
           console.log('[AudioReactiveFace] Morph targets:', Object.keys(node.morphTargetDictionary).join(', '));
         }
@@ -128,23 +132,29 @@ export default function AudioReactiveFace() {
     const data = new Uint8Array(bins);
     analyserNode.getByteFrequencyData(data);
 
-    // Bass bins 0-3 → jawOpen
-    const bassNorm = avgBins(data, 0, 4);
+    // Sub-bass bin 0 (0-345 Hz for fftSize=256) → jawOpen
+    const subBassNorm = data[0] / 255;
+    // Low-mids bins 1-3 → secondary jaw movement
+    const bassBody = avgBins(data, 1, Math.min(4, bins));
 
     // Treble bins 16-31 → eye blinks + brows
-    const trebleNorm = avgBins(data, 16, Math.min(32, bins));
+    const trebleNorm = avgBins(data, Math.min(16, bins >> 1), Math.min(Math.max(32, bins >> 1), bins));
 
-    // Mid-high bins 8-15 → eyebrow movement (secondary)
-    const midHighNorm = avgBins(data, 8, Math.min(16, bins));
+    // Mid-high bins → eyebrow movement (secondary)
+    const midHighCount = Math.min(16, bins);
+    const midStart = Math.min(8, bins >> 2);
+    const midHighNorm = avgBins(data, midStart, Math.min(midStart + 8, bins));
 
-    // Target values driven by audio
+    // Target values driven by audio — sub-bass has threshold, won't trigger on noise
     const m = morphRef.current;
-    const targetJaw = Math.min(bassNorm * 1.4, 1.0);
-    const targetBlink = trebleNorm > 0.35 ? trebleNorm : 0;
-    const targetBrow = midHighNorm * 0.7;
+    const jawDrive = subBassNorm * 1.8 + bassBody * 0.5;
+    const targetJaw = jawDrive > 0.08 ? Math.min(jawDrive, 1.0) : 0;
+    const targetBlink = trebleNorm > 0.4 ? trebleNorm : 0;
+    const targetBrow = midHighNorm * 0.6;
 
-    // Smooth lerp toward targets – fast open, slow close
-    const jawSpeed = targetJaw > m.jawOpen ? 8.0 : 4.0;
+    // Smooth lerp toward targets – fast close when target drops to zero
+    const jawClosingSpeed = targetJaw < 0.02 ? 12.0 : 6.0;
+    const jawSpeed = targetJaw > m.jawOpen ? 10.0 : jawClosingSpeed;
     m.jawOpen = lerp(m.jawOpen, targetJaw, jawSpeed * dt);
     m.eyeBlinkLeft = lerp(m.eyeBlinkLeft, targetBlink, 8 * dt);
     m.eyeBlinkRight = lerp(m.eyeBlinkRight, targetBlink, 8 * dt);
@@ -154,7 +164,7 @@ export default function AudioReactiveFace() {
     applyMorphs();
 
     // Emissive bloom: mouth/eyes glow proportional to audio
-    applyEmissive(bassNorm, trebleNorm);
+    applyEmissive(subBassNorm + bassBody * 0.4, trebleNorm);
   });
 
 

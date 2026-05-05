@@ -181,7 +181,7 @@ export function HudOverlay() {
     if (!audioCtxRef.current) {
       const ctx = new AudioContext();
       const analyser = ctx.createAnalyser();
-      analyser.fftSize = 64;
+      analyser.fftSize = 256;
       analyser.connect(ctx.destination);
       audioCtxRef.current = ctx;
       analyserRef.current = analyser;
