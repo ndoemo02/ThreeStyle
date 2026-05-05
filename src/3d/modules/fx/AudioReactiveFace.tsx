@@ -44,6 +44,7 @@ export default function AudioReactiveFace() {
   const bloomMeshesRef = useRef<THREE.Mesh[]>([]);
   const headRef = useRef<THREE.Mesh | null>(null);
   const ktx2Ref = useRef<KTX2Loader | null>(null);
+  const morphIndexRef = useRef<{ jaw: number; blinkL: number; blinkR: number; browL: number; browR: number } | null>(null);
 
   const analyserNode = useAudioStore(s => s.analyserNode);
   const gl = useThree(s => s.gl);
@@ -60,16 +61,16 @@ export default function AudioReactiveFace() {
 
   // ── Init: material setup + morph target discovery ──────────────────────
   useEffect(() => {
-    const headMeshName = 'mesh_2';
+    let headFound = false;
 
     faceScene.traverse((node) => {
       if (node instanceof THREE.Mesh) {
-        // Find head mesh for morph targets
-        if (node.name === headMeshName && node.morphTargetDictionary) {
+        // Find head mesh for morph targets — first mesh with morphTargetDictionary wins
+        if (!headFound && node.morphTargetDictionary && Object.keys(node.morphTargetDictionary).length > 0) {
           headRef.current = node;
-          const dict = node.morphTargetDictionary;
-          console.log('[AudioReactiveFace] Morph targets:', Object.keys(dict).join(', '));
-          console.log('[AudioReactiveFace] Morph dictionary:', dict);
+          headFound = true;
+          console.log('[AudioReactiveFace] Head mesh:', node.name || '(unnamed)');
+          console.log('[AudioReactiveFace] Morph targets:', Object.keys(node.morphTargetDictionary).join(', '));
         }
 
         // Identify bloom-worthy meshes (eyes, mouth interior)
@@ -95,9 +96,14 @@ export default function AudioReactiveFace() {
       }
     });
 
+    if (!headFound) {
+      console.warn('[AudioReactiveFace] No mesh with morphTargetDictionary found in facecap.glb');
+    }
+
     return () => {
       bloomMeshesRef.current = [];
       headRef.current = null;
+      morphIndexRef.current = null;
     };
   }, [faceScene]);
 
@@ -151,24 +157,52 @@ export default function AudioReactiveFace() {
     applyEmissive(bassNorm, trebleNorm);
   });
 
+
+  function resolveMorphIndices(dict: Record<string, number>) {
+    if (morphIndexRef.current) return;
+
+    const keys = Object.keys(dict);
+    const lower = keys.map(k => k.toLowerCase());
+
+    function findIdx(patterns: string[]): number {
+      for (const pat of patterns) {
+        const idx = lower.findIndex(k => k.includes(pat));
+        if (idx !== -1) return dict[keys[idx]];
+      }
+      return -1;
+    }
+
+    const jaw = findIdx(['jawopen', 'jaw_open', 'jaw']);
+    const blinkL = findIdx(['eyeblinkleft', 'eye_blink_left', 'blinkleft', 'blink_left', 'eyeblink_l']);
+    const blinkR = findIdx(['eyeblinkright', 'eye_blink_right', 'blinkright', 'blink_right', 'eyeblink_r']);
+    const browL = findIdx(['browdownleft', 'brow_down_left', 'browdown_l', 'browleft']);
+    const browR = findIdx(['browdownright', 'brow_down_right', 'browdown_r', 'browright']);
+
+    if (jaw < 0 && blinkL < 0 && blinkR < 0) {
+      console.warn('[AudioReactiveFace] Could not resolve any morph target indices. Available:', keys.join(', '));
+    }
+
+    morphIndexRef.current = { jaw, blinkL, blinkR, browL, browR };
+    console.log('[AudioReactiveFace] Resolved morph indices:', morphIndexRef.current);
+  }
+
   function applyMorphs() {
     const head = headRef.current;
     if (!head?.morphTargetDictionary || !head.morphTargetInfluences) return;
 
-    const dict = head.morphTargetDictionary;
+    resolveMorphIndices(head.morphTargetDictionary);
+
+    const idx = morphIndexRef.current;
+    if (!idx) return;
+
     const inf = head.morphTargetInfluences;
     const m = morphRef.current;
 
-    const setMorph = (name: string, value: number) => {
-      const idx = dict[name];
-      if (idx !== undefined) inf[idx] = value;
-    };
-
-    setMorph('jawOpen', m.jawOpen);
-    setMorph('eyeBlinkLeft', m.eyeBlinkLeft);
-    setMorph('eyeBlinkRight', m.eyeBlinkRight);
-    setMorph('browDownLeft', m.browDownLeft);
-    setMorph('browDownRight', m.browDownRight);
+    if (idx.jaw >= 0) inf[idx.jaw] = m.jawOpen;
+    if (idx.blinkL >= 0) inf[idx.blinkL] = m.eyeBlinkLeft;
+    if (idx.blinkR >= 0) inf[idx.blinkR] = m.eyeBlinkRight;
+    if (idx.browL >= 0) inf[idx.browL] = m.browDownLeft;
+    if (idx.browR >= 0) inf[idx.browR] = m.browDownRight;
   }
 
   function applyEmissive(bassNorm: number, trebleNorm: number) {
