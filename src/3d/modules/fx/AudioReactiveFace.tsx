@@ -45,6 +45,7 @@ export default function AudioReactiveFace() {
   const headRef = useRef<THREE.Mesh | null>(null);
   const ktx2Ref = useRef<KTX2Loader | null>(null);
   const morphIndexRef = useRef<{ jaw: number; blinkL: number; blinkR: number; browL: number; browR: number } | null>(null);
+  const bassAvgRef = useRef(0); // rolling average for onset detection
 
   const analyserNode = useAudioStore(s => s.analyserNode);
   const gl = useThree(s => s.gl);
@@ -132,29 +133,31 @@ export default function AudioReactiveFace() {
     const data = new Uint8Array(bins);
     analyserNode.getByteFrequencyData(data);
 
-    // Sub-bass bin 0 (0-345 Hz for fftSize=256) → jawOpen
+    // Sub-bass bin 0 → onset detection (beat-reactive jaw)
     const subBassNorm = data[0] / 255;
-    // Low-mids bins 1-3 → secondary jaw movement
+    // Secondary bass body
     const bassBody = avgBins(data, 1, Math.min(4, bins));
 
-    // Treble bins 16-31 → eye blinks + brows
-    const trebleNorm = avgBins(data, Math.min(16, bins >> 1), Math.min(Math.max(32, bins >> 1), bins));
+    // Running average for onset detection — slow adaptation
+    const bassSmooth = bassAvgRef.current * 0.92 + subBassNorm * 0.08;
+    bassAvgRef.current = bassSmooth;
 
-    // Mid-high bins → eyebrow movement (secondary)
-    const midHighCount = Math.min(16, bins);
+    // Onset: current sub-bass significantly above smoothed average = beat hit
+    const onset = subBassNorm > bassSmooth * 1.3 && subBassNorm > 0.06;
+
+    // Treble → eye blinks + brows
+    const trebleNorm = avgBins(data, Math.min(16, bins >> 1), Math.min(Math.max(32, bins >> 1), bins));
     const midStart = Math.min(8, bins >> 2);
     const midHighNorm = avgBins(data, midStart, Math.min(midStart + 8, bins));
 
-    // Target values driven by audio — sub-bass has threshold, won't trigger on noise
+    // Target values — jaw opens on onset then decays, blink on treble peaks
     const m = morphRef.current;
-    const jawDrive = subBassNorm * 1.8 + bassBody * 0.5;
-    const targetJaw = jawDrive > 0.08 ? Math.min(jawDrive, 1.0) : 0;
+    const targetJaw = onset ? Math.min(subBassNorm * 2.0 + bassBody * 0.3, 1.0) : 0;
     const targetBlink = trebleNorm > 0.4 ? trebleNorm : 0;
     const targetBrow = midHighNorm * 0.6;
 
-    // Smooth lerp toward targets – fast close when target drops to zero
-    const jawClosingSpeed = targetJaw < 0.02 ? 12.0 : 6.0;
-    const jawSpeed = targetJaw > m.jawOpen ? 10.0 : jawClosingSpeed;
+    // Fast open on beat, moderate decay between beats
+    const jawSpeed = onset ? 14.0 : targetJaw < 0.02 ? 8.0 : 5.0;
     m.jawOpen = lerp(m.jawOpen, targetJaw, jawSpeed * dt);
     m.eyeBlinkLeft = lerp(m.eyeBlinkLeft, targetBlink, 8 * dt);
     m.eyeBlinkRight = lerp(m.eyeBlinkRight, targetBlink, 8 * dt);

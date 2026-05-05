@@ -221,8 +221,8 @@ export default function B3PPage() {
         {/* Subtelny ambient — podbija cienie na mobile */}
         <ambientLight intensity={0.2} />
 
-        {/* Jasna mgła w kolorze ścian — zamyka przestrzeń, eliminuje czarną pustkę */}
-        <fog attach="fog" args={['#e8e0d5', 18, 55]} />
+        {/* Mgła — większy zasięg near żeby nie przytłumiała pomieszczeń */}
+        <fog attach="fog" args={['#e8e0d5', 28, 70]} />
         <color attach="background" args={['#e8e0d5']} />
 
         {/* Ciepłe, subtelne refleksy środowiskowe — zredukowane na mobile */}
