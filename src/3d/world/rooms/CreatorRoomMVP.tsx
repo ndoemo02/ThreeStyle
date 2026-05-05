@@ -1,6 +1,6 @@
 import { useState, useRef, Suspense, useEffect, useMemo, useCallback } from 'react';
 import { Html, useTexture, useGLTF, useAnimations } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { EditingTable } from '../../modules/furniture/EditingTable';
 import { DistanceCulledModel } from '../../systems/DistanceCulledModel';
@@ -580,6 +580,43 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   const { openHud } = useHudStore();
   const masterVideoRef = useHudStore((s) => s.masterVideoRef);
   const [laptopHovered, setLaptopHovered] = useState(false);
+  const laptopPlaneRef = useRef<THREE.Mesh>(null);
+  const { camera } = useThree();
+
+  // E key opens HUD when crosshair is on the laptop screen
+  useEffect(() => {
+    const raycaster = new THREE.Raycaster();
+    const forward = new THREE.Vector3(0, 0, -1);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'KeyE' || e.repeat) return;
+
+      // Always check if looking at the laptop plane (works with or without pointer lock)
+      if (laptopPlaneRef.current) {
+        forward.set(0, 0, -1).applyQuaternion(camera.quaternion);
+        raycaster.set(camera.position, forward);
+        const hits = raycaster.intersectObject(laptopPlaneRef.current);
+        if (hits.length > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (document.pointerLockElement) {
+            document.exitPointerLock();
+          }
+          requestAnimationFrame(() => openHud('master_catalog'));
+          return;
+        }
+      }
+
+      // Fallback: mouse hovering over laptop (not pointer-locked)
+      if (laptopHovered) {
+        e.preventDefault();
+        requestAnimationFrame(() => openHud('master_catalog'));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [laptopHovered, openHud, camera]);
 
   // diagnostic: confirm re-renders happen when masterVideoRef changes
   // console.log('[MVP] render – masterVideoRef:', !!masterVideoRef);
@@ -1072,35 +1109,24 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           position={[decorControls.laptopPosX, decorControls.laptopPosY + 0.35, decorControls.laptopPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.laptopRotY), 0]}
         >
-          {/* Large invisible hit-test plane covering full iPad screen */}
+          {/* Invisible hit-test plane tightly matching iPad screen */}
           <mesh
+            ref={laptopPlaneRef}
             onClick={(e) => {
               e.stopPropagation();
               if (document.pointerLockElement) {
                 document.exitPointerLock();
-                requestAnimationFrame(() => openHud('master_catalog'));
-              } else {
-                openHud('master_catalog');
               }
-            }}
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              if (document.pointerLockElement) {
-                document.exitPointerLock();
-                requestAnimationFrame(() => openHud('master_catalog'));
-              } else {
-                openHud('master_catalog');
-              }
+              requestAnimationFrame(() => openHud('master_catalog'));
             }}
             onPointerOver={() => setLaptopHovered(true)}
             onPointerOut={() => setLaptopHovered(false)}
           >
-            {/* 2.0×1.6 covers the full iPad Pro screen at scale 3.3 */}
-            <planeGeometry args={[2.0, 1.6]} />
-            <meshBasicMaterial transparent opacity={0.001} depthWrite={false} side={THREE.DoubleSide} />
+            <planeGeometry args={[1.4, 1.05]} />
+            <meshBasicMaterial transparent opacity={0.001} depthWrite={false} side={THREE.FrontSide} />
           </mesh>
 
-          {/* Hover hint – NO transform, renders as screen-space HTML anchored to 3D pos */}
+          {/* Hover hint + E key interaction */}
           {laptopHovered && (
             <Html position={[0, 1.1, 0]} center pointerEvents="none" zIndexRange={[10, 11]}>
               <div style={{
