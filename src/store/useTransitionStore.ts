@@ -40,9 +40,14 @@ export const useTransitionStore = create<TransitionState>((set) => ({
   }),
 
   setElevatorState: (state) => set((prev) => {
-    // Gdy drzwi się zamkną i zaczynamy jazdę ('moving'), przełączamy strefę docelową pod spodem (odmontowujemy HUB, zaczynamy montować POKÓJ)
+    // Gdy drzwi się zamkną i zaczynamy jazdę ('moving'), przełączamy strefę docelową
     if (state === 'moving' && prev.targetZone) {
       return { elevatorState: state, activeZone: prev.targetZone };
+    }
+    // Po zakończeniu przejazdu czyścimy stan windy — przywraca możliwość
+    // repozycjonowania kamery przez ZoneController
+    if (state === 'idle') {
+      return { elevatorState: state, activeElevator: null, targetZone: null };
     }
     return { elevatorState: state };
   }),

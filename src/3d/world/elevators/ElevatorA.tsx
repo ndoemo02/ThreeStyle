@@ -22,6 +22,7 @@ export function ElevatorA() {
   const inTransit = elevatorState !== 'idle';
   const isActiveForUs = activeElevator === 'A';
   const shaftGroupRef = useRef<THREE.Group>(null);
+  const cooldownUntilRef = useRef(0);
 
   useEffect(() => {
     if (!groupRef.current) return;
@@ -30,11 +31,10 @@ export function ElevatorA() {
     groupRef.current.position.copy(targetPos);
     groupRef.current.rotation.set(0, Math.PI, 0);
 
+    // Repozycjonuj kamerę przy starcie przejazdu — zanim scena się przełączy
     if (elevatorState === 'moving' && isActiveForUs) {
-      if (activeZone === 'room1') {
-        camera.position.set(ROOM_POS.x, 1.7, ROOM_POS.z);
-        camera.rotation.set(0, 0, 0);
-      }
+      camera.position.set(targetPos.x, 1.7, targetPos.z);
+      camera.rotation.set(0, 0, 0);
     }
   }, [activeZone, elevatorState, isActiveForUs, camera]);
 
@@ -49,6 +49,8 @@ export function ElevatorA() {
 
     // ── Proximity trigger: automatyczne rozsuwanie drzwi przy podejściu ──
     if (elevatorState === 'idle' && activeElevator === null) {
+      const now = performance.now();
+      if (now < cooldownUntilRef.current) return; // anti-re-trigger po wyjściu
       // Pozycja drzwi w świecie — liczona z pozycji grupy i rotacji 180°
       const groupZ = groupRef.current?.position.z ?? (activeZone === 'room1' ? 9.5 : 1.5);
       const groupX = groupRef.current?.position.x ?? (activeZone === 'room1' ? 0 : -24);
@@ -111,8 +113,12 @@ export function ElevatorA() {
     if (elevatorState === 'moving' && isActiveForUs) {
       const timer = setTimeout(() => {
         setElevatorState('doors_opening');
-      }, 3000); 
+      }, 3000);
       return () => clearTimeout(timer);
+    }
+    // Po otwarciu drzwi — blokada proximity na 2s żeby gracz mógł odejść
+    if (elevatorState === 'idle') {
+      cooldownUntilRef.current = performance.now() + 2000;
     }
   }, [elevatorState, isActiveForUs, setElevatorState]);
 
