@@ -577,7 +577,9 @@ function SofaRaw() {
 export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onExit }: { position?: [number, number, number], rotation?: [number, number, number], onExit?: () => void }) {
   const spotLightTarget = useMemo(() => new THREE.Object3D(), []);
 
-  const { openHud } = useHudStore();
+  const openHud = useHudStore((s) => s.openHud);
+  const closeHud = useHudStore((s) => s.closeHud);
+  const isOpen = useHudStore((s) => s.isOpen);
   const masterVideoRef = useHudStore((s) => s.masterVideoRef);
   const [laptopHovered, setLaptopHovered] = useState(false);
   const laptopPlaneRef = useRef<THREE.Mesh>(null);
@@ -602,7 +604,10 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           if (document.pointerLockElement) {
             document.exitPointerLock();
           }
-          requestAnimationFrame(() => openHud('master_catalog'));
+          requestAnimationFrame(() => {
+            if (isOpen) closeHud();
+            else openHud('master_catalog');
+          });
           return;
         }
       }
@@ -610,13 +615,16 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       // Fallback: mouse hovering over laptop (not pointer-locked)
       if (laptopHovered) {
         e.preventDefault();
-        requestAnimationFrame(() => openHud('master_catalog'));
+        requestAnimationFrame(() => {
+          if (isOpen) closeHud();
+          else openHud('master_catalog');
+        });
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [laptopHovered, openHud, camera]);
+  }, [laptopHovered, openHud, closeHud, isOpen, camera]);
 
   // diagnostic: confirm re-renders happen when masterVideoRef changes
   // console.log('[MVP] render – masterVideoRef:', !!masterVideoRef);
@@ -1117,7 +1125,10 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
               if (document.pointerLockElement) {
                 document.exitPointerLock();
               }
-              requestAnimationFrame(() => openHud('master_catalog'));
+              requestAnimationFrame(() => {
+                if (isOpen) closeHud();
+                else openHud('master_catalog');
+              });
             }}
             onPointerOver={() => setLaptopHovered(true)}
             onPointerOut={() => setLaptopHovered(false)}
@@ -1141,7 +1152,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
                 whiteSpace: 'nowrap',
                 boxShadow: '0 0 12px rgba(255,140,66,0.3)',
               }}>
-                [E] OPEN STUDIO HUD
+                {isOpen ? '[E] CLOSE STUDIO HUD' : '[E] OPEN STUDIO HUD'}
               </div>
             </Html>
           )}

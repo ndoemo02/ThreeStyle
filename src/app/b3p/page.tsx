@@ -94,13 +94,20 @@ function BloomLight({ lightRef }: { lightRef: React.MutableRefObject<THREE.Point
   return <pointLight ref={ref} position={[0, 4.9, 0]} intensity={0.01} color="#000000" />;
 }
 
-function FacePositioner() {
-  const face = useControls('Audio Reactive Face', {
-    facePosX: { value: -8.4, min: -20, max: 20, step: 0.05 },
-    facePosY: { value: 1.95, min: -5, max: 15, step: 0.05 },
-    facePosZ: { value: -4.7, min: -20, max: 20, step: 0.05 },
-    faceRotY: { value: 0, min: -180, max: 180, step: 1 },
-    faceScale: { value: 1.05, min: 0.1, max: 5, step: 0.05 },
+// Studio Face — wewnątrz kabiny VocalBooth, przy mikrofonie
+// VocalBooth group: position=[-7.06, 0, -2.5], rotation=[0, PI/2, 0]
+// Rotacja 90° Y: localX→worldZ, localZ→worldX (odwrotnie)
+// Mic localPos = (2.61, 0.25, -2.7)
+// → worldX = -7.06 - (-2.7)  = -4.36
+// → worldZ = -2.5 + 2.61     = +0.11
+// Twarz stoi za mikrofonem (głębiej w kabinie), patrzy w stronę szyby (+X)
+function StudioFacePositioner() {
+  const face = useControls('Studio Face (Booth)', {
+    facePosX: { value: -5.5,  min: -15, max: 15, step: 0.05 },
+    facePosY: { value: 1.65,  min: -5,  max: 10, step: 0.05 },
+    facePosZ: { value: 0.1,   min: -10, max: 10, step: 0.05 },
+    faceRotY: { value: -90,   min: -180, max: 180, step: 1 },
+    faceScale: { value: 1.05, min: 0.1, max: 5,  step: 0.05 },
   });
 
   return (
@@ -149,7 +156,15 @@ function ZoneController({ activeZone }: { activeZone: string }) {
 export default function B3PPage() {
   const activeZone = useTransitionStore(s => s.activeZone);
   const setActiveZone = useTransitionStore(s => s.setActiveZone);
+  const releaseElevator = useTransitionStore(s => s.releaseElevator);
   const bloomLightRef = useRef<THREE.PointLight>(null);
+
+  // Reset do lobby przy każdym montowaniu — Zustand trzyma stan między hot-reloadami
+  useEffect(() => {
+    setActiveZone('room1');
+    releaseElevator(); // wymuś idle żeby ZoneController mógł ustawić kamerę
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="b3p-fullscreen">
@@ -233,7 +248,6 @@ export default function B3PPage() {
         <EffectComposer multisampling={0}>
           <SelectiveBloom
             selectionLayer={1}
-            lights={[bloomLightRef as RefObject<THREE.Object3D>]}
             intensity={1.8}
             luminanceThreshold={0.25}
             luminanceSmoothing={0.35}
@@ -244,10 +258,12 @@ export default function B3PPage() {
 
         <PerformanceCounter />
 
-        {/* ── Audio-Reactive Face — always visible ── */}
-        <Suspense fallback={null}>
-          <FacePositioner />
-        </Suspense>
+        {/* ── Audio-Reactive Face — tylko w studiu, przy mikrofonie ── */}
+        {activeZone !== 'hub' && (
+          <Suspense fallback={null}>
+            <StudioFacePositioner />
+          </Suspense>
+        )}
 
         {activeZone === 'hub' && <GroundedHub onEnterRoom={(id) => setActiveZone(id)} />}
         {activeZone !== 'hub' && <CreatorRoomMVP onExit={() => setActiveZone('hub')} />}

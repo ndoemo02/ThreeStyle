@@ -212,10 +212,20 @@ export function HudOverlay() {
     if (!mediaElement) return;
 
     ensureAudioPipeline(mediaElement);
-    void mediaElement.play().catch((error: unknown) => {
-      console.warn('HUD media playback was blocked:', error);
-      setIsPlaying(false);
-    });
+
+    const attempt = () => {
+      void mediaElement.play().catch((error: unknown) => {
+        const name = (error as Error)?.name;
+        if (name === 'AbortError') {
+          // Race condition: poprzedni play/pause w toku — retry po chwili
+          setTimeout(attempt, 80);
+        } else {
+          console.warn('HUD media playback was blocked:', error);
+          setIsPlaying(false);
+        }
+      });
+    };
+    attempt();
   }, [setIsPlaying, ensureAudioPipeline]);
 
   const togglePlay = useCallback(() => {
@@ -261,15 +271,25 @@ export function HudOverlay() {
 
     mediaElementRef.current = nextMediaElement;
 
+    // Czekaj na canplay zamiast play() od razu po load() — naprawia AbortError
     nextMediaElement.currentTime = 0;
-    nextMediaElement.load();
     ensureAudioPipeline(nextMediaElement);
-    void nextMediaElement.play().then(() => {
-      // playback started
-    }).catch((error: unknown) => {
-      console.warn('HUD media playback was blocked:', error);
-      setIsPlaying(false);
-    });
+
+    const onCanPlay = () => {
+      nextMediaElement.removeEventListener('canplay', onCanPlay);
+      void nextMediaElement.play().catch((error: unknown) => {
+        const name = (error as Error)?.name;
+        if (name === 'AbortError') {
+          // jeszcze jedna proba po krotkim opoznieniu
+          setTimeout(() => void nextMediaElement.play().catch(() => setIsPlaying(false)), 100);
+        } else {
+          console.warn('HUD media playback was blocked:', error);
+          setIsPlaying(false);
+        }
+      });
+    };
+    nextMediaElement.addEventListener('canplay', onCanPlay, { once: true });
+    nextMediaElement.load();
   }, [activeMediaId, mediaItems, setIsPlaying, togglePlay, ensureAudioPipeline]);
 
   const activeMedia = mediaItems.find((item) => item.id === activeMediaId) ?? null;
@@ -293,6 +313,7 @@ export function HudOverlay() {
             src={activeMedia?.kind === 'video' ? activeMedia.src : undefined}
             playsInline
             preload="metadata"
+            crossOrigin="anonymous"
             loop
             {...masterMediaEventProps}
           />
@@ -300,6 +321,7 @@ export function HudOverlay() {
             ref={masterAudioElementRef}
             src={activeMedia?.kind === 'audio' ? activeMedia.src : undefined}
             preload="metadata"
+            crossOrigin="anonymous"
             {...masterMediaEventProps}
           />
           <video

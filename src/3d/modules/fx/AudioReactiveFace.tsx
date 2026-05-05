@@ -47,7 +47,63 @@ export default function AudioReactiveFace() {
   const morphIndexRef = useRef<{ jaw: number; blinkL: number; blinkR: number; browL: number; browR: number } | null>(null);
   const bassAvgRef = useRef(0); // rolling average for onset detection
 
-  const analyserNode = useAudioStore(s => s.analyserNode);
+  // Analyser z HUD store (muzyka z laptopa)
+  const hudAnalyser = useAudioStore(s => s.analyserNode);
+
+  // Mikrofon jako fallback — twarz śriewa do muzyki z otoczenia
+  const micAnalyserRef = useRef<AnalyserNode | null>(null);
+  const micCtxRef = useRef<AudioContext | null>(null);
+  const micReadyRef = useRef(false);
+  const debugFrameRef = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let stream: MediaStream | null = null;
+
+    async function startMic() {
+      if (micReadyRef.current || cancelled) return;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+
+        // Tworzy AudioContext W gescie uzytkownika — gwarantuje stan 'running'
+        const ctx = new AudioContext();
+        await ctx.resume();
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 512; // większe okno = lepsze wykrywanie melodii
+        analyser.smoothingTimeConstant = 0.7;
+        const source = ctx.createMediaStreamSource(stream);
+        source.connect(analyser);
+        micCtxRef.current = ctx;
+        micAnalyserRef.current = analyser;
+        micReadyRef.current = true;
+        console.info('[AudioReactiveFace] ✅ Mic connected, ctx.state:', ctx.state);
+      } catch (err) {
+        console.info('[AudioReactiveFace] Mic unavailable:', err);
+      }
+    }
+
+    // Odrocz do pierwszego gestu użytkownika (klik = pointer lock, klawisz = ruch)
+    function onGesture() {
+      void startMic();
+    }
+    window.addEventListener('click', onGesture, { once: true });
+    window.addEventListener('keydown', onGesture, { once: true });
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('click', onGesture);
+      window.removeEventListener('keydown', onGesture);
+      stream?.getTracks().forEach(t => t.stop());
+      micCtxRef.current?.close();
+      micCtxRef.current = null;
+      micAnalyserRef.current = null;
+      micReadyRef.current = false;
+    };
+  }, []);
+
+  // analyserNode jest odczytywany w useFrame (nie tutaj!) bo ref nie triggeruje re-renderu
+
   const gl = useThree(s => s.gl);
 
   const { scene } = useGLTF(FACE_MODEL_PATH, true, false, (loader) => {
@@ -116,6 +172,22 @@ export default function AudioReactiveFace() {
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.1);
 
+    // Odczyt w useFrame: HUD priorytet, fallback mikrofon
+    const analyserNode = hudAnalyser ?? micAnalyserRef.current;
+
+    // Jeśli mic ctx zawieszony — spróbuj wznowić (może działać po gescie)
+    if (!hudAnalyser && micCtxRef.current?.state === 'suspended') {
+      void micCtxRef.current.resume();
+    }
+
+    // ── DEBUG (co 180 klatek ≈ co 3 sek) — zawsze, nawet gdy brak audio ──
+    debugFrameRef.current = (debugFrameRef.current + 1) % 180;
+    if (debugFrameRef.current === 1) {
+      const src = hudAnalyser ? 'HUD' : (micAnalyserRef.current ? 'MIC' : 'NONE');
+      const ctxState = micCtxRef.current?.state ?? 'n/a';
+      console.log(`[Face] src=${src} ctxState=${ctxState} hudAnalyser=${!!hudAnalyser} micReady=${micReadyRef.current}`);
+    }
+
     if (!analyserNode) {
       // Idle: slowly return morphs to zero
       const m = morphRef.current;
@@ -133,28 +205,42 @@ export default function AudioReactiveFace() {
     const data = new Uint8Array(bins);
     analyserNode.getByteFrequencyData(data);
 
+    // ── DEBUG (co 180 klatek ≈ co 3 sekundy) ────────────────────────────
+    debugFrameRef.current = (debugFrameRef.current + 1) % 180;
+    if (debugFrameRef.current === 1) {
+      const maxVal = Math.max(...Array.from(data));
+      const src = hudAnalyser ? 'HUD' : (micAnalyserRef.current ? 'MIC' : 'NONE');
+      const ctxState = micCtxRef.current?.state ?? 'n/a';
+      console.log(`[Face] src=${src} ctxState=${ctxState} data[0]=${data[0]} max=${maxVal} bins=${bins}`);
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     // Sub-bass bin 0 → onset detection (beat-reactive jaw)
     const subBassNorm = data[0] / 255;
     // Secondary bass body
     const bassBody = avgBins(data, 1, Math.min(4, bins));
 
     // Running average for onset detection — slow adaptation
-    const bassSmooth = bassAvgRef.current * 0.92 + subBassNorm * 0.08;
+    const bassSmooth = bassAvgRef.current * 0.90 + subBassNorm * 0.10;
     bassAvgRef.current = bassSmooth;
 
-    // Onset: current sub-bass significantly above smoothed average = beat hit
-    const onset = subBassNorm > bassSmooth * 1.3 && subBassNorm > 0.06;
+    // Onset: znacząco powyżej średnio = uderzenie bitu
+    // Niższy próg (0.015) żeby reagowało na różne gatunki, nie tylko heavy bass
+    const onset = subBassNorm > bassSmooth * 1.15 && subBassNorm > 0.015;
 
     // Treble → eye blinks + brows
     const trebleNorm = avgBins(data, Math.min(16, bins >> 1), Math.min(Math.max(32, bins >> 1), bins));
     const midStart = Math.min(8, bins >> 2);
     const midHighNorm = avgBins(data, midStart, Math.min(midStart + 8, bins));
 
-    // Target values — jaw opens on onset then decays, blink on treble peaks
+    // Target values — jaw na basie i midach (wokale), blink na treble
     const m = morphRef.current;
-    const targetJaw = onset ? Math.min(subBassNorm * 2.0 + bassBody * 0.3, 1.0) : 0;
-    const targetBlink = trebleNorm > 0.4 ? trebleNorm : 0;
-    const targetBrow = midHighNorm * 0.6;
+    // Jaw: otwiera się na basie (onset) + 30% wkładu midów (wokale, melodia)
+    const targetJaw = onset
+      ? Math.min(subBassNorm * 1.8 + bassBody * 0.3 + midHighNorm * 0.4, 1.0)
+      : Math.min(midHighNorm * 0.35, 0.5); // powoli rusza się też bez beatu
+    const targetBlink = trebleNorm > 0.25 ? trebleNorm : 0; // niższy próg mrużenia
+    const targetBrow = midHighNorm * 0.7;
 
     // Fast open on beat, moderate decay between beats
     const jawSpeed = onset ? 14.0 : targetJaw < 0.02 ? 8.0 : 5.0;
