@@ -139,12 +139,12 @@ export default function AudioReactiveFace() {
 
     // Target values driven by audio
     const m = morphRef.current;
-    const targetJaw = Math.max(bassNorm * 1.2, m.jawOpen * 0.6);
+    const targetJaw = Math.min(bassNorm * 1.4, 1.0);
     const targetBlink = trebleNorm > 0.35 ? trebleNorm : 0;
     const targetBrow = midHighNorm * 0.7;
 
-    // Smooth lerp toward targets
-    const jawSpeed = targetJaw > m.jawOpen ? 6.0 : 2.5;
+    // Smooth lerp toward targets – fast open, slow close
+    const jawSpeed = targetJaw > m.jawOpen ? 8.0 : 4.0;
     m.jawOpen = lerp(m.jawOpen, targetJaw, jawSpeed * dt);
     m.eyeBlinkLeft = lerp(m.eyeBlinkLeft, targetBlink, 8 * dt);
     m.eyeBlinkRight = lerp(m.eyeBlinkRight, targetBlink, 8 * dt);
