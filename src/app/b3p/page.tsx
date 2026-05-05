@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
+import { useState, useMemo, useEffect, useRef, Suspense, type RefObject } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Environment } from '@react-three/drei';
@@ -84,12 +84,13 @@ function AdaptiveEnvironment() {
   return <Environment preset="apartment" environmentIntensity={isMobile ? 0.12 : 0.3} />;
 }
 
-/** Token light that enables bloom layer 1 (required by SelectiveBloomEffect). */
-function BloomLight() {
+function BloomLight({ lightRef }: { lightRef: React.MutableRefObject<THREE.PointLight | null> }) {
   const ref = useRef<THREE.PointLight>(null);
   useEffect(() => {
     ref.current?.layers.enable(1);
-  }, []);
+    lightRef.current = ref.current;
+    return () => { lightRef.current = null; };
+  }, [lightRef]);
   return <pointLight ref={ref} position={[0, 4.9, 0]} intensity={0.01} color="#000000" />;
 }
 
@@ -148,6 +149,7 @@ function ZoneController({ activeZone }: { activeZone: string }) {
 export default function B3PPage() {
   const activeZone = useTransitionStore(s => s.activeZone);
   const setActiveZone = useTransitionStore(s => s.setActiveZone);
+  const bloomLightRef = useRef<THREE.PointLight>(null);
 
   return (
     <div className="b3p-fullscreen">
@@ -227,11 +229,11 @@ export default function B3PPage() {
         <AdaptiveEnvironment />
 
         {/* ── Selective Bloom + Audio-Reactive Fat Lines ── */}
-        <BloomLight />
+        <BloomLight lightRef={bloomLightRef} />
         <EffectComposer multisampling={0}>
           <SelectiveBloom
             selectionLayer={1}
-            lights={[]}
+            lights={[bloomLightRef as RefObject<THREE.Object3D>]}
             intensity={1.8}
             luminanceThreshold={0.25}
             luminanceSmoothing={0.35}

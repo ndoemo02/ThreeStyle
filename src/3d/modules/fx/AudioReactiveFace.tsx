@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
+import { KTX2Loader } from 'three-stdlib';
 import * as THREE from 'three';
 import { useAudioStore } from '@/stores/useAudioStore';
 
@@ -31,7 +32,6 @@ function avgBins(data: Uint8Array, start: number, end: number): number {
 }
 
 const FACE_MODEL_PATH = '/models/facecap.glb';
-useGLTF.preload(FACE_MODEL_PATH);
 
 // ── Component ─────────────────────────────────────────────────────────────
 
@@ -43,10 +43,19 @@ export default function AudioReactiveFace() {
   });
   const bloomMeshesRef = useRef<THREE.Mesh[]>([]);
   const headRef = useRef<THREE.Mesh | null>(null);
+  const ktx2Ref = useRef<KTX2Loader | null>(null);
 
   const analyserNode = useAudioStore(s => s.analyserNode);
+  const gl = useThree(s => s.gl);
 
-  const { scene } = useGLTF(FACE_MODEL_PATH);
+  const { scene } = useGLTF(FACE_MODEL_PATH, true, false, (loader) => {
+    if (!ktx2Ref.current) {
+      ktx2Ref.current = new KTX2Loader();
+      ktx2Ref.current.setTranscoderPath('https://cdn.jsdelivr.net/gh/pmndrs/drei-assets@master/basis/');
+      ktx2Ref.current.detectSupport(gl);
+    }
+    loader.setKTX2Loader(ktx2Ref.current);
+  });
   const faceScene = useMemo(() => scene.clone(), [scene]);
 
   // ── Init: material setup + morph target discovery ──────────────────────
