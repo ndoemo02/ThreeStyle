@@ -61,7 +61,15 @@ export function ElevatorA() {
       const dz = camera.position.z - doorWorldZ;
       const dy = camera.position.y - 1.75;
       const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (dist < 4.0 && Math.abs(dx) < 3.0) {
+      // Gracz musi patrzeć w stronę drzwi (max ~45° od kierunku do drzwi)
+      const toDoorX = -dx;
+      const toDoorZ = -dz;
+      const toDoorLen = Math.sqrt(toDoorX * toDoorX + toDoorZ * toDoorZ);
+      const camForward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+      const facing = toDoorLen > 0.01
+        ? (camForward.x * (toDoorX / toDoorLen) + camForward.z * (toDoorZ / toDoorLen))
+        : 0;
+      if (dist < 2.0 && Math.abs(dx) < 1.5 && facing > 0.3) {
         const target = activeZone === 'room1' ? 'hub' : 'room1';
         enterElevator('A', target);
       }
@@ -130,7 +138,7 @@ export function ElevatorA() {
     }
     // Po otwarciu drzwi — blokada proximity na 2s żeby gracz mógł odejść
     if (elevatorState === 'idle') {
-      cooldownUntilRef.current = performance.now() + 2000;
+      cooldownUntilRef.current = performance.now() + 4000;
     }
   }, [elevatorState, isActiveForUs, setElevatorState]);
 

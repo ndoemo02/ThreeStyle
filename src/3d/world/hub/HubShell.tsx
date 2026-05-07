@@ -1,11 +1,14 @@
 "use client";
 
 import { useMemo, useRef, useLayoutEffect } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { useTexture, useGLTF } from '@react-three/drei';
+import { useAudioStore } from '../../../stores/useAudioStore';
 import { DistanceCulledModel } from '../../systems/DistanceCulledModel';
 import { useControls } from 'leva';
 import { WarmWhiteMaterial, MatteDarkAccentMaterial, FoliageGreenMaterial } from '../../core/AcousticDarkMaterial';
 import * as THREE from 'three';
+import { GalaxyCeilingMaterial } from './GalaxyCeilingMaterial';
 
 function Tree({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
   const { scene } = useGLTF('/models/new/stylized_tree.glb');
@@ -124,6 +127,72 @@ function InstancedShrubs() {
   );
 }
 
+function HubPerimeterNeon({ y = 7.9 }: { y?: number }) {
+  const hudAnalyser = useAudioStore(s => s.analyserNode);
+  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const lightRef = useRef<THREE.PointLight>(null);
+
+  useFrame(() => {
+    if (!materialRef.current) return;
+
+    if (!hudAnalyser) {
+      materialRef.current.emissiveIntensity = 0.5;
+      if (lightRef.current) lightRef.current.intensity = 0.2;
+      return;
+    }
+
+    const data = new Uint8Array(hudAnalyser.frequencyBinCount);
+    hudAnalyser.getByteFrequencyData(data);
+
+    let sum = 0;
+    for (let i = 0; i < 16; i++) {
+      sum += data[i];
+    }
+    const avg = sum / 16 / 255; 
+
+    const intensity = 0.5 + avg * 8.0; 
+    materialRef.current.emissiveIntensity = intensity;
+    if (lightRef.current) lightRef.current.intensity = intensity * 0.5;
+  });
+
+  const width = 20.0;
+  const depth = 20.0;
+
+  return (
+    <group position={[0, y, 0]}>
+      <meshStandardMaterial 
+        ref={materialRef}
+        color="#ffffff" 
+        emissive="#00f3ff" 
+        emissiveIntensity={0.5} 
+        toneMapped={false}
+      />
+      
+      {/* Front */}
+      <mesh position={[0, 0, depth/2 - 0.1]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.04, 0.04, width, 8]} />
+        <primitive object={materialRef.current || new THREE.MeshStandardMaterial()} attach="material" />
+      </mesh>
+      {/* Back */}
+      <mesh position={[0, 0, -depth/2 + 0.1]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.04, 0.04, width, 8]} />
+        <primitive object={materialRef.current || new THREE.MeshStandardMaterial()} attach="material" />
+      </mesh>
+      {/* Left */}
+      <mesh position={[-width/2 + 0.1, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.04, 0.04, depth, 8]} />
+        <primitive object={materialRef.current || new THREE.MeshStandardMaterial()} attach="material" />
+      </mesh>
+      {/* Right */}
+      <mesh position={[width/2 - 0.1, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.04, 0.04, depth, 8]} />
+        <primitive object={materialRef.current || new THREE.MeshStandardMaterial()} attach="material" />
+      </mesh>
+      
+      <pointLight ref={lightRef} distance={10} decay={2} color="#00f3ff" intensity={0.2} />
+    </group>
+  );
+}
 
 export function HubShell() {
   const tree1 = useControls('Stylized Tree 01 - v6', {
@@ -227,10 +296,10 @@ export function HubShell() {
         <primitive object={materials.graniteFloor} attach="material" />
       </mesh>
 
-      {/* ═══════════════ SUFIT — ciepła biel z recessem ═══════════════ */}
+      {/* ═══════════════ SUFIT — Galaxy Shader ═══════════════ */}
       <mesh position={[0, 8, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[30, 20]} />
-        <primitive object={WarmWhiteMaterial} attach="material" />
+        <GalaxyCeilingMaterial />
       </mesh>
       <mesh position={[0, 7.86, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <planeGeometry args={[18, 14]} />
@@ -403,6 +472,9 @@ export function HubShell() {
       <pointLight position={[0, 5, 5]} intensity={1.5} distance={14} decay={2} color="#faf5ed" />
       {/* Boczny akcent dla głębi */}
       <pointLight position={[8.5, 3, 0]} intensity={1.2} distance={8} decay={2} color="#f0ebe0" />
+      
+      {/* Audio-reactive neon perimeter at the ceiling */}
+      <HubPerimeterNeon y={7.9} />
     </group>
   );
 }

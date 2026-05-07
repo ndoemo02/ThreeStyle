@@ -215,35 +215,36 @@ export default function AudioReactiveFace() {
     }
     // ─────────────────────────────────────────────────────────────────────
 
-    // Sub-bass bin 0 → onset detection (beat-reactive jaw)
+    // Sub-bass (bin 0) — kick drum
     const subBassNorm = data[0] / 255;
-    // Secondary bass body
-    const bassBody = avgBins(data, 1, Math.min(4, bins));
+    // Low-mid band (bins 1-8) — bassline, lower vocals
+    const lowMidNorm = avgBins(data, 1, Math.min(8, bins));
+    // Wide low band — full bass presence for continuous jaw
+    const lowBand = avgBins(data, 0, Math.min(10, bins >> 2));
+    // Treble band — hi-hats, sibilance
+    const trebleNorm = avgBins(data, Math.min(16, bins >> 1), Math.min(32, bins >> 1));
+    // Upper mids — vocals, snares
+    const midHighNorm = avgBins(data, Math.min(6, bins >> 2), Math.min(16, bins >> 1));
 
-    // Running average for onset detection — slow adaptation
-    const bassSmooth = bassAvgRef.current * 0.90 + subBassNorm * 0.10;
+    // Onset detection: RELATIVE spike (ratio) — działa przy każdej głośności
+    // Wolna adaptacja (0.97) żeby średnia nie doganiała szybko wysokich wartości
+    const bassSmooth = bassAvgRef.current * 0.97 + subBassNorm * 0.03;
     bassAvgRef.current = bassSmooth;
+    const bassRatio = bassSmooth > 0.01 ? subBassNorm / bassSmooth : 1.0;
+    const onset = bassRatio > 1.2 && subBassNorm > 0.03;
 
-    // Onset: znacząco powyżej średnio = uderzenie bitu
-    // Niższy próg (0.015) żeby reagowało na różne gatunki, nie tylko heavy bass
-    const onset = subBassNorm > bassSmooth * 1.15 && subBassNorm > 0.015;
+    // Jaw: ciągła reakcja z niskich pasm + onset jako podbicie
+    const baseJaw = lowBand * 0.45 + lowMidNorm * 0.25;
+    const onsetBoost = onset ? Math.min(bassRatio * 0.12, 0.25) : 0;
+    const targetJaw = Math.min(baseJaw + onsetBoost, 1.0);
+    const jawSpeed = onset ? 12.0 : 6.0;
 
-    // Treble → eye blinks + brows
-    const trebleNorm = avgBins(data, Math.min(16, bins >> 1), Math.min(Math.max(32, bins >> 1), bins));
-    const midStart = Math.min(8, bins >> 2);
-    const midHighNorm = avgBins(data, midStart, Math.min(midStart + 8, bins));
+    // Blink: treble
+    const targetBlink = trebleNorm > 0.1 ? Math.min(trebleNorm * 0.65, 0.65) : 0;
+    // Brows: mid-high
+    const targetBrow = midHighNorm * 0.45;
 
-    // Target values — jaw na basie i midach (wokale), blink na treble
     const m = morphRef.current;
-    // Jaw: otwiera się na basie (onset) + 30% wkładu midów (wokale, melodia)
-    const targetJaw = onset
-      ? Math.min(subBassNorm * 1.8 + bassBody * 0.3 + midHighNorm * 0.4, 1.0)
-      : Math.min(midHighNorm * 0.35, 0.5); // powoli rusza się też bez beatu
-    const targetBlink = trebleNorm > 0.25 ? trebleNorm : 0; // niższy próg mrużenia
-    const targetBrow = midHighNorm * 0.7;
-
-    // Fast open on beat, moderate decay between beats
-    const jawSpeed = onset ? 14.0 : targetJaw < 0.02 ? 8.0 : 5.0;
     m.jawOpen = lerp(m.jawOpen, targetJaw, jawSpeed * dt);
     m.eyeBlinkLeft = lerp(m.eyeBlinkLeft, targetBlink, 8 * dt);
     m.eyeBlinkRight = lerp(m.eyeBlinkRight, targetBlink, 8 * dt);
@@ -252,8 +253,8 @@ export default function AudioReactiveFace() {
 
     applyMorphs();
 
-    // Emissive bloom: mouth/eyes glow proportional to audio
-    applyEmissive(subBassNorm + bassBody * 0.4, trebleNorm);
+    // Emissive bloom: mouth glow from bass, eyes from treble
+    applyEmissive(lowBand * 1.5 + onsetBoost * 2.0, trebleNorm);
   });
 
 

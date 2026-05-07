@@ -84,13 +84,14 @@ function AdaptiveEnvironment() {
   return <Environment preset="apartment" environmentIntensity={isMobile ? 0.12 : 0.3} />;
 }
 
-function BloomLight({ lightRef }: { lightRef: React.MutableRefObject<THREE.PointLight | null> }) {
+function BloomLight({ onReady }: { onReady: (light: THREE.PointLight) => void }) {
   const ref = useRef<THREE.PointLight>(null);
   useEffect(() => {
-    ref.current?.layers.enable(1);
-    lightRef.current = ref.current;
-    return () => { lightRef.current = null; };
-  }, [lightRef]);
+    if (ref.current) {
+      ref.current.layers.enable(1);
+      onReady(ref.current);
+    }
+  }, [onReady]);
   return <pointLight ref={ref} position={[0, 4.9, 0]} intensity={0.01} color="#000000" />;
 }
 
@@ -103,10 +104,10 @@ function BloomLight({ lightRef }: { lightRef: React.MutableRefObject<THREE.Point
 // Twarz stoi za mikrofonem (głębiej w kabinie), patrzy w stronę szyby (+X)
 function StudioFacePositioner() {
   const face = useControls('Studio Face (Booth)', {
-    facePosX: { value: -5.5,  min: -15, max: 15, step: 0.05 },
-    facePosY: { value: 1.65,  min: -5,  max: 10, step: 0.05 },
-    facePosZ: { value: 0.1,   min: -10, max: 10, step: 0.05 },
-    faceRotY: { value: -90,   min: -180, max: 180, step: 1 },
+    facePosX: { value: -5.75, min: -15, max: 15, step: 0.05 },
+    facePosY: { value: 2.0,   min: -5,  max: 10, step: 0.05 },
+    facePosZ: { value: 1.15,  min: -10, max: 10, step: 0.05 },
+    faceRotY: { value: 142,   min: -180, max: 180, step: 1 },
     faceScale: { value: 1.05, min: 0.1, max: 5,  step: 0.05 },
   });
 
@@ -134,13 +135,15 @@ function ZoneController({ activeZone }: { activeZone: string }) {
 
   const shouldForcePosition = elevatorState === 'idle' && activeElevator === null;
 
-  // Force camera to zone preset on mount and on zone change (not during elevator transit)
+  // Force camera to zone preset only on zone change (not on elevator release)
+  // Deps only [activeZone] — unikamy skoku kamery po releaseElevator()
   useEffect(() => {
     if (!shouldForcePosition) return;
     camera.position.set(...preset.position);
     camera.lookAt(...preset.target);
     camera.updateProjectionMatrix();
-  }, [activeZone, shouldForcePosition, camera, preset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeZone]);
 
   // Also keep fov synced and prevent camera drift via onUpdate
   useEffect(() => {
@@ -157,7 +160,7 @@ export default function B3PPage() {
   const activeZone = useTransitionStore(s => s.activeZone);
   const setActiveZone = useTransitionStore(s => s.setActiveZone);
   const releaseElevator = useTransitionStore(s => s.releaseElevator);
-  const bloomLightRef = useRef<THREE.PointLight>(null);
+  const [bloomLight, setBloomLight] = useState<THREE.PointLight | null>(null);
 
   // Reset do lobby przy każdym montowaniu — Zustand trzyma stan między hot-reloadami
   useEffect(() => {
@@ -233,27 +236,30 @@ export default function B3PPage() {
         >
         <ZoneController activeZone={activeZone} />
         
-        {/* Subtelny ambient — podbija cienie na mobile */}
-        <ambientLight intensity={0.2} />
+        {/* Ambient — bazowe oświetlenie */}
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[5, 10, 5]} intensity={0.4} />
 
-        {/* Mgła — większy zasięg near żeby nie przytłumiała pomieszczeń */}
-        <fog attach="fog" args={['#e8e0d5', 28, 70]} />
-        <color attach="background" args={['#e8e0d5']} />
+        {/* Mgła wyłączona */}
+        <color attach="background" args={['#1a1a1a']} />
 
         {/* Ciepłe, subtelne refleksy środowiskowe — zredukowane na mobile */}
         <AdaptiveEnvironment />
 
         {/* ── Selective Bloom + Audio-Reactive Fat Lines ── */}
-        <BloomLight lightRef={bloomLightRef} />
-        <EffectComposer multisampling={0}>
-          <SelectiveBloom
-            selectionLayer={1}
-            intensity={1.8}
-            luminanceThreshold={0.25}
-            luminanceSmoothing={0.35}
-            mipmapBlur
-          />
-        </EffectComposer>
+        <BloomLight onReady={setBloomLight} />
+        {bloomLight && (
+          <EffectComposer multisampling={0}>
+            <SelectiveBloom
+              lights={[bloomLight]}
+              selectionLayer={1}
+              intensity={1.8}
+              luminanceThreshold={0.25}
+              luminanceSmoothing={0.35}
+              mipmapBlur
+            />
+          </EffectComposer>
+        )}
         <AudioVisualizer />
 
         <PerformanceCounter />

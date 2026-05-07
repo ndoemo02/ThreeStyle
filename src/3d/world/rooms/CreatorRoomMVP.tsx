@@ -7,6 +7,7 @@ import { DistanceCulledModel } from '../../systems/DistanceCulledModel';
 import { VocalBooth } from './VocalBooth';
 import { useControls } from 'leva';
 import { useHudStore } from '../../../stores/useHudStore';
+import { useAudioStore } from '../../../stores/useAudioStore';
 import { RoomDoor } from '../../modules/doors/RoomDoor';
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -22,11 +23,97 @@ type SceneObjectProps = {
   scale?: number | [number, number, number];
 };
 
+// 1. Oświetlenie obwodowe LED — listwy przysufitowe audio-reaktywne
+function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
+  const hudAnalyser = useAudioStore(s => s.analyserNode);
+  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const lightRef = useRef<THREE.PointLight>(null);
+
+  // Stabilny materiał tworzony raz
+  const ledMaterial = useMemo(() => {
+    const mat = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      emissive: '#00f3ff',
+      emissiveIntensity: 1.2,
+      toneMapped: false,
+      depthWrite: false,
+    });
+    materialRef.current = mat;
+    return mat;
+  }, []);
+
+  useFrame(() => {
+    const mat = materialRef.current;
+    const light = lightRef.current;
+    if (!mat || !light) return;
+
+    if (!hudAnalyser) {
+      mat.emissiveIntensity = 0.8;
+      light.intensity = 0.3;
+      return;
+    }
+
+    const data = new Uint8Array(hudAnalyser.frequencyBinCount);
+    hudAnalyser.getByteFrequencyData(data);
+
+    let sum = 0;
+    for (let i = 0; i < 16; i++) sum += data[i];
+    const avg = sum / 16 / 255;
+
+    const intensity = 0.8 + avg * 12.0;
+    mat.emissiveIntensity = intensity;
+    light.intensity = intensity * 0.7;
+  });
+
+  // Wymiary pokoju
+  const roomW = 14.0;
+  const roomD = 14.6;
+  const halfW = roomW / 2;
+  const halfD = roomD / 2;
+  const centerZ = -0.3;
+  // Profil listwy: 0.12 szeroka, 0.025 wysoka (płaska taśma LED)
+  const stripW = 0.12;
+  const stripH = 0.025;
+
+  return (
+    <group position={[0, y, centerZ]}>
+      {/* Front — listwa LED przy suficie, przednia ściana */}
+      <mesh position={[0, 0, halfD]} material={ledMaterial}>
+        <boxGeometry args={[roomW, stripH, stripW]} />
+      </mesh>
+      {/* Back — tylna ściana */}
+      <mesh position={[0, 0, -halfD]} material={ledMaterial}>
+        <boxGeometry args={[roomW, stripH, stripW]} />
+      </mesh>
+      {/* Left — lewa ściana */}
+      <mesh position={[-halfW, 0, 0]} rotation={[0, Math.PI / 2, 0]} material={ledMaterial}>
+        <boxGeometry args={[roomD, stripH, stripW]} />
+      </mesh>
+      {/* Right — prawa ściana */}
+      <mesh position={[halfW, 0, 0]} rotation={[0, Math.PI / 2, 0]} material={ledMaterial}>
+        <boxGeometry args={[roomD, stripH, stripW]} />
+      </mesh>
+
+      {/* Centralny pointLight — audio-reaktywny glow */}
+      <pointLight
+        ref={lightRef}
+        position={[0, -0.15, 0]}
+        color="#00f3ff"
+        distance={14}
+        intensity={0.4}
+        decay={1.5}
+      />
+    </group>
+  );
+}
+
+// 2. Global shared material dla TechnicalTrim (Optymalizacja)
+const globalTrimMaterial = new THREE.MeshStandardMaterial({ color: "#080808", roughness: 0.95, metalness: 0 });
+
 function TechnicalTrim({ args, position, rotation = [0, 0, 0] }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number] }) {
   return (
-    <mesh position={position} rotation={rotation} castShadow receiveShadow>
+    <mesh position={position} rotation={rotation} castShadow receiveShadow material={globalTrimMaterial}>
       <boxGeometry args={args} />
-      <meshStandardMaterial color="#080808" roughness={0.95} metalness={0} />
     </mesh>
   );
 }
@@ -52,6 +139,12 @@ function BrickWall({ args, position }: { args: [number, number, number], positio
       return clone;
     });
   }, [textures, args, position]);
+
+  useEffect(() => {
+    return () => {
+      maps.forEach(m => m.dispose());
+    };
+  }, [maps]);
 
   return (
     <mesh position={position} castShadow receiveShadow>
@@ -90,6 +183,12 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat,
     });
   }, [textures, args, repeat, textureOffset]);
 
+  useEffect(() => {
+    return () => {
+      maps.forEach(m => m.dispose());
+    };
+  }, [maps]);
+
   return (
     <mesh position={position} rotation={rotation} castShadow receiveShadow>
       <boxGeometry args={args} />
@@ -124,6 +223,12 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
       return clone;
     });
   }, [textures, args]);
+
+  useEffect(() => {
+    return () => {
+      maps.forEach(m => m.dispose());
+    };
+  }, [maps]);
 
   return (
     <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -584,6 +689,24 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   const [laptopHovered, setLaptopHovered] = useState(false);
   const laptopPlaneRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
+  const hudCooldownRef = useRef(0);
+
+  // Blokuj re-open HUD przez 1.5s po zamknięciu (niezależnie czy przez E, klik, czy guzik Close)
+  useEffect(() => {
+    if (!isOpen) {
+      hudCooldownRef.current = performance.now() + 1500;
+    }
+  }, [isOpen]);
+
+  function toggleHud() {
+    const now = performance.now();
+    if (!isOpen && now < hudCooldownRef.current) return;
+    if (isOpen) {
+      closeHud();
+    } else {
+      openHud('master_catalog');
+    }
+  }
 
   // E key opens HUD when crosshair is on the laptop screen
   useEffect(() => {
@@ -604,10 +727,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           if (document.pointerLockElement) {
             document.exitPointerLock();
           }
-          requestAnimationFrame(() => {
-            if (isOpen) closeHud();
-            else openHud('master_catalog');
-          });
+          requestAnimationFrame(() => toggleHud());
           return;
         }
       }
@@ -615,16 +735,13 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       // Fallback: mouse hovering over laptop (not pointer-locked)
       if (laptopHovered) {
         e.preventDefault();
-        requestAnimationFrame(() => {
-          if (isOpen) closeHud();
-          else openHud('master_catalog');
-        });
+        requestAnimationFrame(() => toggleHud());
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [laptopHovered, openHud, closeHud, isOpen, camera]);
+  }, [laptopHovered, isOpen, camera]);
 
   // diagnostic: confirm re-renders happen when masterVideoRef changes
   // console.log('[MVP] render – masterVideoRef:', !!masterVideoRef);
@@ -702,6 +819,10 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       if (fallbackEl && fallbackEl.parentNode) {
         fallbackEl.parentNode.removeChild(fallbackEl);
       }
+      setCamTex(prev => {
+        if (prev) prev.dispose();
+        return null;
+      });
     };
   }, [camEnabled, camFacingMode, camVideoElement]);
 
@@ -1112,6 +1233,9 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
            />
         </group>
 
+        {/* ── AUDIO REACTIVE CEILING NEON ── */}
+        <RoomPerimeterNeon y={5.05} />
+
         {/* ── LAPTOP INTERACTIVE ZONE – otwiera HUD panel ── */}
         <group
           position={[decorControls.laptopPosX, decorControls.laptopPosY + 0.35, decorControls.laptopPosZ]}
@@ -1125,10 +1249,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
               if (document.pointerLockElement) {
                 document.exitPointerLock();
               }
-              requestAnimationFrame(() => {
-                if (isOpen) closeHud();
-                else openHud('master_catalog');
-              });
+              requestAnimationFrame(() => toggleHud());
             }}
             onPointerOver={() => setLaptopHovered(true)}
             onPointerOut={() => setLaptopHovered(false)}

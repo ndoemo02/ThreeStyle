@@ -182,11 +182,13 @@ export function HudOverlay() {
       const ctx = new AudioContext();
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.6;
       analyser.connect(ctx.destination);
       audioCtxRef.current = ctx;
       analyserRef.current = analyser;
       setAnalyserNode(analyser);
       setAudioContext(ctx);
+      console.log('[HUD Audio] Pipeline created. ctx.state:', ctx.state, 'analyserSet:', !!analyser);
     }
 
     const ctx = audioCtxRef.current;
@@ -201,8 +203,9 @@ export function HudOverlay() {
         source.connect(analyserRef.current!);
         if (isVideo) videoSourceCreatedRef.current = true;
         else audioSourceCreatedRef.current = true;
-      } catch {
-        // element already claimed by another context — ignore
+        console.log('[HUD Audio] Source connected for', isVideo ? 'VIDEO' : 'AUDIO');
+      } catch (err) {
+        console.warn('[HUD Audio] createMediaElementSource FAILED:', err);
       }
     }
   }, [setAnalyserNode, setAudioContext]);

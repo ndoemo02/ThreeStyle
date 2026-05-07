@@ -30,7 +30,9 @@ function isPointerLockError(reason: unknown): boolean {
     name === 'SecurityError' ||
     name === 'WrongDocumentError' ||
     normalized.includes('pointer lock') ||
-    normalized.includes('user gesture is required')
+    normalized.includes('user gesture is required') ||
+    // Ignore harmless HMR/Fast Refresh artifact where GLTF blob textures are revoked before loading finishes
+    (normalized.includes("couldn't load texture") && normalized.includes('blob:http'))
   );
 }
 
