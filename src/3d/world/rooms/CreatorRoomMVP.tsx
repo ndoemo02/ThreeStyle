@@ -691,10 +691,11 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   const { camera } = useThree();
   const hudCooldownRef = useRef(0);
 
-  // Blokuj re-open HUD przez 1.5s po zamknięciu (niezależnie czy przez E, klik, czy guzik Close)
+  // Blokuj re-open HUD przez 2s po zamknięciu (niezależnie czy przez E, klik, czy guzik Close)
+  // Cooldown ustawiany synchronicznie w toggleHud() + useEffect jako safety net dla Close buttona
   useEffect(() => {
     if (!isOpen) {
-      hudCooldownRef.current = performance.now() + 1500;
+      hudCooldownRef.current = performance.now() + 2000;
     }
   }, [isOpen]);
 
@@ -703,6 +704,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     if (!isOpen && now < hudCooldownRef.current) return;
     if (isOpen) {
       closeHud();
+      hudCooldownRef.current = performance.now() + 2000;
     } else {
       openHud('master_catalog');
     }
