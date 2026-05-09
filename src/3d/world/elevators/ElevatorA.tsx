@@ -69,9 +69,10 @@ export function ElevatorA() {
       const facing = toDoorLen > 0.01
         ? (camForward.x * (toDoorX / toDoorLen) + camForward.z * (toDoorZ / toDoorLen))
         : 0;
-      if (dist < 2.0 && Math.abs(dx) < 1.5 && facing > 0.3) {
+      if (dist < 1.6 && Math.abs(dx) < 1.0 && facing > 0.68) {
         const target = activeZone === 'room1' ? 'hub' : 'room1';
         enterElevator('A', target);
+        cooldownUntilRef.current = performance.now() + 5000; // anti-re-trigger
       }
     }
 
@@ -83,6 +84,7 @@ export function ElevatorA() {
       const dz = camera.position.z - doorWorldZ;
       const dist = Math.sqrt(dx * dx + dz * dz);
       if (dist > 8.0) {
+        cooldownUntilRef.current = performance.now() + 4000; // blokuj re-trigger po odejściu
         useTransitionStore.getState().releaseElevator();
       }
     }

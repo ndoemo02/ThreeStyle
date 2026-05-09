@@ -842,28 +842,60 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   const screenTex = camEnabled && camTex ? camTex : videoTex;
 
   useEffect(() => {
-    const video = masterVideoRef || document.querySelector('video');
-    if (!video) return;
+    const video: HTMLVideoElement | null = masterVideoRef || document.querySelector('video');
+    if (!video) {
+      setVideoTex(null);
+      return;
+    }
 
-    const tex = new THREE.VideoTexture(video);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.generateMipmaps = false;
-    tex.minFilter = THREE.LinearFilter;
-    tex.magFilter = THREE.LinearFilter;
-    tex.format = THREE.RGBAFormat;
-    setVideoTex(tex);
+    // Norrow to non-null for closure
+    const vid = video;
+    let cancelled = false;
 
-    return () => tex.dispose();
+    function createTex() {
+      if (cancelled) return;
+      // Video musi mieć załadowane metadane — inaczej dimensions 0x0 = black screen
+      if (vid.videoWidth === 0 || vid.videoHeight === 0) {
+        const onMeta = () => {
+          vid.removeEventListener('loadedmetadata', onMeta);
+          createTex();
+        };
+        vid.addEventListener('loadedmetadata', onMeta, { once: true });
+        // Spróbuj też load() jeśli src już jest ale meta niezaładowane
+        if (vid.src && vid.readyState < 2) vid.load();
+        return;
+      }
+
+      const tex = new THREE.VideoTexture(vid);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.generateMipmaps = false;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.format = THREE.RGBAFormat;
+      setVideoTex(tex);
+    }
+
+    createTex();
+
+    return () => {
+      cancelled = true;
+      setVideoTex(prev => {
+        if (prev) prev.dispose();
+        return null;
+      });
+    };
   }, [masterVideoRef]);
 
   useFrame(({ invalidate }) => {
     const activeTex = screenTex;
     if (activeTex) {
-      // Invalidate on every frame when camera is active (live feed)
-      if (camEnabled) { invalidate(); return; }
-      const vid = masterVideoRef || document.querySelector('video');
-      if (vid && !vid.paused && vid.readyState >= 2) {
-        invalidate();
+      // Zawsze invalidate gdy mamy aktywną teksturę — video/cam wymaga ciągłego odświeżania
+      invalidate();
+      // Upewnij się że tekstura czyta aktualny frame z video elementu
+      if (!activeTex.image) return;
+      const vid = activeTex.image as HTMLVideoElement;
+      if (vid && vid.readyState >= 2) {
+        activeTex.needsUpdate = true;
       }
     }
   });
@@ -1251,10 +1283,11 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
         {/* ── LAPTOP INTERACTIVE ZONE – otwiera HUD panel ── */}
         <group
-          position={[decorControls.laptopPosX, decorControls.laptopPosY + 0.35, decorControls.laptopPosZ]}
+          position={[decorControls.laptopPosX, decorControls.laptopPosY, decorControls.laptopPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.laptopRotY), 0]}
+          scale={[decorControls.laptopScale, decorControls.laptopScale, decorControls.laptopScale]}
         >
-          {/* Invisible hit-test plane tightly matching iPad screen */}
+          {/* Invisible hit-test plane — większa, skalowana z iPadem, bez Y-offset */}
           <mesh
             ref={laptopPlaneRef}
             onClick={(e) => {
@@ -1264,11 +1297,19 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
               }
               requestAnimationFrame(() => toggleHud());
             }}
+            onPointerDown={(e) => {
+              // Duplikacja onClick dla lepszej responsywności (touch/pointer)
+              e.stopPropagation();
+              if (document.pointerLockElement) {
+                document.exitPointerLock();
+              }
+              requestAnimationFrame(() => toggleHud());
+            }}
             onPointerOver={() => setLaptopHovered(true)}
             onPointerOut={() => setLaptopHovered(false)}
           >
-            <planeGeometry args={[1.4, 1.05]} />
-            <meshBasicMaterial transparent opacity={0.001} depthWrite={false} side={THREE.FrontSide} />
+            <planeGeometry args={[2.0, 1.5]} />
+            <meshBasicMaterial transparent opacity={0.001} depthWrite={false} side={THREE.DoubleSide} />
           </mesh>
 
           {/* Hover hint + E key interaction */}
