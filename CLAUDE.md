@@ -1,1 +1,1 @@
-/mnt/c/Develop/_Vault/ThreeStyle/CLAUDE.md
+C:/Develop/_Vault/ThreeStyle/CLAUDE.md
