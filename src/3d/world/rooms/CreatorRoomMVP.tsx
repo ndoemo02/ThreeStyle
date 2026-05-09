@@ -11,7 +11,18 @@ import { useAudioStore } from '../../../stores/useAudioStore';
 import { RoomDoor } from '../../modules/doors/RoomDoor';
 
 // ══════════════════════════════════════════════════════════════════════════
-// 0. Loading Diagnostics & Asset Performance Monitoring
+// 0. PRELOAD HEAVY MODELS — start loading at module import, before any component renders
+// useGLTF.preload() from drei caches per URL — actual network request fires once
+// ══════════════════════════════════════════════════════════════════════════
+useGLTF.preload('/models/optimized/golden_play_button.glb');
+useGLTF.preload('/models/optimized/ipad_pro_2024.glb');
+useGLTF.preload('/models/optimized/office_chair.glb');
+useGLTF.preload('/models/optimized/organizer.glb');
+useGLTF.preload('/models/optimized/modern_wooden_cabinet.glb');
+useGLTF.preload('/models/optimized/sofa.glb');
+
+// ══════════════════════════════════════════════════════════════════════════
+// 1. Loading Diagnostics & Asset Performance Monitoring
 // ══════════════════════════════════════════════════════════════════════════
 // THREE.DefaultLoadingManager diagnostics disabled for performance
 // THREE.DefaultLoadingManager.onStart = (url, itemsLoaded, itemsTotal) => { ... };
@@ -249,7 +260,7 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
 }
 
 function GoldenPlayButton(props: SceneObjectProps) {
-  const { scene } = useGLTF("/models/golden_play_button.glb") as { scene: THREE.Group };
+  const { scene } = useGLTF("/models/optimized/golden_play_button.glb") as { scene: THREE.Group };
   const processedScene = useMemo(() => {
     const clone = scene.clone();
     clone.traverse((node) => {
@@ -644,7 +655,7 @@ function AutoCenteredModel({ url, ...props }: { url: string } & SceneObjectProps
 }
 
 function SofaRaw() {
-  const { scene } = useGLTF('/models/models/sofa.glb') as { scene: THREE.Group };
+  const { scene } = useGLTF('/models/optimized/sofa.glb') as { scene: THREE.Group };
   const processed = useMemo(() => {
     const clone = scene.clone(true);
 
@@ -1101,7 +1112,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         {/* RTV Cabinet — heavy 4K model, distance-culled */}
         <DistanceCulledModel maxDistance={16}>
           <AutoCenteredModel
-            url="/models/modern_wooden_cabinet_4k.blend/modern_wooden_cabinet_4k_bin.glb"
+            url="/models/optimized/modern_wooden_cabinet.glb"
             position={[decorControls.rtvPosX, decorControls.rtvPosY, decorControls.rtvPosZ]}
             rotation={[0, THREE.MathUtils.degToRad(decorControls.rtvRotY), 0]}
             scale={decorControls.rtvScale}
@@ -1114,7 +1125,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
         {/* Office Chair */}
         <AutoCenteredModel 
-          url="/models/office_chair_bin.glb" 
+          url="/models/optimized/office_chair.glb" 
           position={[decorControls.chairPosX, decorControls.chairPosY, decorControls.chairPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.chairRotY), 0]}
           scale={decorControls.chairScale}
@@ -1122,7 +1133,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
         {/* Organizer on table */}
         <AutoCenteredModel 
-          url="/models/organizer.glb" 
+          url="/models/optimized/organizer.glb" 
           position={[decorControls.organizerPosX, decorControls.organizerPosY, decorControls.organizerPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.organizerRotY), 0]}
           scale={decorControls.organizerScale}
@@ -1148,7 +1159,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
         {/* iPad Pro on table (replacing laptop) */}
         <AutoCenteredModel 
-          url="/models/models/ipad_pro_2024_bin.glb" 
+          url="/models/optimized/ipad_pro_2024.glb" 
           position={[decorControls.laptopPosX, decorControls.laptopPosY, decorControls.laptopPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.laptopRotY), 0]}
           scale={decorControls.laptopScale}

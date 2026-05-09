@@ -6,9 +6,14 @@ import * as THREE from 'three';
 import { useTexture, useGLTF } from '@react-three/drei';
 import { AcousticFoamWall } from './CreatorRoomMVP';
 
+// ══════════════════════════════════════════════════════════════════════════
+// PRELOAD HEAVY MODELS
+// ══════════════════════════════════════════════════════════════════════════
+useGLTF.preload('/models/optimized/mic-transformed.glb');
+
 // ─── Real Microphone Component ───────────────────────────────────────────────
 function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, number, number], rotation?: [number, number, number], scale?: number }) {
-  const { scene } = useGLTF('/models/mic-transformed.glb') as { scene: THREE.Group };
+  const { scene } = useGLTF('/models/optimized/mic-transformed.glb') as { scene: THREE.Group };
   const processedScene = useMemo(() => {
     const clone = scene.clone();
     clone.traverse((n) => {

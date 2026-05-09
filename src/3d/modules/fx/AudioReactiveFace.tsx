@@ -7,6 +7,14 @@ import { KTX2Loader } from 'three-stdlib';
 import * as THREE from 'three';
 import { useAudioStore } from '@/stores/useAudioStore';
 
+// ══════════════════════════════════════════════════════════════════════════
+// PRELOAD HEAVY MODELS
+// ══════════════════════════════════════════════════════════════════════════
+// NOTE: facecap.glb uses KTX2 textures — preload with KTX2Loader is deferred
+// to the component where we have access to gl (WebGLRenderer).
+// See AudioReactiveFace component below for the actual preload logic.
+const FACE_MODEL_PATH = '/models/optimized/facecap.glb';
+
 const BLOOM_LAYER = 1;
 
 // ── Smoothing state ───────────────────────────────────────────────────────
@@ -30,8 +38,6 @@ function avgBins(data: Uint8Array, start: number, end: number): number {
   for (let i = start; i < end; i++) sum += data[i];
   return sum / (end - start) / 255;
 }
-
-const FACE_MODEL_PATH = '/models/facecap.glb';
 
 // ── Component ─────────────────────────────────────────────────────────────
 

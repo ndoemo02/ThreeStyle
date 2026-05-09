@@ -12,7 +12,7 @@ import React from 'react'
 import { useGLTF } from '@react-three/drei'
 
 export function Model(props) {
-  const { nodes, materials } = useGLTF('/mic-transformed.glb')
+  const { nodes, materials } = useGLTF('/models/optimized/mic-transformed.glb')
   return (
     <group {...props} dispose={null}>
       <mesh geometry={nodes.Object_4.geometry} material={materials.PaletteMaterial001} position={[-12.531, 22.844, -17.673]} rotation={[Math.PI / 2, 0, -Math.PI / 2]} scale={0.142} />
@@ -21,4 +21,4 @@ export function Model(props) {
   )
 }
 
-useGLTF.preload('/mic-transformed.glb')
+useGLTF.preload('/models/optimized/mic-transformed.glb')

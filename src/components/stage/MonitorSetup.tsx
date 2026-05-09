@@ -2,7 +2,7 @@ import React from 'react'
 import { useGLTF } from '@react-three/drei'
 
 export function MonitorSetup(props: any) {
-  const { nodes, materials } = useGLTF('/models/monitor_setup.glb') as any
+  const { nodes, materials } = useGLTF('/models/optimized/monitor_setup.glb') as any
   return (
     <group {...props} dispose={null}>
       <mesh geometry={nodes.Object_4.geometry} material={materials.Material} position={[0, -0.69, 0]} scale={[0.625, 1, 1]} castShadow receiveShadow />
@@ -23,4 +23,4 @@ export function MonitorSetup(props: any) {
   )
 }
 
-useGLTF.preload('/models/monitor_setup.glb')
+useGLTF.preload('/models/optimized/monitor_setup.glb')

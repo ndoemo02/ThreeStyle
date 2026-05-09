@@ -2,7 +2,7 @@ import React, { useMemo } from 'react'
 import { useGLTF, Center } from '@react-three/drei'
 
 export function StandingMic(props: any) {
-    const { scene } = useGLTF('/models/mic-transformed.glb')
+    const { scene } = useGLTF('/models/optimized/mic-transformed.glb')
 
     const clonedScene = useMemo(() => {
         const clone = scene.clone()
@@ -24,4 +24,4 @@ export function StandingMic(props: any) {
     )
 }
 
-useGLTF.preload('/models/mic-transformed.glb')
+useGLTF.preload('/models/optimized/mic-transformed.glb')

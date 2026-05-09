@@ -27,13 +27,21 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.3.0",
+    "@gltf-transform/core": "^4.3.0",
+    "@gltf-transform/extensions": "^4.3.0",
+    "@gltf-transform/functions": "^4.3.0",
     "@tailwindcss/cli": "^4.2.4",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "draco3dgltf": "^1.5.7",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "ktx": "^0.0.1-beta",
+    "meshopt-decoder": "^1.0.2",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

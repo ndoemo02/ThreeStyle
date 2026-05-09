@@ -44,7 +44,7 @@ type GLTFResult = GLTF & {
 }
 
 export function EditingTable(props: any) {
-  const { nodes, materials } = useGLTF('/models/editing_table_design.glb') as unknown as GLTFResult
+  const { nodes, materials } = useGLTF('/models/optimized/editing_table.glb') as unknown as GLTFResult
   return (
     <group {...props} dispose={null}>
       <group rotation={[-Math.PI / 2, 0, 0]} scale={0.063}>
@@ -70,4 +70,4 @@ export function EditingTable(props: any) {
   )
 }
 
-useGLTF.preload('/models/editing_table_design.glb')
+useGLTF.preload('/models/optimized/editing_table.glb');

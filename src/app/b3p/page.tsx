@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect, useRef, Suspense, type RefObject } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
+import { useGLTF } from '@react-three/drei';
+import { KTX2Loader } from 'three-stdlib';
 import { Environment } from '@react-three/drei';
 import { EffectComposer, SelectiveBloom } from '@react-three/postprocessing';
 import { useControls } from 'leva';
@@ -16,6 +18,29 @@ import { NativeMobileJoystick } from '../../components/ui/NativeMobileJoystick';
 import { PerformanceCounter } from '../../components/PerformanceCounter';
 import { useTransitionStore } from '../../store/useTransitionStore';
 import { ElevatorA } from '../../3d/world/elevators/ElevatorA';
+
+// Singleton KTX2Loader — initialized once per renderer
+let _ktx2Loader: KTX2Loader | null = null;
+function getKTX2Loader(gl: THREE.WebGLRenderer): KTX2Loader {
+  if (!_ktx2Loader) {
+    _ktx2Loader = new KTX2Loader();
+    _ktx2Loader.setTranscoderPath('https://cdn.jsdelivr.net/gh/pmndrs/drei-assets@master/basis/');
+    _ktx2Loader.detectSupport(gl);
+  }
+  return _ktx2Loader;
+}
+
+// Preload KTX2-textured models once renderer is available
+function KTX2Preload() {
+  const gl = useThree(s => s.gl);
+  useEffect(() => {
+    const ktx2 = getKTX2Loader(gl);
+    useGLTF.preload('/models/optimized/facecap.glb', true, false, (loader) => {
+      loader.setKTX2Loader(ktx2);
+    });
+  }, [gl]);
+  return null;
+}
 
 type CameraPreset = {
   position: [number, number, number];
@@ -226,15 +251,16 @@ export default function B3PPage() {
           shadows
           frameloop="always"
           dpr={[1, 1.5]}
-          onCreated={({ gl }) => {
-            gl.shadowMap.type = THREE.PCFSoftShadowMap;
-            gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 1.0;
-          }}
+ onCreated={({ gl }) => {
+ gl.shadowMap.type = THREE.PCFSoftShadowMap;
+ gl.toneMapping = THREE.ACESFilmicToneMapping;
+ gl.toneMappingExposure = 1.0;
+ }}
           camera={{ position: [0, 2.05, 5], fov: 60 }}
           style={{ width: '100%', height: '100%', display: 'block' }}
-        >
-        <ZoneController activeZone={activeZone} />
+>
+ <KTX2Preload />
+ <ZoneController activeZone={activeZone} />
         
         {/* Ambient — bazowe oświetlenie */}
         <ambientLight intensity={0.5} />

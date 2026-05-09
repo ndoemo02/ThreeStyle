@@ -10,8 +10,15 @@ import { WarmWhiteMaterial, MatteDarkAccentMaterial, FoliageGreenMaterial } from
 import * as THREE from 'three';
 import { GalaxyCeilingMaterial } from './GalaxyCeilingMaterial';
 
+// ══════════════════════════════════════════════════════════════════════════
+// PRELOAD HEAVY MODELS — start loading at module import (before React renders)
+// useGLTF.preload() from drei caches per URL — network request fires once
+// ══════════════════════════════════════════════════════════════════════════
+useGLTF.preload('/models/optimized/stylized_tree.glb');
+useGLTF.preload('/models/optimized/venetian_sofa.glb');
+
 function Tree({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
-  const { scene } = useGLTF('/models/new/stylized_tree.glb');
+  const { scene } = useGLTF('/models/optimized/stylized_tree.glb');
   const clonedScene = useMemo(() => {
     const c = scene.clone();
     c.traverse((n) => { if (n instanceof THREE.Mesh && n.geometry) n.geometry.computeBoundingSphere(); });
@@ -30,7 +37,7 @@ function Tree({ position, scale = 1 }: { position: [number, number, number]; sca
 }
 
 function VenetianSofa({ position, scale = 1, rotation = 0 }: { position: [number, number, number]; scale?: number; rotation?: number }) {
-  const { scene } = useGLTF('/models/new/Nowy folder/refined_venetian_3-seater_sofa_bin.glb');
+  const { scene } = useGLTF('/models/optimized/venetian_sofa.glb');
   const clonedScene = useMemo(() => {
     const c = scene.clone();
     c.traverse((n) => {
