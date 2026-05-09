@@ -813,12 +813,21 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       videoEl.srcObject = stream;
       videoEl.play().catch(() => {});
 
-      const tex = new THREE.VideoTexture(videoEl);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.generateMipmaps = false;
-      tex.minFilter = THREE.LinearFilter;
-      tex.magFilter = THREE.LinearFilter;
-      setCamTex(tex);
+      // Czekaj na loadedmetadata — inaczej VideoTexture ma 0×0 = biały ekran
+      function createCamTex() {
+        if (cancelled) return;
+        if (videoEl!.videoWidth === 0 || videoEl!.videoHeight === 0) {
+          videoEl!.addEventListener('loadedmetadata', createCamTex, { once: true });
+          return;
+        }
+        const tex = new THREE.VideoTexture(videoEl!);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.generateMipmaps = false;
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        setCamTex(tex as any);
+      }
+      createCamTex();
     }).catch(err => {
       if (cancelled) return;
       console.warn('[SelfieCam] getUserMedia failed:', err.message);

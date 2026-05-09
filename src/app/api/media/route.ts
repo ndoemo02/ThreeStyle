@@ -48,8 +48,12 @@ async function detectVideoCompatibility(filePath: string): Promise<Pick<MediaIte
     return { videoCodec: 'vp9', isVideoDisplayable: true };
   }
 
-  const fileBytes = await readFile(filePath);
-  const fileText = fileBytes.toString('latin1');
+  // Czytaj tylko pierwsze 64KB — nagłówek MP4 z kodekami jest na początku pliku
+  const fd = await import('node:fs/promises').then(m => m.open(filePath, 'r'));
+  const buf = Buffer.alloc(65536);
+  await fd.read(buf, 0, 65536, 0);
+  await fd.close();
+  const fileText = buf.toString('latin1');
 
   if (fileText.includes('hvc1') || fileText.includes('hev1')) {
     return {
@@ -77,6 +81,27 @@ async function detectVideoCompatibility(filePath: string): Promise<Pick<MediaIte
       isVideoDisplayable: false,
       compatibilityNote: 'MPEG-4 Visual moze nie wyswietlac obrazu w przegladarce. Konwertuj do H.264 (avc1).',
     };
+  }
+
+  // .mp4 bez rozpoznanego kodeka w nagłówku 64KB — spróbuj pełnego pliku jako fallback
+  // (niektóre pliki mają codec info głębiej)
+  if (extension === '.mp4') {
+    const full = await import('node:fs/promises').then(m => m.readFile(filePath));
+    const fullText = full.toString('latin1');
+    for (const [key, label] of [
+      ['avc1', 'h264'], ['avc3', 'h264'], ['hvc1', 'hevc'], ['hev1', 'hevc'],
+      ['av01', 'av1'], ['vp09', 'vp9'], ['VP90', 'vp9'], ['mp4v', 'mpeg4'],
+    ] as const) {
+      if (fullText.includes(key)) {
+        const displayable = label === 'h264' || label === 'av1' || label === 'vp9';
+        return {
+          videoCodec: label,
+          isVideoDisplayable: displayable,
+          compatibilityNote: displayable ? undefined : `${label.toUpperCase()} moze nie wyswietlac obrazu. Konwertuj do H.264.`,
+        };
+      }
+    }
+    return { videoCodec: 'unknown', isVideoDisplayable: false, compatibilityNote: 'Nie rozpoznano kodeka. MP4 H.264 (avc1) + AAC zalecany.' };
   }
 
   return {
