@@ -83,32 +83,8 @@ async function detectVideoCompatibility(filePath: string): Promise<Pick<MediaIte
     };
   }
 
-  // .mp4 bez rozpoznanego kodeka w nagłówku 64KB — spróbuj pełnego pliku jako fallback
-  // (niektóre pliki mają codec info głębiej)
-  if (extension === '.mp4') {
-    const full = await import('node:fs/promises').then(m => m.readFile(filePath));
-    const fullText = full.toString('latin1');
-    for (const [key, label] of [
-      ['avc1', 'h264'], ['avc3', 'h264'], ['hvc1', 'hevc'], ['hev1', 'hevc'],
-      ['av01', 'av1'], ['vp09', 'vp9'], ['VP90', 'vp9'], ['mp4v', 'mpeg4'],
-    ] as const) {
-      if (fullText.includes(key)) {
-        const displayable = label === 'h264' || label === 'av1' || label === 'vp9';
-        return {
-          videoCodec: label,
-          isVideoDisplayable: displayable,
-          compatibilityNote: displayable ? undefined : `${label.toUpperCase()} moze nie wyswietlac obrazu. Konwertuj do H.264.`,
-        };
-      }
-    }
-    return { videoCodec: 'unknown', isVideoDisplayable: false, compatibilityNote: 'Nie rozpoznano kodeka. MP4 H.264 (avc1) + AAC zalecany.' };
-  }
-
-  return {
-    videoCodec: 'unknown',
-    isVideoDisplayable: false,
-    compatibilityNote: 'Nie rozpoznano kodeka video. Najbezpieczniej uzyc MP4 H.264 (avc1) + AAC.',
-  };
+  // Nie rozpoznano kodeka w nagłówku — na Vercel serverless nie czytamy całego pliku
+  return { videoCodec: 'unknown', isVideoDisplayable: false, compatibilityNote: 'Nie rozpoznano kodeka. MP4 H.264 (avc1) + AAC zalecany.' };
 }
 
 function sortMedia(first: MediaItem, second: MediaItem): number {

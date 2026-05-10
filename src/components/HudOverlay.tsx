@@ -294,7 +294,7 @@ export function HudOverlay() {
     };
 
     // Video już załadowane? Graj natychmiast
-    if (nextMediaElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+    if (nextMediaElement.readyState >= 2) {
       startPlay();
     } else {
       // Czekaj na canplay (może odpalić przed load() jeśli src już załadowane)
