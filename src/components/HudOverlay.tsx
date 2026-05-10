@@ -91,12 +91,13 @@ export function HudOverlay() {
   const videoSourceCreatedRef = useRef(false);
   const audioSourceCreatedRef = useRef(false);
 
-  // Sync camera video element to store after mount (avoids React error #185)
-  useEffect(() => {
-    setCamVideoElement(camVideoRef.current);
-  }, [setCamVideoElement]);
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  // Sync camera video element to store after mount (avoids React error #185)
+  useEffect(() => {
+    if (mounted) setCamVideoElement(camVideoRef.current);
+  }, [mounted, setCamVideoElement]);
   const [mediaItems, setMediaItems] = useState<HudMediaItem[]>([]);
   const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
   const [libraryStatus, setLibraryStatus] = useState<LibraryStatus>('loading');
@@ -336,10 +337,7 @@ export function HudOverlay() {
             {...masterMediaEventProps}
           />
           <video
-            ref={(el) => {
-              camVideoRef.current = el;
-              if (el) setCamVideoElement(el);
-            }}
+            ref={camVideoRef}
             muted
             playsInline
           />
