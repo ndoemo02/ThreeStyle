@@ -168,13 +168,6 @@ function ZoneController({ activeZone }: { activeZone: string }) {
     camera.position.set(...preset.position);
     camera.lookAt(...preset.target);
     camera.updateProjectionMatrix();
-    // Force one render frame after camera jump
-    // Force one render frame after camera jump
-    // (frameloop="demand" won't re-render automatically)
-    requestAnimationFrame(() => {
-      // Trigger a manual render through the store
-      (camera as any).dispatchEvent({ type: 'change' });
-    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeZone]);
 
@@ -265,7 +258,7 @@ export default function B3PPage() {
       <div className="b3p-canvas-wrap">
         <Canvas
           shadows={!isMobile}
-          frameloop="demand"
+          frameloop="always"
           dpr={[1, 1.5]}
           gl={{ antialias: true, powerPreference: 'high-performance' }}
           onCreated={({ gl }) => {
