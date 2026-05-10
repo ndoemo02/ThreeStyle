@@ -101,7 +101,9 @@ function AdaptiveEnvironment() {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768 || window.innerHeight < 500);
+    // Only disable Environment on actual mobile devices (coarse pointer)
+    // NOT just narrow screens — desktop users with narrow windows need it too
+    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 768);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -191,7 +193,7 @@ export default function B3PPage() {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768 || 'ontouchstart' in window);
+    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 768);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -274,9 +276,9 @@ export default function B3PPage() {
  <KTX2Preload />
  <ZoneController activeZone={activeZone} />
         
-        {/* Ambient — bazowe oświetlenie */}
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[5, 10, 5]} intensity={0.4} />
+        {/* Ambient — bazowe oświetlenie (zwiększone na mobile bez Environment) */}
+        <ambientLight intensity={0.8} />
+        <directionalLight position={[5, 10, 5]} intensity={0.6} />
 
         {/* Mgła wyłączona */}
         <color attach="background" args={['#1a1a1a']} />
