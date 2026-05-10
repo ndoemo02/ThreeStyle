@@ -274,16 +274,16 @@ export function HudOverlay() {
 
     mediaElementRef.current = nextMediaElement;
 
-    // Czekaj na canplay zamiast play() od razu po load() — naprawia AbortError
+    // Ustaw src ręcznie (React mógł nie zaktualizować DOM synchronicznie)
+    // i graj gdy gotowe — bez race condition z canplay
     nextMediaElement.currentTime = 0;
+    nextMediaElement.src = selectedMedia.src;
     ensureAudioPipeline(nextMediaElement);
 
-    const onCanPlay = () => {
-      nextMediaElement.removeEventListener('canplay', onCanPlay);
+    const startPlay = () => {
       void nextMediaElement.play().catch((error: unknown) => {
         const name = (error as Error)?.name;
         if (name === 'AbortError') {
-          // jeszcze jedna proba po krotkim opoznieniu
           setTimeout(() => void nextMediaElement.play().catch(() => setIsPlaying(false)), 100);
         } else {
           console.warn('HUD media playback was blocked:', error);
@@ -291,8 +291,16 @@ export function HudOverlay() {
         }
       });
     };
-    nextMediaElement.addEventListener('canplay', onCanPlay, { once: true });
-    nextMediaElement.load();
+
+    // Video już załadowane? Graj natychmiast
+    if (nextMediaElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      startPlay();
+    } else {
+      // Czekaj na canplay (może odpalić przed load() jeśli src już załadowane)
+      nextMediaElement.addEventListener('canplay', () => startPlay(), { once: true });
+      // load() odpala ładowanie jeśli src się zmienił; jeśli nie — canplay już poszedł
+      nextMediaElement.load();
+    }
   }, [activeMediaId, mediaItems, setIsPlaying, togglePlay, ensureAudioPipeline]);
 
   const activeMedia = mediaItems.find((item) => item.id === activeMediaId) ?? null;
@@ -328,7 +336,10 @@ export function HudOverlay() {
             {...masterMediaEventProps}
           />
           <video
-            ref={camVideoRef}
+            ref={(el) => {
+              camVideoRef.current = el;
+              if (el) setCamVideoElement(el);
+            }}
             muted
             playsInline
           />
