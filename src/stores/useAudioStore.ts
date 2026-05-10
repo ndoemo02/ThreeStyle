@@ -10,6 +10,9 @@ interface AudioStore {
   /** Prevents multiple components from racing to create a MediaElementAudioSourceNode. */
   connected: boolean;
   setConnected: (v: boolean) => void;
+  /** Whether audio is currently playing (active analyser + context running) */
+  isActive: boolean;
+  setIsActive: (v: boolean) => void;
 }
 
 export const useAudioStore = create<AudioStore>((set) => ({
@@ -19,4 +22,6 @@ export const useAudioStore = create<AudioStore>((set) => ({
   setAudioContext: (ctx) => set({ audioContext: ctx }),
   connected: false,
   setConnected: (v) => set({ connected: v }),
+  isActive: false,
+  setIsActive: (v) => set({ isActive: v }),
 }));

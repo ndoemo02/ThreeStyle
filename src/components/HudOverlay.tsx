@@ -83,6 +83,7 @@ export function HudOverlay() {
   const setCamVideoElement = useHudStore((state) => state.setCamVideoElement);
   const setAnalyserNode = useAudioStore((state) => state.setAnalyserNode);
   const setAudioContext = useAudioStore((state) => state.setAudioContext);
+  const setIsActive = useAudioStore((state) => state.setIsActive);
   const camVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // ── Native Web Audio pipeline (created during user gesture) ──────────
@@ -310,9 +311,9 @@ export function HudOverlay() {
   const masterMediaEventProps = {
     onTimeUpdate: (event: SyntheticEvent<HTMLMediaElement>) => setCurrentTime(event.currentTarget.currentTime),
     onLoadedMetadata: (event: SyntheticEvent<HTMLMediaElement>) => setDuration(event.currentTarget.duration),
-    onPlay: () => setIsPlaying(true),
-    onPause: () => setIsPlaying(false),
-    onEnded: () => setIsPlaying(false),
+    onPlay: () => { setIsPlaying(true); setIsActive(true); },
+    onPause: () => { setIsPlaying(false); setIsActive(false); },
+    onEnded: () => { setIsPlaying(false); setIsActive(false); },
   };
 
   return (

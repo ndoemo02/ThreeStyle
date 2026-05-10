@@ -134,7 +134,7 @@ export default function AudioVisualizer() {
   }, [resolution]);
 
   // ── Audio-reactive animation ───────────────────────────────────────────
-  useFrame(() => {
+  useFrame(({ invalidate }) => {
     if (!analyserNode) {
       for (const { mat } of linesRef.current) {
         mat.linewidth = 0.5;
@@ -166,6 +166,9 @@ export default function AudioVisualizer() {
       mat.linewidth = lw;
       mat.color.setRGB(r, g, b);
     }
+
+    // Request next frame only when audio is active
+    invalidate();
   });
 
   return <group ref={groupRef} />;

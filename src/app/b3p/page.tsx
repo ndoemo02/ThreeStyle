@@ -17,6 +17,7 @@ import { HudOverlay } from '../../components/HudOverlay';
 import { NativeMobileJoystick } from '../../components/ui/NativeMobileJoystick';
 import { PerformanceCounter } from '../../components/PerformanceCounter';
 import { useTransitionStore } from '../../store/useTransitionStore';
+import { useAudioStore } from '../../stores/useAudioStore';
 import { ElevatorA } from '../../3d/world/elevators/ElevatorA';
 
 // Singleton KTX2Loader — initialized once per renderer
@@ -167,6 +168,13 @@ function ZoneController({ activeZone }: { activeZone: string }) {
     camera.position.set(...preset.position);
     camera.lookAt(...preset.target);
     camera.updateProjectionMatrix();
+    // Force one render frame after camera jump
+    // Force one render frame after camera jump
+    // (frameloop="demand" won't re-render automatically)
+    requestAnimationFrame(() => {
+      // Trigger a manual render through the store
+      (camera as any).dispatchEvent({ type: 'change' });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeZone]);
 
@@ -186,6 +194,14 @@ export default function B3PPage() {
   const setActiveZone = useTransitionStore(s => s.setActiveZone);
   const releaseElevator = useTransitionStore(s => s.releaseElevator);
   const [bloomLight, setBloomLight] = useState<THREE.PointLight | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768 || 'ontouchstart' in window);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Reset do lobby przy każdym montowaniu — Zustand trzyma stan między hot-reloadami
   useEffect(() => {
@@ -248,14 +264,16 @@ export default function B3PPage() {
 
       <div className="b3p-canvas-wrap">
         <Canvas
-          shadows
-          frameloop="always"
+          shadows={!isMobile}
+          frameloop="demand"
           dpr={[1, 1.5]}
- onCreated={({ gl }) => {
- gl.shadowMap.type = THREE.PCFSoftShadowMap;
- gl.toneMapping = THREE.ACESFilmicToneMapping;
- gl.toneMappingExposure = 1.0;
- }}
+          gl={{ antialias: true, powerPreference: 'high-performance' }}
+          onCreated={({ gl }) => {
+            gl.shadowMap.type = THREE.PCFSoftShadowMap;
+            gl.toneMapping = THREE.ACESFilmicToneMapping;
+            gl.toneMappingExposure = 1.0;
+            gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+          }}
           camera={{ position: [0, 2.05, 5], fov: 60 }}
           style={{ width: '100%', height: '100%', display: 'block' }}
 >
@@ -274,7 +292,8 @@ export default function B3PPage() {
 
         {/* ── Selective Bloom + Audio-Reactive Fat Lines ── */}
         <BloomLight onReady={setBloomLight} />
-        {bloomLight && (
+        {/* EffectComposer only when audio active — saves full-screen GPU pass */}
+        {bloomLight && useAudioStore.getState().isActive && (
           <EffectComposer multisampling={0}>
             <SelectiveBloom
               lights={[bloomLight]}
