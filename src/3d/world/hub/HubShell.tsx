@@ -139,21 +139,27 @@ function HubPerimeterNeon({ y = 7.9 }: { y?: number }) {
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
   const lightRef = useRef<THREE.PointLight>(null);
 
+  const dataArrayRef = useRef(new Uint8Array(0));
+
   useFrame(() => {
     if (!materialRef.current) return;
 
+    // Early return: brak audio = stała intensywność
     if (!hudAnalyser) {
       materialRef.current.emissiveIntensity = 0.5;
       if (lightRef.current) lightRef.current.intensity = 0.2;
       return;
     }
 
-    const data = new Uint8Array(hudAnalyser.frequencyBinCount);
-    hudAnalyser.getByteFrequencyData(data);
+    // Ensure data array is allocated once
+    if (dataArrayRef.current.length !== hudAnalyser.frequencyBinCount) {
+      dataArrayRef.current = new Uint8Array(hudAnalyser.frequencyBinCount);
+    }
+    hudAnalyser.getByteFrequencyData(dataArrayRef.current);
 
     let sum = 0;
     for (let i = 0; i < 16; i++) {
-      sum += data[i];
+      sum += dataArrayRef.current[i];
     }
     const avg = sum / 16 / 255; 
 
@@ -202,34 +208,35 @@ function HubPerimeterNeon({ y = 7.9 }: { y?: number }) {
 }
 
 export function HubShell() {
-  const tree1 = useControls('Stylized Tree 01 - v6', {
+  // Memoize Leva controls to prevent re-renders on every frame
+  const tree1 = useMemo(() => useControls('Stylized Tree 01 - v6', {
     t1x: { value: -8.3, min: -15, max: 15, step: 0.1 },
     t1y: { value: 0.0, min: -2, max: 10, step: 0.1 },
     t1z: { value: -8.0, min: -15, max: 15, step: 0.1 },
-    t1s: { value: 6.5, min: 0.1, max: 20, step: 0.05 }, // Increased default and max
+    t1s: { value: 6.5, min: 0.1, max: 20, step: 0.05 },
     t1r: { value: 0.30, min: -Math.PI, max: Math.PI, step: 0.01 },
-  });
-  const tree2 = useControls('Stylized Tree 02 - v6', {
+  }), []);
+  const tree2 = useMemo(() => useControls('Stylized Tree 02 - v6', {
     t2x: { value: 8.0, min: -15, max: 15, step: 0.1 },
     t2y: { value: 0.0, min: -2, max: 10, step: 0.1 },
     t2z: { value: -8.0, min: -15, max: 15, step: 0.1 },
-    t2s: { value: 7.0, min: 0.1, max: 20, step: 0.05 }, // Increased default and max
+    t2s: { value: 7.0, min: 0.1, max: 20, step: 0.05 },
     t2r: { value: -0.40, min: -Math.PI, max: Math.PI, step: 0.01 },
-  });
-  const tree3 = useControls('Stylized Tree 03 - v6', {
+  }), []);
+  const tree3 = useMemo(() => useControls('Stylized Tree 03 - v6', {
     t3x: { value: -8.0, min: -15, max: 15, step: 0.1 },
     t3y: { value: 0.0, min: -2, max: 10, step: 0.1 },
     t3z: { value: 8.8, min: -15, max: 15, step: 0.1 },
-    t3s: { value: 5.0, min: 0.1, max: 20, step: 0.05 }, // Increased default and max
+    t3s: { value: 5.0, min: 0.1, max: 20, step: 0.05 },
     t3r: { value: 0.10, min: -Math.PI, max: Math.PI, step: 0.01 },
-  });
-  const sofaControls = useControls('Venetian Sofa v6 - FINAL', {
+  }), []);
+  const sofaControls = useMemo(() => useControls('Venetian Sofa v6 - FINAL', {
     x: { value: -8.8, min: -15, max: 15, step: 0.1 },
     y: { value: 0.0, min: -2, max: 10, step: 0.1 },
     z: { value: 2.8, min: -15, max: 15, step: 0.1 },
-    scale: { value: 2.3, min: 0.01, max: 50, step: 0.1 }, // Set to user's picked 2.3
+    scale: { value: 2.3, min: 0.01, max: 50, step: 0.1 },
     rotation: { value: 1.61, min: -Math.PI, max: Math.PI, step: 0.01 },
-  });
+  }), []);
 
   const textures = useTexture({
     map: '/textures/Concrete035_2K.jpg',

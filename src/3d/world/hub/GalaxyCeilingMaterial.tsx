@@ -151,29 +151,36 @@ export function GalaxyCeilingMaterial() {
   }), []);
 
   useFrame((state) => {
-    if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
-      
-      let audioReact = 0;
-      if (analyserNode && dataArray.current.length > 0) {
-        analyserNode.getByteFrequencyData(dataArray.current);
-        // Average the bass frequencies (first 10 bins)
-        let sum = 0;
-        for (let i = 0; i < 10; i++) {
-          sum += dataArray.current[i];
-        }
-        const avgBass = sum / 10.0;
-        // Normalize 0-1 and apply a threshold/curve
-        audioReact = Math.max(0, (avgBass / 255.0) - 0.4) * 2.0; 
-      }
-      
-      // Smoothly interpolate the uniform value
+    if (!materialRef.current) return;
+
+    materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+
+    // Early return: brak audio = nie czytuj frequency data
+    if (!analyserNode || dataArray.current.length === 0) {
       materialRef.current.uniforms.uAudioReact.value = THREE.MathUtils.lerp(
         materialRef.current.uniforms.uAudioReact.value,
-        audioReact,
+        0,
         0.1
       );
+      return;
     }
+
+    analyserNode.getByteFrequencyData(dataArray.current);
+    // Average the bass frequencies (first 10 bins)
+    let sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += dataArray.current[i];
+    }
+    const avgBass = sum / 10.0;
+    // Normalize 0-1 and apply a threshold/curve
+    const audioReact = Math.max(0, (avgBass / 255.0) - 0.4) * 2.0;
+
+    // Smoothly interpolate the uniform value
+    materialRef.current.uniforms.uAudioReact.value = THREE.MathUtils.lerp(
+      materialRef.current.uniforms.uAudioReact.value,
+      audioReact,
+      0.1
+    );
   });
 
   return (

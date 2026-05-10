@@ -174,6 +174,8 @@ export default function AudioReactiveFace() {
     };
   }, [faceScene]);
 
+  const dataArrayRef = useRef(new Uint8Array(0));
+
   // ── Animation ──────────────────────────────────────────────────────────
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.1);
@@ -186,16 +188,8 @@ export default function AudioReactiveFace() {
       void micCtxRef.current.resume();
     }
 
-    // ── DEBUG (co 180 klatek ≈ co 3 sek) — zawsze, nawet gdy brak audio ──
-    debugFrameRef.current = (debugFrameRef.current + 1) % 180;
-    if (debugFrameRef.current === 1) {
-      const src = hudAnalyser ? 'HUD' : (micAnalyserRef.current ? 'MIC' : 'NONE');
-      const ctxState = micCtxRef.current?.state ?? 'n/a';
-      console.log(`[Face] src=${src} ctxState=${ctxState} hudAnalyser=${!!hudAnalyser} micReady=${micReadyRef.current}`);
-    }
-
+    // Early return: brak audio = szybki lerp do zera
     if (!analyserNode) {
-      // Idle: slowly return morphs to zero
       const m = morphRef.current;
       m.jawOpen = lerp(m.jawOpen, 0, 3 * dt);
       m.eyeBlinkLeft = lerp(m.eyeBlinkLeft, 0, 4 * dt);
@@ -207,19 +201,13 @@ export default function AudioReactiveFace() {
       return;
     }
 
-    const bins = analyserNode.frequencyBinCount;
-    const data = new Uint8Array(bins);
-    analyserNode.getByteFrequencyData(data);
-
-    // ── DEBUG (co 180 klatek ≈ co 3 sekundy) ────────────────────────────
-    debugFrameRef.current = (debugFrameRef.current + 1) % 180;
-    if (debugFrameRef.current === 1) {
-      const maxVal = Math.max(...Array.from(data));
-      const src = hudAnalyser ? 'HUD' : (micAnalyserRef.current ? 'MIC' : 'NONE');
-      const ctxState = micCtxRef.current?.state ?? 'n/a';
-      console.log(`[Face] src=${src} ctxState=${ctxState} data[0]=${data[0]} max=${maxVal} bins=${bins}`);
+    // Ensure data array is allocated once
+    if (dataArrayRef.current.length !== analyserNode.frequencyBinCount) {
+      dataArrayRef.current = new Uint8Array(analyserNode.frequencyBinCount);
     }
-    // ─────────────────────────────────────────────────────────────────────
+    const data = dataArrayRef.current;
+    analyserNode.getByteFrequencyData(data);
+    const bins = data.length;
 
     // Sub-bass (bin 0) — kick drum
     const subBassNorm = data[0] / 255;

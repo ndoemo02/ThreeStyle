@@ -107,7 +107,8 @@ function AdaptiveEnvironment() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  return <Environment preset="apartment" environmentIntensity={isMobile ? 0.12 : 0.3} />;
+  if (isMobile) return null;
+  return <Environment preset="apartment" environmentIntensity={0.3} />;
 }
 
 function BloomLight({ onReady }: { onReady: (light: THREE.PointLight) => void }) {
