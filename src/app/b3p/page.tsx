@@ -6,7 +6,7 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { KTX2Loader } from 'three-stdlib';
 import { Environment } from '@react-three/drei';
-import { EffectComposer, SelectiveBloom } from '@react-three/postprocessing';
+import { EffectComposer, SelectiveBloom, SSAO, DepthOfField } from '@react-three/postprocessing';
 import { useControls } from 'leva';
 import AudioVisualizer from '../../3d/modules/fx/AudioVisualizer';
 import AudioReactiveFace from '../../3d/modules/fx/AudioReactiveFace';
@@ -286,10 +286,9 @@ export default function B3PPage() {
         {/* Ciepłe, subtelne refleksy środowiskowe — zredukowane na mobile */}
         <AdaptiveEnvironment />
 
-        {/* ── Selective Bloom + Audio-Reactive Fat Lines ── */}
+        {/* ── Postprocessing ── */}
         <BloomLight onReady={setBloomLight} />
-        {/* EffectComposer only when audio active — saves full-screen GPU pass */}
-        {bloomLight && useAudioStore.getState().isActive && (
+        {bloomLight && (
           <EffectComposer multisampling={0}>
             <SelectiveBloom
               lights={[bloomLight]}
@@ -299,6 +298,23 @@ export default function B3PPage() {
               luminanceSmoothing={0.35}
               mipmapBlur
             />
+            {/* SSAO — głębia cieni (tylko desktop) */}
+            {!isMobile && (
+              <>
+                <SSAO
+                  radius={0.4}
+                  intensity={15}
+                  luminanceInfluence={0.5}
+                  color={new THREE.Color('#000000')}
+                />
+                {/* DOF — kinowe rozmycie tła */}
+                <DepthOfField
+                  focusDistance={0.02}
+                  focalLength={0.05}
+                  bokehScale={3}
+                />
+              </>
+            )}
           </EffectComposer>
         )}
         <AudioVisualizer />

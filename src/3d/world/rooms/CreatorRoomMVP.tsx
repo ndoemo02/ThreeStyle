@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useRef, Suspense, useEffect, useMemo, useCallback } from 'react';
 import { Html, useTexture, useGLTF, useAnimations } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -8,6 +10,8 @@ import { VocalBooth } from './VocalBooth';
 import { useControls } from 'leva';
 import { useHudStore } from '../../../stores/useHudStore';
 import { useAudioStore } from '../../../stores/useAudioStore';
+import { ParticleWaveFloor } from '../../modules/fx/ParticleWaveFloor';
+import { PortalEffect } from '../../modules/fx/PortalEffect';
 import { RoomDoor } from '../../modules/doors/RoomDoor';
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -691,6 +695,15 @@ function SofaRaw() {
 }
 
 export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onExit }: { position?: [number, number, number], rotation?: [number, number, number], onExit?: () => void }) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
   const spotLightTarget = useMemo(() => new THREE.Object3D(), []);
 
   const openHud = useHudStore((s) => s.openHud);
@@ -1076,6 +1089,14 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           />
           
           {/* RoomDoor removed - we use the physical ElevatorA now */}
+          {/* Portal effect in the door opening */}
+          {!isMobile && (
+            <PortalEffect
+              position={[0, 2.5, 0.3]}
+              radius={1.2}
+              active={true}
+            />
+          )}
           <pointLight position={[0, 2.5, -2]} intensity={5} color="#ff8c42" distance={6} decay={2} />
         </group>
 
@@ -1341,6 +1362,9 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
             </Html>
           )}
         </group>
+
+        {/* ── PARTICLE WAVE FLOOR — audio-reactive (desktop only) ── */}
+        {!isMobile && <ParticleWaveFloor count={5000} size={16} />}
 
       </Suspense>
     </group>
