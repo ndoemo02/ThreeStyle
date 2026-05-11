@@ -299,8 +299,8 @@ export default function B3PPage() {
               mipmapBlur
             />
             {/* SSAO + DOF — tylko desktop */}
-            {(!isMobile) && <SSAO radius={0.4} intensity={15} luminanceInfluence={0.5} color={new THREE.Color('#000000')} />}
-            {(!isMobile) && <DepthOfField focusDistance={0.02} focalLength={0.05} bokehScale={3} />}
+            {((!isMobile) && <SSAO radius={0.4} intensity={15} luminanceInfluence={0.5} color={new THREE.Color('#000000')} />) as any}
+            {((!isMobile) && <DepthOfField focusDistance={0.02} focalLength={0.05} bokehScale={3} />) as any}
           </EffectComposer>
         )}
         <AudioVisualizer />
