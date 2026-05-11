@@ -855,7 +855,6 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       if (cancelled) return;
       console.warn('[SelfieCam] getUserMedia failed:', err.message);
     });
-    });
 
     return () => {
       cancelled = true;
