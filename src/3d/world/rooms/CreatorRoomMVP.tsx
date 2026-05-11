@@ -1089,14 +1089,10 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           />
           
           {/* RoomDoor removed - we use the physical ElevatorA now */}
-          {/* Portal effect in the door opening */}
-          {!isMobile && (
-            <PortalEffect
-              position={[0, 2.5, 0.3]}
-              radius={1.2}
-              active={true}
-            />
-          )}
+          {/* Portal effect — DISABLED */}
+          {/* {!isMobile && (
+            <PortalEffect position={[0, 2.5, 0.3]} radius={1.2} active={true} />
+          )} */}
           <pointLight position={[0, 2.5, -2]} intensity={5} color="#ff8c42" distance={6} decay={2} />
         </group>
 
@@ -1363,8 +1359,8 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           )}
         </group>
 
-        {/* ── PARTICLE WAVE FLOOR — audio-reactive (desktop only) ── */}
-        {!isMobile && <ParticleWaveFloor count={5000} size={16} />}
+        {/* ── PARTICLE WAVE FLOOR — DISABLED */}
+        {/* {!isMobile && <ParticleWaveFloor count={5000} size={16} />} */}
 
       </Suspense>
     </group>

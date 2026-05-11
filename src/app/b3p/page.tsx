@@ -298,9 +298,6 @@ export default function B3PPage() {
               luminanceSmoothing={0.35}
               mipmapBlur
             />
-            {/* SSAO + DOF — tylko desktop */}
-            {((!isMobile) && <SSAO radius={0.4} intensity={15} luminanceInfluence={0.5} color={new THREE.Color('#000000')} />) as any}
-            {((!isMobile) && <DepthOfField focusDistance={0.02} focalLength={0.05} bokehScale={3} />) as any}
           </EffectComposer>
         )}
         <AudioVisualizer />
@@ -308,11 +305,12 @@ export default function B3PPage() {
         <PerformanceCounter />
 
         {/* ── Audio-Reactive Face — tylko w studiu, przy mikrofonie ── */}
-        {activeZone !== 'hub' && (
+        {/* DISABLED: too heavy on mobile */}
+        {/* {activeZone !== 'hub' && (
           <Suspense fallback={null}>
             <StudioFacePositioner />
           </Suspense>
-        )}
+        )} */}
 
         {activeZone === 'hub' && <GroundedHub onEnterRoom={(id) => setActiveZone(id)} />}
         {activeZone !== 'hub' && <CreatorRoomMVP onExit={() => setActiveZone('hub')} />}
