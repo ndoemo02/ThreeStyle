@@ -99,6 +99,44 @@ export function HudOverlay() {
   useEffect(() => {
     if (mounted) setCamVideoElement(camVideoRef.current);
   }, [mounted, setCamVideoElement]);
+
+  // ── Camera stream via getUserMedia ──────────────────────────────────
+  const camStreamRef = useRef<MediaStream | null>(null);
+  useEffect(() => {
+    const video = camVideoRef.current;
+    if (!video) return;
+
+    if (camEnabled) {
+      const facing = camFacingMode;
+      navigator.mediaDevices
+        ?.getUserMedia({ video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false })
+        .then((stream) => {
+          camStreamRef.current = stream;
+          video.srcObject = stream;
+          void video.play().catch(() => {});
+        })
+        .catch((err) => {
+          console.warn('[HUD Camera] getUserMedia failed:', err);
+        });
+    } else {
+      // Stop stream
+      const stream = camStreamRef.current;
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
+        camStreamRef.current = null;
+      }
+      video.srcObject = null;
+    }
+
+    return () => {
+      const stream = camStreamRef.current;
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
+        camStreamRef.current = null;
+      }
+    };
+  }, [camEnabled, camFacingMode]);
+
   const [mediaItems, setMediaItems] = useState<HudMediaItem[]>([]);
   const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
   const [libraryStatus, setLibraryStatus] = useState<LibraryStatus>('loading');
