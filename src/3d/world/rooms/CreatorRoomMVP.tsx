@@ -870,7 +870,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     };
   }, [camEnabled, camFacingMode, camVideoElement]);
 
-  const screenTex = camEnabled && camTex ? camTex : videoTex;
+  const screenTex = camEnabled ? (camTex || null) : videoTex;
 
   useEffect(() => {
     const video: HTMLVideoElement | null = masterVideoRef || document.querySelector('video');
