@@ -523,8 +523,8 @@ function StudioDisplayWall({
       <mesh position={[0, 0, 0.011]} renderOrder={20}>
         <planeGeometry args={[screenWidth, screenHeight]} />
         <meshBasicMaterial
-          map={videoTexture || null}
-          color={videoTexture ? "#ffffff" : "#0d0d0d"}
+          map={videoTexture && (videoTexture.image?.width > 0) ? videoTexture : null}
+          color={videoTexture && (videoTexture.image?.width > 0) ? "#ffffff" : "#0d0d0d"}
           side={THREE.DoubleSide}
           toneMapped={false}
         />
@@ -1309,7 +1309,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
            <pointLight position={[0, 0, 0.34]} intensity={4.0} color="#ff8c42" distance={4.5} decay={2} />
            <StudioDisplayWall
              videoTexture={screenTex}
-             fallbackVisible={!masterVideoRef && !camEnabled}
+             fallbackVisible={!screenTex}
            />
         </group>
 
