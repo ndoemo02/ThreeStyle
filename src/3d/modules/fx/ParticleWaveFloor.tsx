@@ -101,21 +101,14 @@ export function ParticleWaveFloor({ count = 8000, size = 20 }: { count?: number;
     mat.opacity = 0.3 + bassEnergy * 0.7;
   });
 
+  const positionAttr = useMemo(() => new THREE.BufferAttribute(positions, 3), [positions]);
+  const colorAttr = useMemo(() => new THREE.BufferAttribute(colorArray, 3), [colorArray]);
+
   return (
     <points ref={meshRef}>
       <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={count}
-          array={positions}
-          itemSize={3}
-        />
-        <bufferAttribute
-          attach="attributes-color"
-          count={count}
-          array={colorArray}
-          itemSize={3}
-        />
+        <primitive attach="attributes-position" object={positionAttr} />
+        <primitive attach="attributes-color" object={colorAttr} />
       </bufferGeometry>
       <pointsMaterial
         size={0.06}
