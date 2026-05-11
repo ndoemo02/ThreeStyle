@@ -299,22 +299,21 @@ export default function B3PPage() {
               mipmapBlur
             />
             {/* SSAO + DOF — tylko desktop */}
-            {!isMobile ? (
-              <>
-                <SSAO
-                  radius={0.4}
-                  intensity={15}
-                  luminanceInfluence={0.5}
-                  color={new THREE.Color('#000000')}
-                />
-                {/* DOF — kinowe rozmycie tła */}
-                <DepthOfField
-                  focusDistance={0.02}
-                  focalLength={0.05}
-                  bokehScale={3}
-                />
-              </>
-            ) : null}
+            {(!isMobile) && (
+              <SSAO
+                radius={0.4}
+                intensity={15}
+                luminanceInfluence={0.5}
+                color={new THREE.Color('#000000')}
+              />
+            )}
+            {(!isMobile) && (
+              <DepthOfField
+                focusDistance={0.02}
+                focalLength={0.05}
+                bokehScale={3}
+              />
+            )}
           </EffectComposer>
         )}
         <AudioVisualizer />
