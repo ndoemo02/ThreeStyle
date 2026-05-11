@@ -799,6 +799,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     let fallbackEl: HTMLVideoElement | null = null;
 
     const videoEl: HTMLVideoElement | null = camVideoElement ?? (() => {
+      console.log('[SelfieCam] camVideoElement is null, creating fallback DOM element');
       const el = document.createElement('video');
       el.muted = true;
       el.playsInline = true;
@@ -814,6 +815,13 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       return;
     }
 
+    console.log('[SelfieCam] Starting getUserMedia, facing:', camFacingMode, 'videoEl:', videoEl === camVideoElement ? 'store' : 'fallback');
+
+    if (!navigator.mediaDevices) {
+      console.error('[SelfieCam] navigator.mediaDevices is not available — need HTTPS');
+      return;
+    }
+
     navigator.mediaDevices.getUserMedia({
       video: { facingMode: camFacingMode },
       audio: false,
@@ -822,6 +830,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         stream.getTracks().forEach(t => t.stop());
         return;
       }
+      console.log('[SelfieCam] Got stream, tracks:', stream.getTracks().length);
       camStreamRef.current = stream;
       videoEl.srcObject = stream;
       videoEl.play().catch(() => {});
@@ -833,6 +842,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           videoEl!.addEventListener('loadedmetadata', createCamTex, { once: true });
           return;
         }
+        console.log('[SelfieCam] Creating VideoTexture:', videoEl!.videoWidth, 'x', videoEl!.videoHeight);
         const tex = new THREE.VideoTexture(videoEl!);
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.generateMipmaps = false;
@@ -844,7 +854,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     }).catch(err => {
       if (cancelled) return;
       console.warn('[SelfieCam] getUserMedia failed:', err.message);
-      // Don't flip camEnabled — let the user see the error state
+    });
     });
 
     return () => {
