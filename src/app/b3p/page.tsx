@@ -298,8 +298,8 @@ export default function B3PPage() {
               luminanceSmoothing={0.35}
               mipmapBlur
             />
-            {/* SSAO — głębia cieni (tylko desktop) */}
-            {!isMobile && (
+            {/* SSAO + DOF — tylko desktop */}
+            {!isMobile ? (
               <>
                 <SSAO
                   radius={0.4}
@@ -314,7 +314,7 @@ export default function B3PPage() {
                   bokehScale={3}
                 />
               </>
-            )}
+            ) : null}
           </EffectComposer>
         )}
         <AudioVisualizer />
