@@ -3,7 +3,7 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useAudioStore } from '../../stores/useAudioStore';
+import { useAudioStore } from '../../../stores/useAudioStore';
 
 /**
  * Audio-reactive particle wave floor — thousands of particles reacting to bass.
