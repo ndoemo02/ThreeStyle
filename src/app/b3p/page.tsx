@@ -6,7 +6,7 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { KTX2Loader } from 'three-stdlib';
 import { Environment } from '@react-three/drei';
-import { EffectComposer, SelectiveBloom, SSAO, DepthOfField } from '@react-three/postprocessing';
+import { EffectComposer, SelectiveBloom, SMAA } from '@react-three/postprocessing';
 import { useControls } from 'leva';
 import AudioVisualizer from '../../3d/modules/fx/AudioVisualizer';
 import AudioReactiveFace from '../../3d/modules/fx/AudioReactiveFace';
@@ -191,6 +191,7 @@ export default function B3PPage() {
   const releaseElevator = useTransitionStore(s => s.releaseElevator);
   const [bloomLight, setBloomLight] = useState<THREE.PointLight | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.9, 1.2] : [1, 1.5], [isMobile]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 768);
@@ -262,13 +263,12 @@ export default function B3PPage() {
         <Canvas
           shadows={!isMobile}
           frameloop="always"
-          dpr={[1, 1.5]}
-          gl={{ antialias: true, powerPreference: 'high-performance' }}
+          dpr={canvasDpr}
+          gl={{ antialias: true, powerPreference: 'high-performance', alpha: false, stencil: false }}
           onCreated={({ gl }) => {
             gl.shadowMap.type = THREE.PCFSoftShadowMap;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
             gl.toneMappingExposure = 1.0;
-            gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
           }}
           camera={{ position: [0, 2.05, 5], fov: 60 }}
           style={{ width: '100%', height: '100%', display: 'block' }}
@@ -289,7 +289,8 @@ export default function B3PPage() {
         {/* ── Postprocessing ── */}
         <BloomLight onReady={setBloomLight} />
         {bloomLight && (
-          <EffectComposer multisampling={0}>
+          <EffectComposer multisampling={isMobile ? 0 : 2}>
+            <SMAA />
             <SelectiveBloom
               lights={[bloomLight]}
               selectionLayer={1}

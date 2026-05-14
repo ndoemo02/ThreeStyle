@@ -4,6 +4,7 @@ import { useMemo, useRef, useLayoutEffect } from 'react';
 import { useControls } from 'leva';
 import * as THREE from 'three';
 import { useTexture, useGLTF } from '@react-three/drei';
+import { useThree } from '@react-three/fiber';
 import { AcousticFoamWall } from './CreatorRoomMVP';
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -18,7 +19,11 @@ function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, n
     const clone = scene.clone();
     clone.traverse((n) => {
       if (n instanceof THREE.Mesh && n.material) {
-        n.frustumCulled = false;
+        n.frustumCulled = true;
+        if (n.geometry) {
+          if (!n.geometry.boundingSphere) n.geometry.computeBoundingSphere();
+          if (!n.geometry.boundingBox) n.geometry.computeBoundingBox();
+        }
         const sourceMaterial = Array.isArray(n.material) ? n.material[0] : n.material;
         const material = sourceMaterial.clone();
         if ('metalness' in material && typeof material.metalness === 'number' && material.name?.toLowerCase().includes('metal')) {
@@ -27,7 +32,7 @@ function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, n
         if ('roughness' in material && typeof material.roughness === 'number') {
           material.roughness = Math.max(0.2, material.roughness || 0);
         }
-        material.side = THREE.DoubleSide;
+        material.side = THREE.FrontSide;
         n.material = material;
       }
     });
@@ -51,6 +56,8 @@ function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, n
 
 // ──────────────────────────────────────────────────────────────────────────────
 export function VocalBooth({ position = [0, 0, 0] as [number, number, number] }) {
+  const { gl } = useThree();
+  const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl]);
   const W = 6.6;
   const H = 3.2;
   const D = 3.6;
@@ -66,10 +73,12 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
     sonomaTex.wrapS = sonomaTex.wrapT = THREE.RepeatWrapping;
     filcTex.wrapS = filcTex.wrapT = THREE.RepeatWrapping;
     filcTex.repeat.set(W, H);
+    sonomaTex.anisotropy = anisotropy;
+    filcTex.anisotropy = anisotropy;
     sonomaTex.needsUpdate = true;
     filcTex.needsUpdate = true;
     return { sonomaTex, filcTex };
-  }, [rawSonomaTex, rawFilcTex, W, H]);
+  }, [rawSonomaTex, rawFilcTex, W, H, anisotropy]);
 
   const slatCount = 132; // Back wall slats
   const slatMatrix = useMemo(() => new THREE.Matrix4(), []);

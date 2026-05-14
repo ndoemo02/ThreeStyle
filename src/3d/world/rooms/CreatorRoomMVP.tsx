@@ -43,6 +43,7 @@ function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
   const hudAnalyser = useAudioStore(s => s.analyserNode);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
   const lightRef = useRef<THREE.PointLight>(null);
+  const frequencyDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
 
   // Stabilny materiał tworzony raz
   const ledMaterial = useMemo(() => {
@@ -68,7 +69,11 @@ function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
       return;
     }
 
-    const data = new Uint8Array(hudAnalyser.frequencyBinCount);
+    let data = frequencyDataRef.current;
+    if (!data || data.length !== hudAnalyser.frequencyBinCount) {
+      data = new Uint8Array(hudAnalyser.frequencyBinCount);
+      frequencyDataRef.current = data;
+    }
     hudAnalyser.getByteFrequencyData(data);
 
     let sum = 0;
@@ -134,6 +139,8 @@ function TechnicalTrim({ args, position, rotation = [0, 0, 0] }: { args: [number
 }
 
 function BrickWall({ args, position }: { args: [number, number, number], position: [number, number, number] }) {
+  const { gl } = useThree();
+  const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl]);
   const textures = useTexture([
     '/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_Color.jpg',
     '/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_AmbientOcclusion.jpg',
@@ -150,10 +157,11 @@ function BrickWall({ args, position }: { args: [number, number, number], positio
       const leftEdge = position[0] - args[0] / 2;
       const bottomEdge = position[1] - args[1] / 2;
       clone.offset.set(leftEdge / 3, bottomEdge / 3);
+      clone.anisotropy = anisotropy;
       clone.needsUpdate = true;
       return clone;
     });
-  }, [textures, args, position]);
+  }, [textures, args, position, anisotropy]);
 
   useEffect(() => {
     return () => {
@@ -176,6 +184,8 @@ function BrickWall({ args, position }: { args: [number, number, number], positio
 }
 
 export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat, textureOffset = [0, 0] }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number], repeat?: [number, number], textureOffset?: [number, number] }) {
+  const { gl } = useThree();
+  const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl]);
   const textures = useTexture([
     '/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Color.jpg',
     '/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_NormalGL.jpg',
@@ -193,10 +203,11 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat,
         clone.repeat.set(args[0] / 2, args[1] / 2);
       }
       clone.offset.set(textureOffset[0], textureOffset[1]);
+      clone.anisotropy = anisotropy;
       clone.needsUpdate = true;
       return clone;
     });
-  }, [textures, args, repeat, textureOffset]);
+  }, [textures, args, repeat, textureOffset, anisotropy]);
 
   useEffect(() => {
     return () => {
@@ -221,6 +232,8 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat,
 }
 
 function DiamondPlateFloor({ args, position }: { args: [number, number], position: [number, number, number] }) {
+  const { gl } = useThree();
+  const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl]);
   const textures = useTexture([
     '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Color.jpg',
     '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_NormalGL.jpg',
@@ -234,10 +247,11 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
       const clone = tex.clone();
       clone.wrapS = clone.wrapT = THREE.RepeatWrapping;
       clone.repeat.set(args[0] / 1.5, args[1] / 1.5);
+      clone.anisotropy = anisotropy;
       clone.needsUpdate = true;
       return clone;
     });
-  }, [textures, args]);
+  }, [textures, args, anisotropy]);
 
   useEffect(() => {
     return () => {
@@ -578,6 +592,37 @@ function Thr3StyleScreenBranding({ screenUrl, panelHeight = 0.92, showBase = tru
   );
 }
 
+function prepareImportedRoomModel(root: THREE.Group) {
+  root.traverse((node) => {
+    if (!(node instanceof THREE.Mesh)) return;
+
+    node.visible = true;
+    node.frustumCulled = true;
+
+    if (node.geometry) {
+      if (!node.geometry.boundingSphere) node.geometry.computeBoundingSphere();
+      if (!node.geometry.boundingBox) node.geometry.computeBoundingBox();
+    }
+
+    if (!node.material) return;
+
+    const materials = Array.isArray(node.material) ? node.material : [node.material];
+    const preparedMaterials = materials.map((material) => {
+      const cloned = material.clone();
+      if (!cloned.transparent || cloned.opacity >= 0.999) {
+        cloned.side = THREE.FrontSide;
+        cloned.transparent = false;
+        cloned.opacity = 1;
+      }
+      cloned.visible = true;
+      cloned.needsUpdate = true;
+      return cloned;
+    });
+
+    node.material = Array.isArray(node.material) ? preparedMaterials : preparedMaterials[0];
+  });
+}
+
 function AutoCenteredModel({ url, ...props }: { url: string } & SceneObjectProps) {
   const { scene, animations } = useGLTF(url) as { scene: THREE.Group, animations: THREE.AnimationClip[] };
   const groupRef = useRef<THREE.Group>(null);
@@ -586,25 +631,7 @@ function AutoCenteredModel({ url, ...props }: { url: string } & SceneObjectProps
   const processed = useMemo(() => {
     const clone = scene.clone(true);
 
-    // Force double-side rendering, ensure visibility.
-    // frustumCulled=false on imported models — GLTF bounding spheres are unreliable
-    // after clone+recenter, causing false culling and visual regressions.
-    clone.traverse((node) => {
-      if (node instanceof THREE.Mesh) {
-        node.visible = true;
-        node.frustumCulled = false;
-        if (node.material) {
-          const mats = Array.isArray(node.material) ? node.material : [node.material];
-          mats.forEach((mat) => {
-            mat.side = THREE.DoubleSide;
-            mat.transparent = false;
-            mat.opacity = 1;
-            mat.visible = true;
-            mat.needsUpdate = true;
-          });
-        }
-      }
-    });
+    prepareImportedRoomModel(clone);
 
     const box = new THREE.Box3().setFromObject(clone);
     const size = box.getSize(new THREE.Vector3());
@@ -615,6 +642,7 @@ function AutoCenteredModel({ url, ...props }: { url: string } & SceneObjectProps
       clone.position.sub(center);
     }
 
+    clone.updateMatrixWorld(true);
     return clone;
   }, [scene, url]);
 
@@ -663,21 +691,7 @@ function SofaRaw() {
   const processed = useMemo(() => {
     const clone = scene.clone(true);
 
-    // Force materials. frustumCulled=false — see AutoCenteredModel note above.
-    clone.traverse((node) => {
-      if (node instanceof THREE.Mesh) {
-        node.frustumCulled = false;
-        const mats = Array.isArray(node.material) ? node.material : [node.material];
-        mats.forEach((mat) => {
-          if (mat) {
-            mat.side = THREE.DoubleSide;
-            mat.transparent = false;
-            mat.opacity = 1;
-            mat.needsUpdate = true;
-          }
-        });
-      }
-    });
+    prepareImportedRoomModel(clone);
 
     // updateMatrixWorld so bbox includes full hierarchy transforms
     clone.updateMatrixWorld(true);
@@ -688,6 +702,7 @@ function SofaRaw() {
     // BEFORE scale is applied by the parent group
     clone.position.sub(center);
 
+    clone.updateMatrixWorld(true);
     return clone;
   }, [scene]);
 
@@ -842,6 +857,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       tex.generateMipmaps = false;
       tex.minFilter = THREE.LinearFilter;
       tex.magFilter = THREE.LinearFilter;
+      console.log('[SelfieCam] setCamTex called with texture');
       setCamTex(tex as any);
     }).catch(err => {
       if (cancelled) return;
