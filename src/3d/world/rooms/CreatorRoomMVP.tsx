@@ -1267,12 +1267,60 @@ export function CreatorRoomMVP({
           scale={decorControls.organizerScale}
         />
 
-        {/* Golden Play Button as a secondary accent near the desk zone */}
-        <GoldenPlayButton 
+        {/* Golden play plaque also acts as the visible HUD toggle target. */}
+        <group
           position={[decorControls.buttonPosX, decorControls.buttonPosY, decorControls.buttonPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.buttonRotY), 0]}
           scale={decorControls.buttonScale}
-        />
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            if (document.pointerLockElement) {
+              document.exitPointerLock();
+            }
+            requestAnimationFrame(() => toggleHud());
+          }}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setDeviceScreenHovered(true);
+          }}
+          onPointerOut={() => setDeviceScreenHovered(false)}
+        >
+          <GoldenPlayButton />
+          <mesh
+            ref={deviceScreenPlaneRef}
+            position={[0, 0, 0.12]}
+            renderOrder={1002}
+          >
+            <planeGeometry args={[1.35, 1.05]} />
+            <meshBasicMaterial
+              transparent
+              opacity={0.001}
+              depthWrite={false}
+              depthTest={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+          {deviceScreenHovered && (
+            <Html
+              position={[0, 1.0, 0]}
+              center
+              transform
+              occlude={false}
+              style={{
+                pointerEvents: 'none',
+                color: '#f8f8f2',
+                fontSize: '12px',
+                letterSpacing: '0.08em',
+                textAlign: 'center',
+                textTransform: 'uppercase',
+                textShadow: '0 2px 8px rgba(0,0,0,0.85)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {isOpen ? '[E] CLOSE STUDIO HUD' : '[E] OPEN STUDIO HUD'}
+            </Html>
+          )}
+        </group>
 
         {/* Framed 3S artwork on the brown identity wall */}
         <Thr3StyleWallArt
@@ -1286,12 +1334,25 @@ export function CreatorRoomMVP({
         />
 
         {/* iPad Pro on the desk */}
-        <AutoCenteredModel 
-          url="/models/optimized/ipad_pro_2024.glb" 
+        <group
           position={[decorControls.laptopPosX, decorControls.laptopPosY, decorControls.laptopPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.laptopRotY), 0]}
           scale={decorControls.laptopScale}
-        />
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            if (document.pointerLockElement) {
+              document.exitPointerLock();
+            }
+            requestAnimationFrame(() => toggleHud());
+          }}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setDeviceScreenHovered(true);
+          }}
+          onPointerOut={() => setDeviceScreenHovered(false)}
+        >
+          <AutoCenteredModel url="/models/optimized/ipad_pro_2024.glb" />
+        </group>
 
         {/* Sofa in the room — heavy model, distance-culled */}
         <DistanceCulledModel maxDistance={16}>
@@ -1382,10 +1443,10 @@ export function CreatorRoomMVP({
           position={[decorControls.laptopPosX, decorControls.laptopPosY, decorControls.laptopPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.laptopRotY), 0]}
           scale={[decorControls.laptopScale, decorControls.laptopScale, decorControls.laptopScale]}
+          visible={false}
         >
           {/* Invisible hit-test plane — większa, skalowana z iPadem, bez Y-offset */}
           <mesh
-            ref={deviceScreenPlaneRef}
             position={[0, 0.035, 0.012]}
             rotation={[-Math.PI / 2, 0, 0]}
             onClick={(e) => {
@@ -1403,7 +1464,7 @@ export function CreatorRoomMVP({
           </mesh>
 
           {/* Hover hint + E key interaction */}
-          {deviceScreenHovered && (
+          {false && deviceScreenHovered && (
             <Html position={[0, 1.1, 0]} center pointerEvents="none" zIndexRange={[10, 11]}>
               <div style={{
                 fontFamily: 'monospace',

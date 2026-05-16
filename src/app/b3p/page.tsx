@@ -329,8 +329,8 @@ export default function B3PPage() {
           />
         )}
         
-        {/* Windy są niezależne od strefy, żeby mogły działać jako pomost */}
-        <ElevatorA visible={activeZone === 'hub' || (activeZone === 'room1' && roomShellReady)} />
+        {/* Elevator cabin belongs to the hub only; room gets its own scene props. */}
+        <ElevatorA visible={activeZone === 'hub'} />
 
         <BaseNavigationControls />
       </Canvas>
