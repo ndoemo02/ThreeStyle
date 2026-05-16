@@ -85,6 +85,7 @@ export function HudOverlay() {
   const setAudioContext = useAudioStore((state) => state.setAudioContext);
   const setIsActive = useAudioStore((state) => state.setIsActive);
   const camVideoRef = useRef<HTMLVideoElement | null>(null);
+  const camStreamRef = useRef<MediaStream | null>(null);
 
   // ── Native Web Audio pipeline (created during user gesture) ──────────
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -99,6 +100,50 @@ export function HudOverlay() {
   useEffect(() => {
     if (mounted) setCamVideoElement(camVideoRef.current);
   }, [mounted, setCamVideoElement]);
+
+  useEffect(() => {
+    return () => {
+      camStreamRef.current?.getTracks().forEach((track) => track.stop());
+      camStreamRef.current = null;
+      setCamVideoElement(null);
+    };
+  }, [setCamVideoElement]);
+
+  const stopCameraPreview = useCallback(() => {
+    camStreamRef.current?.getTracks().forEach((track) => track.stop());
+    camStreamRef.current = null;
+    const video = camVideoRef.current;
+    if (video) {
+      video.pause();
+      video.srcObject = null;
+    }
+  }, []);
+
+  const startCameraPreview = useCallback(async (facingMode = camFacingMode) => {
+    const video = camVideoRef.current;
+    if (!video || !navigator.mediaDevices?.getUserMedia) return false;
+
+    stopCameraPreview();
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode },
+        audio: false,
+      });
+      camStreamRef.current = stream;
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      await video.play();
+      setCamVideoElement(video);
+      return true;
+    } catch (error) {
+      console.warn('[SelfieCam] HUD camera start failed:', error);
+      camStreamRef.current = null;
+      setCamEnabled(false);
+      return false;
+    }
+  }, [camFacingMode, setCamEnabled, setCamVideoElement, stopCameraPreview]);
 
   const [mediaItems, setMediaItems] = useState<HudMediaItem[]>([]);
   const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
@@ -325,8 +370,9 @@ export function HudOverlay() {
           <video
             ref={masterVideoElementRef}
             src={activeMedia?.kind === 'video' ? activeMedia.src : undefined}
+            muted={false}
             playsInline
-            preload="metadata"
+            preload="auto"
             crossOrigin="anonymous"
             loop
             {...masterMediaEventProps}
@@ -341,7 +387,9 @@ export function HudOverlay() {
           <video
             ref={camVideoRef}
             muted
+            autoPlay
             playsInline
+            disablePictureInPicture
           />
         </div>
       )}
@@ -371,7 +419,16 @@ export function HudOverlay() {
                 <p className="hud-status-value">{statusLabel}</p>
               </div>
               <button
-                onClick={(e) => { e.stopPropagation(); setCamEnabled(!camEnabled); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (camEnabled) {
+                    stopCameraPreview();
+                    setCamEnabled(false);
+                  } else {
+                    setCamEnabled(true);
+                    void startCameraPreview(camFacingMode);
+                  }
+                }}
                 className="hud-close-btn"
                 style={{
                   marginRight: '8px',
@@ -382,7 +439,13 @@ export function HudOverlay() {
                 {camEnabled ? '📷 ON' : '📷 OFF'}
               </button>
               <button
-                onClick={(e) => { e.stopPropagation(); if (camEnabled) setCamFacingMode(camFacingMode === 'user' ? 'environment' : 'user'); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!camEnabled) return;
+                  const nextMode = camFacingMode === 'user' ? 'environment' : 'user';
+                  setCamFacingMode(nextMode);
+                  void startCameraPreview(nextMode);
+                }}
                 className="hud-close-btn"
                 style={{
                   marginRight: '8px',

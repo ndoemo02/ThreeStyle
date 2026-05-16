@@ -24,6 +24,17 @@ useGLTF.preload('/models/optimized/office_chair.glb');
 useGLTF.preload('/models/optimized/organizer.glb');
 useGLTF.preload('/models/optimized/modern_wooden_cabinet.glb');
 useGLTF.preload('/models/optimized/sofa.glb');
+useTexture.preload('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_Color.jpg');
+useTexture.preload('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_AmbientOcclusion.jpg');
+useTexture.preload('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_NormalGL.jpg');
+useTexture.preload('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_Roughness.jpg');
+useTexture.preload('/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Color.jpg');
+useTexture.preload('/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_NormalGL.jpg');
+useTexture.preload('/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Roughness.jpg');
+useTexture.preload('/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Metalness.jpg');
+useTexture.preload('/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Color.jpg');
+useTexture.preload('/textures/DiamondPlate/DiamondPlate006C_2K-JPG_NormalGL.jpg');
+useTexture.preload('/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Roughness.jpg');
 
 // ══════════════════════════════════════════════════════════════════════════
 // 1. Loading Diagnostics & Asset Performance Monitoring
@@ -37,6 +48,14 @@ type SceneObjectProps = {
   rotation?: [number, number, number];
   scale?: number | [number, number, number];
 };
+
+function StageReadySignal({ onReady }: { onReady?: () => void }) {
+  useEffect(() => {
+    onReady?.();
+  }, [onReady]);
+
+  return null;
+}
 
 // 1. Oświetlenie obwodowe LED — listwy przysufitowe audio-reaktywne
 function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
@@ -537,8 +556,9 @@ function StudioDisplayWall({
       <mesh position={[0, 0, 0.011]} renderOrder={20}>
         <planeGeometry args={[screenWidth, screenHeight]} />
         <meshBasicMaterial
-          map={videoTexture && (videoTexture.image?.width > 0) ? videoTexture : null}
-          color={videoTexture && (videoTexture.image?.width > 0) ? "#ffffff" : "#0d0d0d"}
+          key={videoTexture?.uuid ?? 'screen-empty'}
+          map={videoTexture}
+          color={videoTexture ? "#ffffff" : "#0d0d0d"}
           side={THREE.DoubleSide}
           toneMapped={false}
         />
@@ -709,7 +729,17 @@ function SofaRaw() {
   return <primitive object={processed} />;
 }
 
-export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onExit }: { position?: [number, number, number], rotation?: [number, number, number], onExit?: () => void }) {
+export function CreatorRoomMVP({
+  position = [0, 0, 0],
+  rotation = [0, 0, 0],
+  onExit,
+  onShellReady,
+}: {
+  position?: [number, number, number],
+  rotation?: [number, number, number],
+  onExit?: () => void,
+  onShellReady?: () => void,
+}) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -725,8 +755,8 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
   const closeHud = useHudStore((s) => s.closeHud);
   const isOpen = useHudStore((s) => s.isOpen);
   const masterVideoRef = useHudStore((s) => s.masterVideoRef);
-  const [laptopHovered, setLaptopHovered] = useState(false);
-  const laptopPlaneRef = useRef<THREE.Mesh>(null);
+  const [deviceScreenHovered, setDeviceScreenHovered] = useState(false);
+  const deviceScreenPlaneRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
   const hudCooldownRef = useRef(0);
 
@@ -749,7 +779,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     }
   }
 
-  // E key opens HUD when crosshair is on the laptop screen
+  // E key opens HUD when crosshair is on the desk device display
   useEffect(() => {
     const raycaster = new THREE.Raycaster();
     const forward = new THREE.Vector3(0, 0, -1);
@@ -757,11 +787,11 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code !== 'KeyE' || e.repeat) return;
 
-      // Always check if looking at the laptop plane (works with or without pointer lock)
-      if (laptopPlaneRef.current) {
+      // Always check if looking at the desk device display (works with or without pointer lock)
+      if (deviceScreenPlaneRef.current) {
         forward.set(0, 0, -1).applyQuaternion(camera.quaternion);
         raycaster.set(camera.position, forward);
-        const hits = raycaster.intersectObject(laptopPlaneRef.current);
+        const hits = raycaster.intersectObject(deviceScreenPlaneRef.current);
         if (hits.length > 0) {
           e.preventDefault();
           e.stopPropagation();
@@ -773,8 +803,8 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         }
       }
 
-      // Fallback: mouse hovering over laptop (not pointer-locked)
-      if (laptopHovered) {
+      // Fallback: mouse hovering over the device display (not pointer-locked)
+      if (deviceScreenHovered) {
         e.preventDefault();
         requestAnimationFrame(() => toggleHud());
       }
@@ -782,7 +812,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [laptopHovered, isOpen, camera]);
+  }, [deviceScreenHovered, isOpen, camera]);
 
   // diagnostic: confirm re-renders happen when masterVideoRef changes
   // console.log('[MVP] render – masterVideoRef:', !!masterVideoRef);
@@ -830,6 +860,33 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       return;
     }
 
+    const createCameraTexture = () => {
+      if (cancelled) return;
+      const tex = new THREE.VideoTexture(videoEl);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.generateMipmaps = false;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.format = THREE.RGBAFormat;
+      setCamTex(tex);
+    };
+
+    if (videoEl.srcObject instanceof MediaStream) {
+      console.log('[SelfieCam] Using existing HUD camera stream for room texture');
+      void videoEl.play().catch(() => {});
+      createCameraTexture();
+      return () => {
+        cancelled = true;
+        if (fallbackEl && fallbackEl.parentNode) {
+          fallbackEl.parentNode.removeChild(fallbackEl);
+        }
+        setCamTex(prev => {
+          if (prev) prev.dispose();
+          return null;
+        });
+      };
+    }
+
     console.log('[SelfieCam] Starting getUserMedia, facing:', camFacingMode, 'videoEl:', videoEl === camVideoElement ? 'store' : 'fallback');
 
     if (!navigator.mediaDevices) {
@@ -848,17 +905,13 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
       console.log('[SelfieCam] Got stream, tracks:', stream.getTracks().length);
       camStreamRef.current = stream;
       videoEl.srcObject = stream;
-      videoEl.play().catch(() => {});
+      videoEl.muted = true;
+      videoEl.playsInline = true;
+      void videoEl.play().catch(() => {});
 
       // Twórz VideoTexture od razu - zaktualizuje się gdy video będzie gotowe
       console.log('[SelfieCam] Creating VideoTexture immediately after play()');
-      const tex = new THREE.VideoTexture(videoEl);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.generateMipmaps = false;
-      tex.minFilter = THREE.LinearFilter;
-      tex.magFilter = THREE.LinearFilter;
-      console.log('[SelfieCam] setCamTex called with texture');
-      setCamTex(tex as any);
+      createCameraTexture();
     }).catch(err => {
       if (cancelled) return;
       console.warn('[SelfieCam] getUserMedia failed:', err.message);
@@ -1232,7 +1285,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
           repeatY={artControls.repeatY}
         />
 
-        {/* iPad Pro on table (replacing laptop) */}
+        {/* iPad Pro on the desk */}
         <AutoCenteredModel 
           url="/models/optimized/ipad_pro_2024.glb" 
           position={[decorControls.laptopPosX, decorControls.laptopPosY, decorControls.laptopPosZ]}
@@ -1332,7 +1385,9 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
         >
           {/* Invisible hit-test plane — większa, skalowana z iPadem, bez Y-offset */}
           <mesh
-            ref={laptopPlaneRef}
+            ref={deviceScreenPlaneRef}
+            position={[0, 0.035, 0.012]}
+            rotation={[-Math.PI / 2, 0, 0]}
             onClick={(e) => {
               e.stopPropagation();
               if (document.pointerLockElement) {
@@ -1340,23 +1395,15 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
               }
               requestAnimationFrame(() => toggleHud());
             }}
-            onPointerDown={(e) => {
-              // Duplikacja onClick dla lepszej responsywności (touch/pointer)
-              e.stopPropagation();
-              if (document.pointerLockElement) {
-                document.exitPointerLock();
-              }
-              requestAnimationFrame(() => toggleHud());
-            }}
-            onPointerOver={() => setLaptopHovered(true)}
-            onPointerOut={() => setLaptopHovered(false)}
+            onPointerOver={() => setDeviceScreenHovered(true)}
+            onPointerOut={() => setDeviceScreenHovered(false)}
           >
-            <planeGeometry args={[2.0, 1.5]} />
+            <planeGeometry args={[0.16, 0.11]} />
             <meshBasicMaterial transparent opacity={0.001} depthWrite={false} side={THREE.DoubleSide} />
           </mesh>
 
           {/* Hover hint + E key interaction */}
-          {laptopHovered && (
+          {deviceScreenHovered && (
             <Html position={[0, 1.1, 0]} center pointerEvents="none" zIndexRange={[10, 11]}>
               <div style={{
                 fontFamily: 'monospace',
@@ -1378,6 +1425,7 @@ export function CreatorRoomMVP({ position = [0, 0, 0], rotation = [0, 0, 0], onE
 
         {/* ── PARTICLE WAVE FLOOR — DISABLED */}
         {/* {!isMobile && <ParticleWaveFloor count={5000} size={16} />} */}
+        <StageReadySignal onReady={onShellReady} />
 
       </Suspense>
     </group>

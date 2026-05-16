@@ -18,7 +18,7 @@ interface TransitionState {
 }
 
 export const useTransitionStore = create<TransitionState>((set) => ({
-  activeZone: 'hub',
+  activeZone: 'room1',
   elevatorState: 'idle',
   activeElevator: null,
   targetZone: null,

@@ -84,7 +84,7 @@ async function detectVideoCompatibility(filePath: string): Promise<Pick<MediaIte
   }
 
   // Nie rozpoznano kodeka w nagłówku — na Vercel serverless nie czytamy całego pliku
-  return { videoCodec: 'unknown', isVideoDisplayable: false, compatibilityNote: 'Nie rozpoznano kodeka. MP4 H.264 (avc1) + AAC zalecany.' };
+  return { videoCodec: 'unknown', isVideoDisplayable: true, compatibilityNote: 'Nie rozpoznano kodeka w naglowku. Jesli obraz nie ruszy, wyeksportuj MP4 H.264 (avc1) + AAC.' };
 }
 
 function sortMedia(first: MediaItem, second: MediaItem): number {

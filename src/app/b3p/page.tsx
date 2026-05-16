@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, Suspense, type RefObject } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect, useRef, Suspense, type RefObject } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
@@ -190,6 +190,7 @@ export default function B3PPage() {
   const setActiveZone = useTransitionStore(s => s.setActiveZone);
   const releaseElevator = useTransitionStore(s => s.releaseElevator);
   const [bloomLight, setBloomLight] = useState<THREE.PointLight | null>(null);
+  const [roomShellReady, setRoomShellReady] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.9, 1.2] : [1, 1.5], [isMobile]);
 
@@ -200,12 +201,19 @@ export default function B3PPage() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Reset do lobby przy każdym montowaniu — Zustand trzyma stan między hot-reloadami
-  useEffect(() => {
+  // Reset strefy przed pierwszym paintem, żeby nie mignąć hubem ani windą w złym miejscu.
+  useLayoutEffect(() => {
+    setRoomShellReady(false);
     setActiveZone('room1');
-    releaseElevator(); // wymuś idle żeby ZoneController mógł ustawić kamerę
+    releaseElevator();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (activeZone !== 'room1') {
+      setRoomShellReady(false);
+    }
+  }, [activeZone]);
 
   return (
     <div className="b3p-fullscreen">
@@ -314,10 +322,15 @@ export default function B3PPage() {
         )} */}
 
         {activeZone === 'hub' && <GroundedHub onEnterRoom={(id) => setActiveZone(id)} />}
-        {activeZone !== 'hub' && <CreatorRoomMVP onExit={() => setActiveZone('hub')} />}
+        {activeZone !== 'hub' && (
+          <CreatorRoomMVP
+            onExit={() => setActiveZone('hub')}
+            onShellReady={() => setRoomShellReady(true)}
+          />
+        )}
         
         {/* Windy są niezależne od strefy, żeby mogły działać jako pomost */}
-        <ElevatorA />
+        <ElevatorA visible={activeZone === 'hub' || (activeZone === 'room1' && roomShellReady)} />
 
         <BaseNavigationControls />
       </Canvas>
