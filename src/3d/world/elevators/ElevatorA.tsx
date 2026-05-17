@@ -8,6 +8,10 @@ const LOBBY_POS = new THREE.Vector3(-24, 0, 1.5);
 // In the studio, keep the cabin beyond the doorway so it reads like a transition point,
 // not a freestanding object parked in the middle of the room.
 const ROOM_POS = new THREE.Vector3(0, 0, 9.65);
+const LOBBY_EXIT_POS = new THREE.Vector3(-24, 2.05, -2.35);
+const LOBBY_EXIT_LOOK_AT = new THREE.Vector3(-18, 2.05, -5);
+const ROOM_EXIT_POS = new THREE.Vector3(0, 2.05, 5.15);
+const ROOM_EXIT_LOOK_AT = new THREE.Vector3(0.8, 1.95, -2.2);
 
 export function ElevatorA({ visible = true }: { visible?: boolean }) {
   const elevatorState = useTransitionStore((s) => s.elevatorState);
@@ -164,9 +168,10 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
       if (Math.abs(leftDoorRef.current.position.x - -3.0) < 0.05) {
         leftDoorRef.current.position.x = -3.0;
         rightDoorRef.current.position.x = 3.0;
-        const exitBase = groupRef.current?.position ?? targetPos;
-        camera.position.set(exitBase.x, 2.05, exitBase.z - 3.85);
-        camera.rotation.set(0, 0, 0);
+        const exitPos = activeZone === 'room1' ? ROOM_EXIT_POS : LOBBY_EXIT_POS;
+        const lookAt = activeZone === 'room1' ? ROOM_EXIT_LOOK_AT : LOBBY_EXIT_LOOK_AT;
+        camera.position.copy(exitPos);
+        camera.lookAt(lookAt);
         camera.updateProjectionMatrix();
         setPanelHovered(false);
         setPanelInteractable(false);
