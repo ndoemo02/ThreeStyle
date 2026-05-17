@@ -164,7 +164,14 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
       if (Math.abs(leftDoorRef.current.position.x - -3.0) < 0.05) {
         leftDoorRef.current.position.x = -3.0;
         rightDoorRef.current.position.x = 3.0;
-        setElevatorState('idle');
+        const exitBase = groupRef.current?.position ?? targetPos;
+        camera.position.set(exitBase.x, 2.05, exitBase.z - 3.85);
+        camera.rotation.set(0, 0, 0);
+        camera.updateProjectionMatrix();
+        setPanelHovered(false);
+        setPanelInteractable(false);
+        cooldownUntilRef.current = performance.now() + 1200;
+        useTransitionStore.getState().releaseElevator();
       }
     }
 
