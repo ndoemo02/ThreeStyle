@@ -72,6 +72,13 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code !== 'KeyE' || e.repeat || !visible || elevatorState !== 'idle') return;
 
+      if (isCameraInsideCabin()) {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerElevator();
+        return;
+      }
+
       if (panelHitRef.current) {
         forward.set(0, 0, -1).applyQuaternion(camera.quaternion);
         raycaster.set(camera.position, forward);
@@ -93,7 +100,7 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [camera, elevatorState, panelHovered, triggerElevator, visible]);
+  }, [camera, elevatorState, isCameraInsideCabin, panelHovered, triggerElevator, visible]);
 
   useFrame((state, delta) => {
     const insideCabin = elevatorState === 'idle' && isCameraInsideCabin();
@@ -173,7 +180,7 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
     }
 
     if (elevatorState === 'idle') {
-      cooldownUntilRef.current = performance.now() + 4000;
+      cooldownUntilRef.current = performance.now() + 900;
     }
   }, [elevatorState, isActiveForUs, setElevatorState]);
 
@@ -183,6 +190,8 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
 
   const panelLabel = activeZone === 'room1' ? 'BACK TO LOBBY' : 'STUDIO A';
   const panelPromptVisible = elevatorState === 'idle' && panelHovered && panelInteractable;
+  const rideActionVisible = elevatorState === 'idle' && panelInteractable;
+  const rideActionLabel = activeZone === 'room1' ? 'RIDE TO LOBBY' : 'RIDE TO STUDIO';
 
   return (
     <group ref={groupRef} position={[targetPos.x, targetPos.y, targetPos.z]} rotation={[0, Math.PI, 0]}>
@@ -342,6 +351,50 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
             <div className="w-10 h-10 rounded-full border-2 border-teal-400 flex items-center justify-center">
               <div className="w-6 h-6 bg-teal-400 rounded-full animate-pulse" />
             </div>
+          </div>
+        </Html>
+      )}
+
+      {rideActionVisible && (
+        <Html fullscreen zIndexRange={[30, 31]} pointerEvents="none">
+          <div
+            style={{
+              position: 'fixed',
+              right: 'max(18px, env(safe-area-inset-right))',
+              bottom: 'max(22px, env(safe-area-inset-bottom))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              pointerEvents: 'none',
+            }}
+          >
+            <button
+              type="button"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                triggerElevator();
+              }}
+              style={{
+                pointerEvents: 'auto',
+                minWidth: '172px',
+                minHeight: '56px',
+                padding: '14px 20px',
+                borderRadius: '999px',
+                border: '1px solid rgba(79,209,197,0.62)',
+                background: 'linear-gradient(135deg, rgba(7,18,22,0.94), rgba(15,54,58,0.92))',
+                boxShadow: '0 14px 34px rgba(0,0,0,0.42), 0 0 24px rgba(79,209,197,0.22)',
+                color: '#c9fffb',
+                fontFamily: 'monospace',
+                fontSize: '13px',
+                fontWeight: 700,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                touchAction: 'manipulation',
+              }}
+            >
+              {rideActionLabel}
+            </button>
           </div>
         </Html>
       )}
