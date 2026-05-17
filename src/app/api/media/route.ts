@@ -20,6 +20,11 @@ type MediaItem = {
   compatibilityNote?: string;
 };
 
+type GitLfsPointer = {
+  oid: string;
+  size: number;
+};
+
 const MEDIA_ROOT = path.join(process.cwd(), 'public', 'media');
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogv']);
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.opus']);
@@ -39,6 +44,19 @@ function toPublicUrl(relativeFilePath: string): string {
 
 function toTitle(fileName: string): string {
   return path.basename(fileName, path.extname(fileName)).replace(/[_-]+/g, ' ').trim();
+}
+
+async function readGitLfsPointer(filePath: string, fileSize: number): Promise<GitLfsPointer | null> {
+  if (fileSize > 1024) return null;
+
+  const text = await readFile(filePath, 'utf8').catch(() => '');
+  if (!text.startsWith('version https://git-lfs.github.com/spec/v1')) return null;
+
+  const oid = text.match(/^oid sha256:([a-f0-9]{64})$/m)?.[1];
+  const size = Number(text.match(/^size (\d+)$/m)?.[1]);
+  if (!oid || !Number.isFinite(size) || size <= 0) return null;
+
+  return { oid, size };
 }
 
 async function detectVideoCompatibility(filePath: string): Promise<Pick<MediaItem, 'videoCodec' | 'isVideoDisplayable' | 'compatibilityNote'>> {
@@ -117,16 +135,25 @@ async function readMediaDirectory(directory: string, baseDirectory = directory):
       if (!kind) return [];
 
       const metadata = await stat(fullPath);
+      const gitLfsPointer = await readGitLfsPointer(fullPath, metadata.size);
       const relativeFilePath = path.relative(baseDirectory, fullPath);
       const normalizedId = relativeFilePath.split(path.sep).join('/');
-      const videoCompatibility = kind === 'video' ? await detectVideoCompatibility(fullPath) : {};
+      const videoCompatibility = gitLfsPointer && kind === 'video'
+        ? {
+            videoCodec: 'unknown' as const,
+            isVideoDisplayable: false,
+            compatibilityNote: 'Ten plik jest tylko wskaznikiem Git LFS na deployu. Wrzuc film jako normalny plik public/media albo hostuj go poza LFS.',
+          }
+        : kind === 'video'
+          ? await detectVideoCompatibility(fullPath)
+          : {};
 
       return [{
         id: `${kind}:${normalizedId}`,
         kind,
         title: toTitle(entry.name),
         src: toPublicUrl(relativeFilePath),
-        size: metadata.size,
+        size: gitLfsPointer?.size ?? metadata.size,
         modifiedAt: metadata.mtime.toISOString(),
         ...videoCompatibility,
       } satisfies MediaItem];

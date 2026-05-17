@@ -7,7 +7,7 @@ import { useTransitionStore } from '../../../store/useTransitionStore';
 const LOBBY_POS = new THREE.Vector3(-24, 0, 1.5);
 // In the studio, keep the cabin beyond the doorway so it reads like a transition point,
 // not a freestanding object parked in the middle of the room.
-const ROOM_POS = new THREE.Vector3(0, 0, 12.2);
+const ROOM_POS = new THREE.Vector3(0, 0, 9.65);
 
 export function ElevatorA({ visible = true }: { visible?: boolean }) {
   const elevatorState = useTransitionStore((s) => s.elevatorState);
@@ -29,6 +29,7 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
 
   const inTransit = elevatorState !== 'idle';
   const isActiveForUs = activeElevator === 'A';
+  const targetPos = activeZone === 'room1' ? ROOM_POS : LOBBY_POS;
 
   const isCameraInsideCabin = useCallback(() => {
     if (!groupRef.current) return false;
@@ -55,7 +56,6 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
   useEffect(() => {
     if (!groupRef.current) return;
 
-    const targetPos = activeZone === 'room1' ? ROOM_POS : LOBBY_POS;
     groupRef.current.position.copy(targetPos);
     groupRef.current.rotation.set(0, Math.PI, 0);
 
@@ -63,7 +63,7 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
       camera.position.set(targetPos.x, 1.7, targetPos.z);
       camera.rotation.set(0, 0, 0);
     }
-  }, [activeZone, camera, elevatorState, isActiveForUs]);
+  }, [camera, elevatorState, isActiveForUs, targetPos]);
 
   useEffect(() => {
     const raycaster = new THREE.Raycaster();
@@ -185,7 +185,7 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
   const panelPromptVisible = elevatorState === 'idle' && panelHovered && panelInteractable;
 
   return (
-    <group ref={groupRef}>
+    <group ref={groupRef} position={[targetPos.x, targetPos.y, targetPos.z]} rotation={[0, Math.PI, 0]}>
       <mesh position={[0, 0.05, 0]} receiveShadow>
         <boxGeometry args={[4.4, 0.1, 5.0]} />
         <meshStandardMaterial color="#141418" roughness={0.5} metalness={0.08} />

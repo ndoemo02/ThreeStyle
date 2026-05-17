@@ -329,8 +329,8 @@ export default function B3PPage() {
           />
         )}
         
-        {/* Elevator cabin belongs to the hub only; room gets its own scene props. */}
-        <ElevatorA visible={activeZone === 'hub'} />
+        {/* Physical elevator: hub always, room only after the room shell is ready. */}
+        <ElevatorA visible={activeZone === 'hub' || (activeZone === 'room1' && roomShellReady)} />
 
         <BaseNavigationControls />
       </Canvas>

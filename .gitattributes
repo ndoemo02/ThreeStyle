@@ -5,3 +5,8 @@
 *.exr filter=lfs diff=lfs merge=lfs -text
 *.zip filter=lfs diff=lfs merge=lfs -text
 *.glb filter=lfs diff=lfs merge=lfs -text
+
+# Runtime HUD videos must deploy as real public files on Vercel.
+public/media/video/Przejście_pory_dnia_202604291837.mp4 -filter -diff -merge -text
+public/media/video/Spodek_odleciał_z_miejsca_202604292318.mp4 -filter -diff -merge -text
+"public/media/video/Veo3 Generated Video.mp4" -filter -diff -merge -text
