@@ -19,6 +19,7 @@ import { PerformanceCounter } from '../../components/PerformanceCounter';
 import { useTransitionStore } from '../../store/useTransitionStore';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { ElevatorA } from '../../3d/world/elevators/ElevatorA';
+import { getCameraPreset, HUB_ZONE, ROOM_ZONE } from '../../3d/navigation/navigationConfig';
 
 // Singleton KTX2Loader — initialized once per renderer
 let _ktx2Loader: KTX2Loader | null = null;
@@ -41,60 +42,6 @@ function KTX2Preload() {
     });
   }, [gl]);
   return null;
-}
-
-type CameraPreset = {
-  position: [number, number, number];
-  target: [number, number, number];
-  fov: number;
-};
-
-function getRoomCameraPreset(width: number, height: number): CameraPreset {
-  if (height > width) {
-    return {
-      position: [0.55, 2.24, 5.2],
-      target: [1.45, 1.78, -2.15],
-      fov: 52,
-    };
-  }
-
-  if (width < 1024) {
-    return {
-      position: [0.1, 2.1, 2.9],
-      target: [0.95, 1.95, -2.45],
-      fov: 54,
-    };
-  }
-
-  return {
-    position: [0, 2.1, 2.4],
-    target: [0.8, 1.95, -2.2],
-    fov: 58,
-  };
-}
-
-function getHubCameraPreset(width: number, height: number): CameraPreset {
-  if (height > width) {
-    return {
-      position: [0, 2.05, 6],
-      target: [0, 2.05, 0],
-      fov: 58,
-    };
-  }
-
-  if (width < 1024) {
-    return {
-      position: [0, 2.05, 5.4],
-      target: [0, 2.05, 0],
-      fov: 58,
-    };
-  }
-
-  return {
-    position: [0, 2.05, 5],
-    target: [0, 2.05, 0],
-    fov: 60,
-  };
 }
 
 function AdaptiveEnvironment() {
@@ -156,11 +103,10 @@ function ZoneController({ activeZone }: { activeZone: string }) {
   const elevatorState = useTransitionStore(s => s.elevatorState);
   const activeElevator = useTransitionStore(s => s.activeElevator);
 
-  const preset = useMemo(() => {
-    return activeZone === 'hub'
-      ? getHubCameraPreset(size.width, size.height)
-      : getRoomCameraPreset(size.width, size.height);
-  }, [activeZone, size.width, size.height]);
+  const preset = useMemo(
+    () => getCameraPreset(activeZone, size.width, size.height),
+    [activeZone, size.width, size.height],
+  );
 
   const shouldForcePosition = elevatorState === 'idle' && activeElevator === null;
 
@@ -204,13 +150,13 @@ export default function B3PPage() {
   // Reset strefy przed pierwszym paintem, żeby nie mignąć hubem ani windą w złym miejscu.
   useLayoutEffect(() => {
     setRoomShellReady(false);
-    setActiveZone('room1');
+    setActiveZone(ROOM_ZONE);
     releaseElevator();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (activeZone !== 'room1') {
+    if (activeZone !== ROOM_ZONE) {
       setRoomShellReady(false);
     }
   }, [activeZone]);
@@ -321,16 +267,16 @@ export default function B3PPage() {
           </Suspense>
         )} */}
 
-        {activeZone === 'hub' && <GroundedHub onEnterRoom={(id) => setActiveZone(id)} />}
-        {activeZone !== 'hub' && (
+        {activeZone === HUB_ZONE && <GroundedHub onEnterRoom={(id) => setActiveZone(id)} />}
+        {activeZone !== HUB_ZONE && (
           <CreatorRoomMVP
-            onExit={() => setActiveZone('hub')}
+            onExit={() => setActiveZone(HUB_ZONE)}
             onShellReady={() => setRoomShellReady(true)}
           />
         )}
         
         {/* Physical elevator: hub always, room only after the room shell is ready. */}
-        <ElevatorA visible={activeZone === 'hub' || (activeZone === 'room1' && roomShellReady)} />
+        <ElevatorA visible={activeZone === HUB_ZONE || (activeZone === ROOM_ZONE && roomShellReady)} />
 
         <BaseNavigationControls />
       </Canvas>

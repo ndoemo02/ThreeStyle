@@ -3,15 +3,16 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Html } from '@react-three/drei';
 import { useTransitionStore } from '../../../store/useTransitionStore';
-
-const LOBBY_POS = new THREE.Vector3(-24, 0, 1.5);
-// In the studio, keep the cabin beyond the doorway so it reads like a transition point,
-// not a freestanding object parked in the middle of the room.
-const ROOM_POS = new THREE.Vector3(0, 0, 9.65);
-const LOBBY_EXIT_POS = new THREE.Vector3(-24, 2.05, -2.35);
-const LOBBY_EXIT_LOOK_AT = new THREE.Vector3(-18, 2.05, -5);
-const ROOM_EXIT_POS = new THREE.Vector3(0, 2.05, 5.15);
-const ROOM_EXIT_LOOK_AT = new THREE.Vector3(0.8, 1.95, -2.2);
+import {
+  ELEVATOR_LOBBY_EXIT_LOOK_AT,
+  ELEVATOR_LOBBY_EXIT_POSITION,
+  ELEVATOR_LOBBY_POSITION,
+  ELEVATOR_ROOM_EXIT_LOOK_AT,
+  ELEVATOR_ROOM_EXIT_POSITION,
+  ELEVATOR_ROOM_POSITION,
+  HUB_ZONE,
+  ROOM_ZONE,
+} from '../../navigation/navigationConfig';
 
 export function ElevatorA({ visible = true }: { visible?: boolean }) {
   const elevatorState = useTransitionStore((s) => s.elevatorState);
@@ -33,7 +34,7 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
 
   const inTransit = elevatorState !== 'idle';
   const isActiveForUs = activeElevator === 'A';
-  const targetPos = activeZone === 'room1' ? ROOM_POS : LOBBY_POS;
+  const targetPos = activeZone === ROOM_ZONE ? ELEVATOR_ROOM_POSITION : ELEVATOR_LOBBY_POSITION;
 
   const isCameraInsideCabin = useCallback(() => {
     if (!groupRef.current) return false;
@@ -52,7 +53,7 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
       return;
     }
 
-    const target = activeZone === 'room1' ? 'hub' : 'room1';
+    const target = activeZone === ROOM_ZONE ? HUB_ZONE : ROOM_ZONE;
     enterElevator('A', target);
     cooldownUntilRef.current = now + 5000;
   }, [activeZone, elevatorState, enterElevator, isCameraInsideCabin]);
@@ -168,8 +169,8 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
       if (Math.abs(leftDoorRef.current.position.x - -3.0) < 0.05) {
         leftDoorRef.current.position.x = -3.0;
         rightDoorRef.current.position.x = 3.0;
-        const exitPos = activeZone === 'room1' ? ROOM_EXIT_POS : LOBBY_EXIT_POS;
-        const lookAt = activeZone === 'room1' ? ROOM_EXIT_LOOK_AT : LOBBY_EXIT_LOOK_AT;
+        const exitPos = activeZone === ROOM_ZONE ? ELEVATOR_ROOM_EXIT_POSITION : ELEVATOR_LOBBY_EXIT_POSITION;
+        const lookAt = activeZone === ROOM_ZONE ? ELEVATOR_ROOM_EXIT_LOOK_AT : ELEVATOR_LOBBY_EXIT_LOOK_AT;
         camera.position.copy(exitPos);
         camera.lookAt(lookAt);
         camera.updateProjectionMatrix();
@@ -200,10 +201,10 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
     return null;
   }
 
-  const panelLabel = activeZone === 'room1' ? 'BACK TO LOBBY' : 'STUDIO A';
+  const panelLabel = activeZone === ROOM_ZONE ? 'BACK TO LOBBY' : 'STUDIO A';
   const panelPromptVisible = elevatorState === 'idle' && panelHovered && panelInteractable;
   const rideActionVisible = elevatorState === 'idle' && panelInteractable;
-  const rideActionLabel = activeZone === 'room1' ? 'RIDE TO LOBBY' : 'RIDE TO STUDIO';
+  const rideActionLabel = activeZone === ROOM_ZONE ? 'RIDE TO LOBBY' : 'RIDE TO STUDIO';
 
   return (
     <group ref={groupRef} position={[targetPos.x, targetPos.y, targetPos.z]} rotation={[0, Math.PI, 0]}>
