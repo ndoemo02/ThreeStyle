@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from 'react';
-import { Html } from '@react-three/drei';
+import { Html, RoundedBox } from '@react-three/drei';
 import { LeftWingCorridor } from '../corridors/LeftWingCorridor';
 import { HubShell } from './HubShell';
 
@@ -32,34 +32,35 @@ function CorridorFallback() {
         <planeGeometry args={[30, 8]} />
         <meshStandardMaterial color="#15110d" roughness={0.76} metalness={0.04} />
       </mesh>
-      <mesh position={[-25, 3, -9]} castShadow receiveShadow>
-        <boxGeometry args={[30, 6, 0.35]} />
-        <meshStandardMaterial color="#8b7a66" roughness={0.86} />
-      </mesh>
-      <mesh position={[-25, 3, -1]} castShadow receiveShadow>
-        <boxGeometry args={[30, 6, 0.35]} />
-        <meshStandardMaterial color="#8b7a66" roughness={0.86} />
-      </mesh>
-      <mesh position={[-10, 3, -5]} castShadow receiveShadow>
-        <boxGeometry args={[0.35, 6, 8]} />
-        <meshStandardMaterial color="#3a332b" roughness={0.9} />
-      </mesh>
-      <mesh position={[-39.8, 3, -5]} castShadow receiveShadow>
-        <boxGeometry args={[0.35, 6, 8]} />
-        <meshStandardMaterial color="#3a332b" roughness={0.9} />
-      </mesh>
+      <RoundedBox args={[30, 6, 0.35]} radius={0.04} smoothness={6} position={[-25, 3, -9]} castShadow receiveShadow>
+        <meshStandardMaterial color="#938471" roughness={0.88} />
+      </RoundedBox>
+      <RoundedBox args={[30, 6, 0.35]} radius={0.04} smoothness={6} position={[-25, 3, -1]} castShadow receiveShadow>
+        <meshStandardMaterial color="#938471" roughness={0.88} />
+      </RoundedBox>
+      <RoundedBox args={[0.35, 6, 8]} radius={0.04} smoothness={6} position={[-10, 3, -5]} castShadow receiveShadow>
+        <meshStandardMaterial color="#4a4035" roughness={0.92} />
+      </RoundedBox>
+      <RoundedBox args={[0.35, 6, 8]} radius={0.04} smoothness={6} position={[-39.8, 3, -5]} castShadow receiveShadow>
+        <meshStandardMaterial color="#4a4035" roughness={0.92} />
+      </RoundedBox>
 
       {[-2.55, 2.55].map((z) => (
-        <mesh key={`fallback-led-${z}`} position={[-25, 5.82, -5 + z]}>
-          <boxGeometry args={[28, 0.035, 0.05]} />
+        <RoundedBox key={`fallback-led-${z}`} args={[28, 0.035, 0.045]} radius={0.018} smoothness={5} position={[-25, 5.82, -5 + z]}>
           <meshBasicMaterial color="#ffd7a1" toneMapped={false} />
-        </mesh>
+        </RoundedBox>
       ))}
-      {[...Array(28)].map((_, i) => (
-        <mesh key={`fallback-slat-${i}`} position={[-38.5 + i * 1.05, 3, -1.22]}>
-          <boxGeometry args={[0.045, 5.3, 0.055]} />
-          <meshStandardMaterial color="#5a3821" roughness={0.62} metalness={0.04} />
-        </mesh>
+      {[-34, -25, -16].map((x) => (
+        <group key={`fallback-panel-${x}`} position={[x, 0, -1.22]}>
+          <RoundedBox args={[5.3, 4.7, 0.08]} radius={0.045} smoothness={6} position={[0, 2.75, 0]}>
+            <meshStandardMaterial color="#4a4035" roughness={0.92} />
+          </RoundedBox>
+          {[-1.8, -0.9, 0, 0.9, 1.8].map((offset) => (
+            <RoundedBox key={`fallback-panel-slat-${offset}`} args={[0.16, 4.15, 0.12]} radius={0.04} smoothness={6} position={[offset, 2.75, 0.08]}>
+              <meshStandardMaterial color="#68472d" roughness={0.68} metalness={0.02} />
+            </RoundedBox>
+          ))}
+        </group>
       ))}
 
       <mesh position={[-24, 0.02, -2.2]} rotation={[-Math.PI / 2, 0, 0]}>

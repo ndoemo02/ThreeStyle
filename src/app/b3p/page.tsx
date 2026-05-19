@@ -138,7 +138,7 @@ export default function B3PPage() {
   const [bloomLight, setBloomLight] = useState<THREE.PointLight | null>(null);
   const [roomShellReady, setRoomShellReady] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.9, 1.2] : [1, 1.5], [isMobile]);
+  const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.9, 1.2] : [1.25, 2], [isMobile]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 768);
@@ -243,7 +243,7 @@ export default function B3PPage() {
         {/* ── Postprocessing ── */}
         <BloomLight onReady={setBloomLight} />
         {bloomLight && (
-          <EffectComposer multisampling={isMobile ? 0 : 2}>
+          <EffectComposer multisampling={isMobile ? 0 : 4}>
             <SMAA />
             <SelectiveBloom
               lights={[bloomLight]}

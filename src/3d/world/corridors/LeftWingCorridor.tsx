@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from 'react';
-import { Html, useTexture } from '@react-three/drei';
+import { Html, RoundedBox, useTexture } from '@react-three/drei';
 import { MatteDarkAccentMaterial, FoliageGreenMaterial } from '../../core/AcousticDarkMaterial';
 import { RoomDoor } from '../../modules/doors/RoomDoor';
 import * as THREE from 'three';
@@ -53,36 +53,36 @@ function WallSlatPanel({
 
   return (
     <group position={[centerX, 0, z]}>
-      <mesh position={[0, 2.8, 0]}>
-        <boxGeometry args={[width, 4.9, 0.06]} />
+      <RoundedBox args={[width, 4.75, 0.08]} radius={0.045} smoothness={8} position={[0, 2.78, 0]}>
         <primitive object={materials.darkPlaster} attach="material" />
-      </mesh>
-      <mesh position={[0, 5.28, 0.015]}>
-        <boxGeometry args={[width + 0.14, 0.12, 0.12]} />
+      </RoundedBox>
+      <RoundedBox args={[width + 0.12, 0.12, 0.12]} radius={0.035} smoothness={6} position={[0, 5.2, 0.02]}>
         <primitive object={materials.blackMetal} attach="material" />
-      </mesh>
-      <mesh position={[0, 0.32, 0.015]}>
-        <boxGeometry args={[width + 0.14, 0.12, 0.12]} />
+      </RoundedBox>
+      <RoundedBox args={[width + 0.12, 0.12, 0.12]} radius={0.035} smoothness={6} position={[0, 0.38, 0.02]}>
         <primitive object={materials.blackMetal} attach="material" />
-      </mesh>
-      <mesh position={[-width / 2 - 0.03, 2.8, 0.015]}>
-        <boxGeometry args={[0.12, 4.98, 0.12]} />
+      </RoundedBox>
+      <RoundedBox args={[0.12, 4.82, 0.12]} radius={0.035} smoothness={6} position={[-width / 2 - 0.02, 2.8, 0.02]}>
         <primitive object={materials.blackMetal} attach="material" />
-      </mesh>
-      <mesh position={[width / 2 + 0.03, 2.8, 0.015]}>
-        <boxGeometry args={[0.12, 4.98, 0.12]} />
+      </RoundedBox>
+      <RoundedBox args={[0.12, 4.82, 0.12]} radius={0.035} smoothness={6} position={[width / 2 + 0.02, 2.8, 0.02]}>
         <primitive object={materials.blackMetal} attach="material" />
-      </mesh>
+      </RoundedBox>
       {Array.from({ length: slatCount }).map((_, i) => (
-        <mesh key={`slat-${i}`} position={[-width / 2 + spacing * (i + 1), 2.8, 0.08]} castShadow>
-          <boxGeometry args={[0.12, 4.55, 0.16]} />
+        <RoundedBox
+          key={`slat-${i}`}
+          args={[0.16, 4.28, 0.13]}
+          radius={0.045}
+          smoothness={8}
+          position={[-width / 2 + spacing * (i + 1), 2.78, 0.095]}
+          castShadow
+        >
           <primitive object={materials.woodSlat} attach="material" />
-        </mesh>
+        </RoundedBox>
       ))}
-      <mesh position={[0, 5.12, 0.11]}>
-        <boxGeometry args={[width - 0.28, 0.045, 0.04]} />
+      <RoundedBox args={[width - 0.36, 0.035, 0.035]} radius={0.018} smoothness={5} position={[0, 5.02, 0.12]}>
         <primitive object={materials.warmLed} attach="material" />
-      </mesh>
+      </RoundedBox>
     </group>
   );
 }
@@ -116,19 +116,19 @@ export function LeftWingCorridor({ onEnterRoom }: { onEnterRoom: (id: string) =>
     floorTex.repeat.set(12, 2);
 
     const warmPlaster = new THREE.MeshStandardMaterial({
-      color: '#8b7a66',
-      roughness: 0.86,
+      color: '#938471',
+      roughness: 0.88,
       metalness: 0.0,
     });
     const darkPlaster = new THREE.MeshStandardMaterial({
-      color: '#3a332b',
-      roughness: 0.9,
+      color: '#4a4035',
+      roughness: 0.92,
       metalness: 0.0,
     });
     const blackMetal = new THREE.MeshStandardMaterial({
-      color: '#080808',
-      roughness: 0.48,
-      metalness: 0.5,
+      color: '#12100e',
+      roughness: 0.58,
+      metalness: 0.38,
     });
     const smokedGlass = new THREE.MeshPhysicalMaterial({
       color: '#050505',
@@ -140,19 +140,19 @@ export function LeftWingCorridor({ onEnterRoom }: { onEnterRoom: (id: string) =>
       reflectivity: 0.65,
     });
     const concreteWall = new THREE.MeshStandardMaterial({
-      color: '#8b7a66', roughness: 0.8, metalness: 0.0,
+      color: '#938471', roughness: 0.84, metalness: 0.0,
     });
     const woodSlat = new THREE.MeshStandardMaterial({
       map: woodTex, normalMap: woodNormTex, roughnessMap: woodRoughTex,
-      color: '#5a3821', roughness: 0.62, metalness: 0.04,
+      color: '#68472d', roughness: 0.68, metalness: 0.02,
     });
     const graniteFloor = new THREE.MeshStandardMaterial({
       map: floorTex, normalMap: floorNormTex, roughnessMap: floorRoughTex,
       color: '#2c2925', roughness: 0.38, metalness: 0.08,
     });
     const ceilingDark = new THREE.MeshStandardMaterial({
-      color: '#15110d',
-      roughness: 0.72,
+      color: '#1d1712',
+      roughness: 0.76,
       metalness: 0.05,
     });
     const warmLed = new THREE.MeshBasicMaterial({
@@ -203,16 +203,14 @@ export function LeftWingCorridor({ onEnterRoom }: { onEnterRoom: (id: string) =>
         <primitive object={materials.ceilingDark} attach="material" />
       </mesh>
       {[-2.55, 2.55].map((z) => (
-        <mesh key={`ceiling-led-${z}`} position={[-15, 5.81, z]}>
-          <boxGeometry args={[28, 0.035, 0.05]} />
+        <RoundedBox key={`ceiling-led-${z}`} args={[28, 0.035, 0.045]} radius={0.018} smoothness={5} position={[-15, 5.81, z]}>
           <primitive object={materials.warmLed} attach="material" />
-        </mesh>
+        </RoundedBox>
       ))}
-      {[-27, -25.8, -24.6, -23.4, -22.2, -21, -19.8, -18.6, -17.4, -16.2, -15, -13.8, -12.6, -11.4, -10.2, -9, -7.8, -6.6, -5.4, -4.2, -3].map((x) => (
-        <mesh key={`ceiling-slat-${x}`} position={[x, 5.83, 0]}>
-          <boxGeometry args={[0.06, 0.06, 4.15]} />
+      {[-26.6, -24.6, -22.6, -20.6, -18.6, -16.6, -14.6, -12.6, -10.6, -8.6, -6.6, -4.6].map((x) => (
+        <RoundedBox key={`ceiling-groove-${x}`} args={[0.075, 0.035, 4.05]} radius={0.015} smoothness={5} position={[x, 5.825, 0]}>
           <primitive object={materials.blackMetal} attach="material" />
-        </mesh>
+        </RoundedBox>
       ))}
       <pointLight position={[-22, 5.45, -2.4]} intensity={2.0} distance={8} decay={2} color="#ffd7a1" />
       <pointLight position={[-10, 5.45, 2.4]} intensity={1.8} distance={8} decay={2} color="#ffd7a1" />
@@ -289,7 +287,7 @@ export function LeftWingCorridor({ onEnterRoom }: { onEnterRoom: (id: string) =>
       {[-24, -12, -3].map((x, i) => (
         <group key={`planter-${i}`} position={[x, 0, -3.5]}>
           <mesh position={[0, 0.3, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.7, 0.6, 0.5]} />
+            <boxGeometry args={[0.72, 0.58, 0.52]} />
             <primitive object={MatteDarkAccentMaterial} attach="material" />
           </mesh>
           <mesh position={[0, 0.6, 0]}>
@@ -297,15 +295,15 @@ export function LeftWingCorridor({ onEnterRoom }: { onEnterRoom: (id: string) =>
             <meshStandardMaterial color="#4a4540" roughness={0.5} metalness={0.1} />
           </mesh>
           <mesh position={[0, 1.3, 0]} castShadow>
-            <sphereGeometry args={[0.36, 12, 8]} />
+            <sphereGeometry args={[0.36, 18, 12]} />
             <primitive object={FoliageGreenMaterial} attach="material" />
           </mesh>
           <mesh position={[0.12, 1.62, 0.06]} scale={[0.8, 1.15, 0.8]} castShadow>
-            <sphereGeometry args={[0.28, 12, 8]} />
+            <sphereGeometry args={[0.28, 18, 12]} />
             <meshStandardMaterial color="#4b6f3a" roughness={0.9} metalness={0.0} />
           </mesh>
           <mesh position={[-0.12, 1.55, -0.04]} scale={[0.7, 1.0, 0.7]} castShadow>
-            <sphereGeometry args={[0.24, 12, 8]} />
+            <sphereGeometry args={[0.24, 18, 12]} />
             <meshStandardMaterial color="#4a6b3a" roughness={0.9} metalness={0.0} />
           </mesh>
         </group>
