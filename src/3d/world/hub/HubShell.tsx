@@ -6,7 +6,6 @@ import { useTexture, useGLTF } from '@react-three/drei';
 import { useAudioStore } from '../../../stores/useAudioStore';
 import { DistanceCulledModel } from '../../systems/DistanceCulledModel';
 import { useControls } from 'leva';
-import { WarmWhiteMaterial, MatteDarkAccentMaterial, FoliageGreenMaterial } from '../../core/AcousticDarkMaterial';
 import * as THREE from 'three';
 import { GalaxyCeilingMaterial } from './GalaxyCeilingMaterial';
 
@@ -16,6 +15,13 @@ import { GalaxyCeilingMaterial } from './GalaxyCeilingMaterial';
 // ══════════════════════════════════════════════════════════════════════════
 useGLTF.preload('/models/optimized/stylized_tree.glb');
 useGLTF.preload('/models/optimized/venetian_sofa.glb');
+
+const HUB_NEON_MATERIAL = new THREE.MeshStandardMaterial({
+  color: '#ffffff',
+  emissive: '#00f3ff',
+  emissiveIntensity: 0.5,
+  toneMapped: false,
+});
 
 function Tree({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
   const { scene } = useGLTF('/models/optimized/stylized_tree.glb');
@@ -136,17 +142,14 @@ function InstancedShrubs() {
 
 function HubPerimeterNeon({ y = 7.9 }: { y?: number }) {
   const hudAnalyser = useAudioStore(s => s.analyserNode);
-  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
   const lightRef = useRef<THREE.PointLight>(null);
-
   const dataArrayRef = useRef(new Uint8Array(0));
 
   useFrame(() => {
-    if (!materialRef.current) return;
 
     // Early return: brak audio = stała intensywność
     if (!hudAnalyser) {
-      materialRef.current.emissiveIntensity = 0.5;
+      HUB_NEON_MATERIAL.emissiveIntensity = 0.5;
       if (lightRef.current) lightRef.current.intensity = 0.2;
       return;
     }
@@ -164,7 +167,7 @@ function HubPerimeterNeon({ y = 7.9 }: { y?: number }) {
     const avg = sum / 16 / 255; 
 
     const intensity = 0.5 + avg * 8.0; 
-    materialRef.current.emissiveIntensity = intensity;
+    HUB_NEON_MATERIAL.emissiveIntensity = intensity;
     if (lightRef.current) lightRef.current.intensity = intensity * 0.5;
   });
 
@@ -173,33 +176,25 @@ function HubPerimeterNeon({ y = 7.9 }: { y?: number }) {
 
   return (
     <group position={[0, y, 0]}>
-      <meshStandardMaterial 
-        ref={materialRef}
-        color="#ffffff" 
-        emissive="#00f3ff" 
-        emissiveIntensity={0.5} 
-        toneMapped={false}
-      />
-      
       {/* Front */}
       <mesh position={[0, 0, depth/2 - 0.1]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.04, 0.04, width, 8]} />
-        <primitive object={materialRef.current || new THREE.MeshStandardMaterial()} attach="material" />
+        <primitive object={HUB_NEON_MATERIAL} attach="material" />
       </mesh>
       {/* Back */}
       <mesh position={[0, 0, -depth/2 + 0.1]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.04, 0.04, width, 8]} />
-        <primitive object={materialRef.current || new THREE.MeshStandardMaterial()} attach="material" />
+        <primitive object={HUB_NEON_MATERIAL} attach="material" />
       </mesh>
       {/* Left */}
       <mesh position={[-width/2 + 0.1, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.04, 0.04, depth, 8]} />
-        <primitive object={materialRef.current || new THREE.MeshStandardMaterial()} attach="material" />
+        <primitive object={HUB_NEON_MATERIAL} attach="material" />
       </mesh>
       {/* Right */}
       <mesh position={[width/2 - 0.1, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.04, 0.04, depth, 8]} />
-        <primitive object={materialRef.current || new THREE.MeshStandardMaterial()} attach="material" />
+        <primitive object={HUB_NEON_MATERIAL} attach="material" />
       </mesh>
       
       <pointLight ref={lightRef} distance={10} decay={2} color="#00f3ff" intensity={0.2} />
@@ -208,35 +203,34 @@ function HubPerimeterNeon({ y = 7.9 }: { y?: number }) {
 }
 
 export function HubShell() {
-  // Memoize Leva controls to prevent re-renders on every frame
-  const tree1 = useMemo(() => useControls('Stylized Tree 01 - v6', {
+  const tree1 = useControls('Stylized Tree 01 - v6', {
     t1x: { value: -8.3, min: -15, max: 15, step: 0.1 },
     t1y: { value: 0.0, min: -2, max: 10, step: 0.1 },
     t1z: { value: -8.0, min: -15, max: 15, step: 0.1 },
     t1s: { value: 6.5, min: 0.1, max: 20, step: 0.05 },
     t1r: { value: 0.30, min: -Math.PI, max: Math.PI, step: 0.01 },
-  }), []);
-  const tree2 = useMemo(() => useControls('Stylized Tree 02 - v6', {
+  });
+  const tree2 = useControls('Stylized Tree 02 - v6', {
     t2x: { value: 8.0, min: -15, max: 15, step: 0.1 },
     t2y: { value: 0.0, min: -2, max: 10, step: 0.1 },
     t2z: { value: -8.0, min: -15, max: 15, step: 0.1 },
     t2s: { value: 7.0, min: 0.1, max: 20, step: 0.05 },
     t2r: { value: -0.40, min: -Math.PI, max: Math.PI, step: 0.01 },
-  }), []);
-  const tree3 = useMemo(() => useControls('Stylized Tree 03 - v6', {
+  });
+  const tree3 = useControls('Stylized Tree 03 - v6', {
     t3x: { value: -8.0, min: -15, max: 15, step: 0.1 },
     t3y: { value: 0.0, min: -2, max: 10, step: 0.1 },
     t3z: { value: 8.8, min: -15, max: 15, step: 0.1 },
     t3s: { value: 5.0, min: 0.1, max: 20, step: 0.05 },
     t3r: { value: 0.10, min: -Math.PI, max: Math.PI, step: 0.01 },
-  }), []);
-  const sofaControls = useMemo(() => useControls('Venetian Sofa v6 - FINAL', {
+  });
+  const sofaControls = useControls('Venetian Sofa v6 - FINAL', {
     x: { value: -8.8, min: -15, max: 15, step: 0.1 },
     y: { value: 0.0, min: -2, max: 10, step: 0.1 },
     z: { value: 2.8, min: -15, max: 15, step: 0.1 },
     scale: { value: 2.3, min: 0.01, max: 50, step: 0.1 },
     rotation: { value: 1.61, min: -Math.PI, max: Math.PI, step: 0.01 },
-  }), []);
+  });
 
   const textures = useTexture({
     map: '/textures/Concrete035_2K.jpg',

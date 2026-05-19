@@ -72,7 +72,7 @@ export const ELEVATOR_LOBBY_POSITION = new THREE.Vector3(-24, 0, 1.5);
 export const ELEVATOR_ROOM_POSITION = new THREE.Vector3(0, 0, 9.65);
 
 export const ELEVATOR_LOBBY_EXIT_POSITION = new THREE.Vector3(-24, 2.05, -2.35);
-export const ELEVATOR_LOBBY_EXIT_LOOK_AT = new THREE.Vector3(-18, 2.05, -5);
+export const ELEVATOR_LOBBY_EXIT_LOOK_AT = new THREE.Vector3(-19, 2.05, -1.15);
 
 export const ELEVATOR_ROOM_EXIT_POSITION = new THREE.Vector3(0, 2.05, 5.15);
 export const ELEVATOR_ROOM_EXIT_LOOK_AT = new THREE.Vector3(0.8, 1.95, -2.2);

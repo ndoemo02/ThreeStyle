@@ -36,27 +36,32 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
   const isActiveForUs = activeElevator === 'A';
   const targetPos = activeZone === ROOM_ZONE ? ELEVATOR_ROOM_POSITION : ELEVATOR_LOBBY_POSITION;
 
-  const isCameraInsideCabin = useCallback(() => {
+  const getLocalCameraPosition = useCallback(() => {
     if (!groupRef.current) return false;
-    const localCamera = groupRef.current.worldToLocal(camera.position.clone());
-    return (
-      localCamera.x > -1.35 &&
-      localCamera.x < 1.35 &&
-      localCamera.z > -2.15 &&
-      localCamera.z < 0.45
-    );
+    return groupRef.current.worldToLocal(camera.position.clone());
   }, [camera]);
+
+  const isCameraInInteractionZone = useCallback(() => {
+    const localCamera = getLocalCameraPosition();
+    if (!localCamera) return false;
+    return (
+      localCamera.x > -1.75 &&
+      localCamera.x < 1.75 &&
+      localCamera.z > -2.25 &&
+      localCamera.z < 2.35
+    );
+  }, [getLocalCameraPosition]);
 
   const triggerElevator = useCallback(() => {
     const now = performance.now();
-    if (elevatorState !== 'idle' || now < cooldownUntilRef.current || !isCameraInsideCabin()) {
+    if (elevatorState !== 'idle' || now < cooldownUntilRef.current || !isCameraInInteractionZone()) {
       return;
     }
 
     const target = activeZone === ROOM_ZONE ? HUB_ZONE : ROOM_ZONE;
     enterElevator('A', target);
     cooldownUntilRef.current = now + 5000;
-  }, [activeZone, elevatorState, enterElevator, isCameraInsideCabin]);
+  }, [activeZone, elevatorState, enterElevator, isCameraInInteractionZone]);
 
   useEffect(() => {
     if (!groupRef.current) return;
@@ -77,7 +82,7 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code !== 'KeyE' || e.repeat || !visible || elevatorState !== 'idle') return;
 
-      if (isCameraInsideCabin()) {
+      if (isCameraInInteractionZone()) {
         e.preventDefault();
         e.stopPropagation();
         triggerElevator();
@@ -105,12 +110,12 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [camera, elevatorState, isCameraInsideCabin, panelHovered, triggerElevator, visible]);
+  }, [camera, elevatorState, isCameraInInteractionZone, panelHovered, triggerElevator, visible]);
 
   useFrame((state, delta) => {
-    const insideCabin = elevatorState === 'idle' && isCameraInsideCabin();
-    if (insideCabin !== panelInteractable) {
-      setPanelInteractable(insideCabin);
+    const inInteractionZone = elevatorState === 'idle' && isCameraInInteractionZone();
+    if (inInteractionZone !== panelInteractable) {
+      setPanelInteractable(inInteractionZone);
     }
 
     if (shaftGroupRef.current && elevatorState === 'moving') {
