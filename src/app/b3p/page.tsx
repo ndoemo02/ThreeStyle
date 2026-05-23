@@ -44,7 +44,7 @@ function KTX2Preload() {
   return null;
 }
 
-function AdaptiveEnvironment() {
+function AdaptiveEnvironment({ activeZone }: { activeZone: string }) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -57,7 +57,7 @@ function AdaptiveEnvironment() {
   }, []);
 
   if (isMobile) return null;
-  return <Environment preset="apartment" environmentIntensity={0.3} />;
+  return <Environment preset="apartment" environmentIntensity={activeZone === ROOM_ZONE ? 0.12 : 0.3} />;
 }
 
 function BloomLight({ onReady }: { onReady: (light: THREE.PointLight) => void }) {
@@ -139,6 +139,7 @@ export default function B3PPage() {
   const [roomShellReady, setRoomShellReady] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.9, 1.2] : [1.25, 2], [isMobile]);
+  const isRoomZone = activeZone !== HUB_ZONE;
 
   useEffect(() => {
     const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 768);
@@ -231,14 +232,14 @@ export default function B3PPage() {
  <ZoneController activeZone={activeZone} />
         
         {/* Ambient — bazowe oświetlenie (zwiększone na mobile bez Environment) */}
-        <ambientLight intensity={0.8} />
-        <directionalLight position={[5, 10, 5]} intensity={0.6} />
+        <ambientLight intensity={isRoomZone ? 0.22 : 0.8} />
+        <directionalLight position={[5, 10, 5]} intensity={isRoomZone ? 0.18 : 0.6} />
 
         {/* Mgła wyłączona */}
         <color attach="background" args={['#1a1a1a']} />
 
         {/* Ciepłe, subtelne refleksy środowiskowe — zredukowane na mobile */}
-        <AdaptiveEnvironment />
+        <AdaptiveEnvironment activeZone={activeZone} />
 
         {/* ── Postprocessing ── */}
         <BloomLight onReady={setBloomLight} />

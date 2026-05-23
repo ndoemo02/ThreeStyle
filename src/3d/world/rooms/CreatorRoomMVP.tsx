@@ -69,13 +69,16 @@ function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
     const mat = new THREE.MeshStandardMaterial({
       color: '#ffffff',
       emissive: '#00f3ff',
-      emissiveIntensity: 1.2,
+      emissiveIntensity: 0.7,
       toneMapped: false,
       depthWrite: false,
     });
-    materialRef.current = mat;
     return mat;
   }, []);
+
+  useEffect(() => {
+    materialRef.current = ledMaterial;
+  }, [ledMaterial]);
 
   useFrame(() => {
     const mat = materialRef.current;
@@ -83,8 +86,8 @@ function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
     if (!mat || !light) return;
 
     if (!hudAnalyser) {
-      mat.emissiveIntensity = 0.8;
-      light.intensity = 0.3;
+      mat.emissiveIntensity = 0.5;
+      light.intensity = 0.18;
       return;
     }
 
@@ -99,9 +102,9 @@ function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
     for (let i = 0; i < 16; i++) sum += data[i];
     const avg = sum / 16 / 255;
 
-    const intensity = 0.8 + avg * 12.0;
+    const intensity = 0.5 + avg * 6.0;
     mat.emissiveIntensity = intensity;
-    light.intensity = intensity * 0.7;
+    light.intensity = intensity * 0.45;
   });
 
   // Wymiary pokoju
@@ -139,7 +142,7 @@ function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
         position={[0, -0.15, 0]}
         color="#00f3ff"
         distance={14}
-        intensity={0.4}
+        intensity={0.22}
         decay={1.5}
       />
     </group>
@@ -196,7 +199,7 @@ function BrickWall({ args, position }: { args: [number, number, number], positio
         aoMap={maps[1]} 
         normalMap={maps[2]} 
         roughnessMap={maps[3]} 
-        color="#888888" // darken slightly
+        color="#707070"
       />
     </mesh>
   );
@@ -242,9 +245,9 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat,
         normalMap={maps[1]} 
         roughnessMap={maps[2]} 
         metalnessMap={maps[3]} 
-        color="#a0a0a0" // Brighter so grooves are more visible
-        normalScale={new THREE.Vector2(3, 3)} // Much stronger normal map for deep grooves
-        roughness={0.7}
+        color="#77706a"
+        normalScale={new THREE.Vector2(2.4, 2.4)}
+        roughness={0.82}
       />
     </mesh>
   );
@@ -287,10 +290,10 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
         roughnessMap={maps[2]} 
         metalnessMap={maps[3]} 
         aoMap={maps[4]}
-        color="#999999" // Brighter base color
-        normalScale={new THREE.Vector2(2.5, 2.5)} // Stronger normal map to pop the diamond plate
-        roughness={0.75} // Less shiny for cleaner e-voting look
-        metalness={0.55} // Subtler metallic feel
+        color="#6f5a4c"
+        normalScale={new THREE.Vector2(1.8, 1.8)}
+        roughness={0.82}
+        metalness={0.38}
       />
     </mesh>
   );
@@ -1096,22 +1099,23 @@ export function CreatorRoomMVP({
 
   return (
     <group position={new THREE.Vector3(...position)} rotation={new THREE.Euler(...rotation)}>
-      <ambientLight intensity={0.2} color="#ddeeff" />
+      <ambientLight intensity={0.08} color="#2a241f" />
 
       {/* Górny sufit — 2 słabsze pointLight zamiast przepalającego directionala */}
-      <pointLight position={[0, 4.9, 0]} intensity={0.9} color="#ffa95c" distance={10} decay={1.5} />
-      <pointLight position={[-4, 4.9, -4]} intensity={0.8} color="#ffa95c" distance={8} decay={1.5} />
+      <pointLight position={[0, 4.9, 0]} intensity={0.52} color="#ffa95c" distance={9} decay={1.7} />
+      <pointLight position={[-4, 4.9, -4]} intensity={0.42} color="#ffa95c" distance={7} decay={1.8} />
 
       {/* Desk SpotLight (Soft & Focused) */}
       <spotLight
         position={[3.5, 4.5, -3.4]}
-        intensity={40}
+        intensity={26}
         angle={0.8}
         penumbra={0.8}
         decay={1.5}
         color="#ffecd6"
         distance={9}
         castShadow
+        shadow-mapSize={[512, 512]}
       >
         <object3D position={[3.5, 0, -3.4]} attach="target" />
       </spotLight>
@@ -1119,19 +1123,18 @@ export function CreatorRoomMVP({
       {/* RTV Cabinet SpotLight (Soft) */}
       <spotLight
         position={[-5.0, 4.0, 3.2]}
-        intensity={35}
+        intensity={22}
         angle={0.9}
         penumbra={1}
         decay={1.5}
         color="#ffe4c4"
         distance={8}
-        castShadow
       >
         <object3D position={[-6.0, 0.6, 3.2]} attach="target" />
       </spotLight>
 
       {/* Soft fill z frontu */}
-      <directionalLight position={[0, 3, 5]} intensity={0.4} color="#ffffff" />
+      <directionalLight position={[0, 3, 5]} intensity={0.12} color="#ffe8d0" />
 
       {/* STAGE 1: Static Architecture (Fastest Load) */}
       <Suspense fallback={null}>
@@ -1163,16 +1166,16 @@ export function CreatorRoomMVP({
           {/* {!isMobile && (
             <PortalEffect position={[0, 2.5, 0.3]} radius={1.2} active={true} />
           )} */}
-          <pointLight position={[0, 2.5, -2]} intensity={5} color="#ff8c42" distance={6} decay={2} />
+          <pointLight position={[0, 2.5, -2]} intensity={2.4} color="#ff8c42" distance={5} decay={2} />
         </group>
 
         {/* Back wall — ciepły akcent */}
-        <pointLight position={[1.9, 3.0, -4.8]} intensity={3.5} color="#ffe0a0" distance={5} decay={2} />
+        <pointLight position={[1.9, 3.0, -4.8]} intensity={1.9} color="#ffe0a0" distance={4.5} decay={2} />
         {/* Cool rim fill — przełamuje pomarańczową paletę */}
-        <pointLight position={[-6.5, 4.0, -4.5]} intensity={2.0} color="#8899cc" distance={10} decay={2} />
+        <pointLight position={[-6.5, 4.0, -4.5]} intensity={0.85} color="#8899cc" distance={8} decay={2} />
         <mesh position={[0, 2.5, -6]} castShadow receiveShadow>
           <boxGeometry args={[14, 5, 0.5]} />
-          <meshStandardMaterial color="#5c3a1e" roughness={0.65} metalness={0.05} />
+          <meshStandardMaterial color="#4a2b19" roughness={0.78} metalness={0.03} />
         </mesh>
 
         <TechnicalTrim position={[-6.72, 2.5, -5.74]} args={[0.06, 5.0, 0.04]} />
@@ -1413,11 +1416,6 @@ export function CreatorRoomMVP({
           <TechnicalTrim position={[0.08, 0, boothControls.width / 2 + 0.12]} args={[0.16, boothControls.height + 0.32, 0.16]} />
         </group>
 
-        {/* Vocal booth interior sits outside the left wall, aligned with the window. */}
-        <group position={[leftWallX - 0.06, 0, boothControls.posZ]} rotation={[0, Math.PI / 2, 0]}>
-          <VocalBooth />
-        </group>
-
         {/* Focal screen: always rendered, texture swapped imperatively. */}
         <group
            position={[hudControls.hudPosX, hudControls.hudPosY, hudControls.hudPosZ]}
@@ -1428,7 +1426,7 @@ export function CreatorRoomMVP({
            ]}
            scale={[hudControls.hudScale, hudControls.hudScale, hudControls.hudScale]}
         >
-           <pointLight position={[0, 0, 0.34]} intensity={4.0} color="#ff8c42" distance={4.5} decay={2} />
+           <pointLight position={[0, 0, 0.34]} intensity={2.4} color="#ff8c42" distance={4.2} decay={2} />
            <StudioDisplayWall
              videoTexture={screenTex}
              fallbackVisible={!screenTex}
