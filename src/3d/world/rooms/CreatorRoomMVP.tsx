@@ -1112,11 +1112,18 @@ export function CreatorRoomMVP({
 
   return (
     <group position={new THREE.Vector3(...position)} rotation={new THREE.Euler(...rotation)}>
-      <ambientLight intensity={0.08} color="#2a241f" />
+      <ambientLight intensity={isMobile ? 0.34 : 0.08} color={isMobile ? "#ffe4c0" : "#2a241f"} />
+      {isMobile && (
+        <>
+          <hemisphereLight args={["#fff1d6", "#3b2b22", 0.95]} />
+          <pointLight position={[0, 3.4, 2.8]} intensity={2.8} color="#ffd6a3" distance={12} decay={1.4} />
+          <pointLight position={[-4.8, 3.2, -3.6]} intensity={1.6} color="#f0b276" distance={9} decay={1.7} />
+        </>
+      )}
 
       {/* Górny sufit — 2 słabsze pointLight zamiast przepalającego directionala */}
-      <pointLight position={[0, 4.9, 0]} intensity={0.52} color="#ffa95c" distance={9} decay={1.7} />
-      <pointLight position={[-4, 4.9, -4]} intensity={0.42} color="#ffa95c" distance={7} decay={1.8} />
+      <pointLight position={[0, 4.9, 0]} intensity={isMobile ? 1.15 : 0.52} color="#ffa95c" distance={9} decay={1.7} />
+      <pointLight position={[-4, 4.9, -4]} intensity={isMobile ? 0.85 : 0.42} color="#ffa95c" distance={7} decay={1.8} />
 
       {/* Desk SpotLight (Soft & Focused) */}
       <spotLight
@@ -1155,29 +1162,29 @@ export function CreatorRoomMVP({
           <>
             <mesh position={[0, 0, -0.5]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow={false}>
               <planeGeometry args={[14.2, 15.2]} />
-              <meshStandardMaterial color="#282522" roughness={0.74} metalness={0.04} />
+              <meshStandardMaterial color="#4c433a" roughness={0.7} metalness={0.04} />
             </mesh>
-            <MobileWallBlock position={[0, 5.1, -0.5]} args={[14.2, 0.2, 15.2]} color="#241c17" />
+            <MobileWallBlock position={[0, 5.1, -0.5]} args={[14.2, 0.2, 15.2]} color="#4a392f" />
 
             <group position={[0, 0, 7]}>
-              <MobileWallBlock position={[-4.15, 2.5, 0]} args={[5.7, 5.2, 0.5]} color="#5a3825" />
-              <MobileWallBlock position={[4.15, 2.5, 0]} args={[5.7, 5.2, 0.5]} color="#5a3825" />
-              <MobileWallBlock position={[0, 4.6, 0]} args={[2.6, 1.0, 0.5]} color="#5a3825" />
-              <pointLight position={[0, 2.5, -2]} intensity={1.4} color="#ff8c42" distance={4.5} decay={2} />
+              <MobileWallBlock position={[-4.15, 2.5, 0]} args={[5.7, 5.2, 0.5]} color="#7a5139" />
+              <MobileWallBlock position={[4.15, 2.5, 0]} args={[5.7, 5.2, 0.5]} color="#7a5139" />
+              <MobileWallBlock position={[0, 4.6, 0]} args={[2.6, 1.0, 0.5]} color="#7a5139" />
+              <pointLight position={[0, 2.5, -2]} intensity={2.1} color="#ff9f55" distance={5.5} decay={1.8} />
             </group>
 
-            <MobileWallBlock position={[0, 2.5, -6]} args={[14, 5, 0.5]} color="#4a2b19" />
+            <MobileWallBlock position={[0, 2.5, -6]} args={[14, 5, 0.5]} color="#6f432b" />
             <MobileWallBlock
               position={[leftWallX, wallHeight / 2, -0.5]}
               rotation={[0, Math.PI / 2, 0]}
               args={[15.2, wallHeight, 0.5]}
-              color="#30241f"
+              color="#564035"
             />
             <MobileWallBlock
               position={[7, wallHeight / 2, -0.5]}
               rotation={[0, -Math.PI / 2, 0]}
               args={[15.2, wallHeight, 0.5]}
-              color="#30241f"
+              color="#564035"
             />
             <TechnicalTrim position={[-6.72, 2.5, -5.74]} args={[0.06, 5.0, 0.04]} />
             <TechnicalTrim position={[6.72, 2.5, -5.74]} args={[0.06, 5.0, 0.04]} />
