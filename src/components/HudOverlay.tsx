@@ -372,7 +372,7 @@ export function HudOverlay() {
             src={activeMedia?.kind === 'video' ? activeMedia.src : undefined}
             muted={false}
             playsInline
-            preload="auto"
+            preload="metadata"
             crossOrigin="anonymous"
             loop
             {...masterMediaEventProps}
@@ -465,6 +465,7 @@ export function HudOverlay() {
           </div>
 
           <HudContent
+            isHudOpen={isOpen}
             activeScreenId={activeScreenId}
             activeMedia={activeMedia}
             mediaItems={mediaItems}
@@ -489,6 +490,7 @@ export function HudOverlay() {
 }
 
 interface HudContentProps {
+  isHudOpen: boolean;
   activeScreenId: string | null;
   activeMedia: HudMediaItem | null;
   mediaItems: HudMediaItem[];
@@ -508,6 +510,7 @@ interface HudContentProps {
 }
 
 function HudContent({
+  isHudOpen,
   activeScreenId,
   activeMedia,
   mediaItems,
@@ -605,7 +608,13 @@ function HudContent({
                     </p>
                   </div>
                 ) : mounted && activeMedia?.kind === 'video' ? (
-                  <VideoCanvasPreview masterVideoRef={masterVideoElementRef} activeMediaId={activeMedia.id} onClick={togglePlay} />
+                  <VideoCanvasPreview
+                    masterVideoRef={masterVideoElementRef}
+                    activeMediaId={activeMedia.id}
+                    isActive={isHudOpen && activePanelIndex === 0}
+                    isPlaying={isPlaying}
+                    onClick={togglePlay}
+                  />
                 ) : mounted && activeMedia?.kind === 'audio' ? (
                   <div className="hud-media-state hud-bg-audio">
                     <div className="hud-media-icon">A</div>
@@ -934,23 +943,44 @@ function QueueRow({
   );
 }
 
-function VideoCanvasPreview({ masterVideoRef, activeMediaId, onClick }: { masterVideoRef: RefObject<HTMLVideoElement | null>; activeMediaId: string; onClick?: () => void }) {
+function VideoCanvasPreview({
+  masterVideoRef,
+  activeMediaId,
+  isActive,
+  isPlaying,
+  onClick,
+}: {
+  masterVideoRef: RefObject<HTMLVideoElement | null>;
+  activeMediaId: string;
+  isActive: boolean;
+  isPlaying: boolean;
+  onClick?: () => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    let animationFrameId: number;
-    const renderLoop = () => {
-      animationFrameId = requestAnimationFrame(renderLoop);
-      if (masterVideoRef.current && canvasRef.current && masterVideoRef.current.readyState >= 2) {
-        const ctx = canvasRef.current.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(masterVideoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-        }
+    let animationFrameId = 0;
+    const drawFrame = () => {
+      const video = masterVideoRef.current;
+      const canvas = canvasRef.current;
+      if (video && canvas && video.readyState >= 2) {
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
       }
     };
+
+    const renderLoop = () => {
+      drawFrame();
+      if (isActive && isPlaying && document.visibilityState === 'visible') {
+        animationFrameId = requestAnimationFrame(renderLoop);
+      }
+    };
+
     renderLoop();
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [masterVideoRef, activeMediaId]);
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
+  }, [masterVideoRef, activeMediaId, isActive, isPlaying]);
 
   return (
     <canvas

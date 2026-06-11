@@ -13,9 +13,6 @@ import { GalaxyCeilingMaterial } from './GalaxyCeilingMaterial';
 // PRELOAD HEAVY MODELS — start loading at module import (before React renders)
 // useGLTF.preload() from drei caches per URL — network request fires once
 // ══════════════════════════════════════════════════════════════════════════
-useGLTF.preload('/models/optimized/stylized_tree.glb');
-useGLTF.preload('/models/optimized/venetian_sofa.glb');
-
 const HUB_NEON_MATERIAL = new THREE.MeshStandardMaterial({
   color: '#ffffff',
   emissive: '#00f3ff',
