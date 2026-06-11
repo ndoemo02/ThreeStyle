@@ -18,6 +18,23 @@ import { RoomDoor } from '../../modules/doors/RoomDoor';
 // 0. PRELOAD HEAVY MODELS — start loading at module import, before any component renders
 // useGLTF.preload() from drei caches per URL — actual network request fires once
 // ══════════════════════════════════════════════════════════════════════════
+useGLTF.preload('/models/optimized/golden_play_button.glb');
+useGLTF.preload('/models/optimized/ipad_pro_2024.glb');
+useGLTF.preload('/models/optimized/office_chair.glb');
+useGLTF.preload('/models/optimized/organizer.glb');
+useGLTF.preload('/models/optimized/modern_wooden_cabinet.glb');
+useGLTF.preload('/models/optimized/sofa.glb');
+useTexture.preload('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_Color.jpg');
+useTexture.preload('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_AmbientOcclusion.jpg');
+useTexture.preload('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_NormalGL.jpg');
+useTexture.preload('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_Roughness.jpg');
+useTexture.preload('/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Color.jpg');
+useTexture.preload('/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_NormalGL.jpg');
+useTexture.preload('/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Roughness.jpg');
+useTexture.preload('/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Metalness.jpg');
+useTexture.preload('/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Color.jpg');
+useTexture.preload('/textures/DiamondPlate/DiamondPlate006C_2K-JPG_NormalGL.jpg');
+useTexture.preload('/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Roughness.jpg');
 
 // ══════════════════════════════════════════════════════════════════════════
 // 1. Loading Diagnostics & Asset Performance Monitoring
@@ -278,25 +295,6 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
         roughness={0.82}
         metalness={0.38}
       />
-    </mesh>
-  );
-}
-
-function MobileWallBlock({
-  args,
-  position,
-  rotation = [0, 0, 0],
-  color = '#4a2b19',
-}: {
-  args: [number, number, number];
-  position: [number, number, number];
-  rotation?: [number, number, number];
-  color?: string;
-}) {
-  return (
-    <mesh position={position} rotation={rotation} receiveShadow={false} castShadow={false}>
-      <boxGeometry args={args} />
-      <meshStandardMaterial color={color} roughness={0.82} metalness={0.02} />
     </mesh>
   );
 }
@@ -745,13 +743,10 @@ export function CreatorRoomMVP({
   onExit?: () => void,
   onShellReady?: () => void,
 }) {
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768;
-  });
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768);
+    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 768);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -837,7 +832,7 @@ export function CreatorRoomMVP({
 
   // Selfie camera toggle — prefers persistent camVideoElement, falls back to DOM-attached el
   useEffect(() => {
-    if (isMobile || !camEnabled) {
+    if (!camEnabled) {
       camStreamRef.current?.getTracks().forEach(t => t.stop());
       camStreamRef.current = null;
       if (camVideoElement) {
@@ -937,19 +932,11 @@ export function CreatorRoomMVP({
         return null;
       });
     };
-  }, [isMobile, camEnabled, camFacingMode, camVideoElement]);
+  }, [camEnabled, camFacingMode, camVideoElement]);
 
-  const screenTex = isMobile ? null : camEnabled ? (camTex || null) : videoTex;
+  const screenTex = camEnabled ? (camTex || null) : videoTex;
 
   useEffect(() => {
-    if (isMobile) {
-      setVideoTex(prev => {
-        if (prev) prev.dispose();
-        return null;
-      });
-      return;
-    }
-
     const video: HTMLVideoElement | null = masterVideoRef || document.querySelector('video');
     if (!video) {
       setVideoTex(null);
@@ -992,7 +979,7 @@ export function CreatorRoomMVP({
         return null;
       });
     };
-  }, [isMobile, masterVideoRef]);
+  }, [masterVideoRef]);
 
   useFrame(({ invalidate }) => {
     const activeTex = screenTex;
@@ -1112,18 +1099,11 @@ export function CreatorRoomMVP({
 
   return (
     <group position={new THREE.Vector3(...position)} rotation={new THREE.Euler(...rotation)}>
-      <ambientLight intensity={isMobile ? 0.34 : 0.08} color={isMobile ? "#ffe4c0" : "#2a241f"} />
-      {isMobile && (
-        <>
-          <hemisphereLight args={["#fff1d6", "#3b2b22", 0.95]} />
-          <pointLight position={[0, 3.4, 2.8]} intensity={2.8} color="#ffd6a3" distance={12} decay={1.4} />
-          <pointLight position={[-4.8, 3.2, -3.6]} intensity={1.6} color="#f0b276" distance={9} decay={1.7} />
-        </>
-      )}
+      <ambientLight intensity={0.08} color="#2a241f" />
 
       {/* Górny sufit — 2 słabsze pointLight zamiast przepalającego directionala */}
-      <pointLight position={[0, 4.9, 0]} intensity={isMobile ? 1.15 : 0.52} color="#ffa95c" distance={9} decay={1.7} />
-      <pointLight position={[-4, 4.9, -4]} intensity={isMobile ? 0.85 : 0.42} color="#ffa95c" distance={7} decay={1.8} />
+      <pointLight position={[0, 4.9, 0]} intensity={0.52} color="#ffa95c" distance={9} decay={1.7} />
+      <pointLight position={[-4, 4.9, -4]} intensity={0.42} color="#ffa95c" distance={7} decay={1.8} />
 
       {/* Desk SpotLight (Soft & Focused) */}
       <spotLight
@@ -1158,41 +1138,6 @@ export function CreatorRoomMVP({
 
       {/* STAGE 1: Static Architecture (Fastest Load) */}
       <Suspense fallback={null}>
-        {isMobile ? (
-          <>
-            <mesh position={[0, 0, -0.5]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow={false}>
-              <planeGeometry args={[14.2, 15.2]} />
-              <meshStandardMaterial color="#4c433a" roughness={0.7} metalness={0.04} />
-            </mesh>
-            <MobileWallBlock position={[0, 5.1, -0.5]} args={[14.2, 0.2, 15.2]} color="#4a392f" />
-
-            <group position={[0, 0, 7]}>
-              <MobileWallBlock position={[-4.15, 2.5, 0]} args={[5.7, 5.2, 0.5]} color="#7a5139" />
-              <MobileWallBlock position={[4.15, 2.5, 0]} args={[5.7, 5.2, 0.5]} color="#7a5139" />
-              <MobileWallBlock position={[0, 4.6, 0]} args={[2.6, 1.0, 0.5]} color="#7a5139" />
-              <pointLight position={[0, 2.5, -2]} intensity={2.1} color="#ff9f55" distance={5.5} decay={1.8} />
-            </group>
-
-            <MobileWallBlock position={[0, 2.5, -6]} args={[14, 5, 0.5]} color="#6f432b" />
-            <MobileWallBlock
-              position={[leftWallX, wallHeight / 2, -0.5]}
-              rotation={[0, Math.PI / 2, 0]}
-              args={[15.2, wallHeight, 0.5]}
-              color="#564035"
-            />
-            <MobileWallBlock
-              position={[7, wallHeight / 2, -0.5]}
-              rotation={[0, -Math.PI / 2, 0]}
-              args={[15.2, wallHeight, 0.5]}
-              color="#564035"
-            />
-            <TechnicalTrim position={[-6.72, 2.5, -5.74]} args={[0.06, 5.0, 0.04]} />
-            <TechnicalTrim position={[6.72, 2.5, -5.74]} args={[0.06, 5.0, 0.04]} />
-            <TechnicalTrim position={[0, 4.97, -5.74]} args={[13.44, 0.06, 0.04]} />
-            <TechnicalTrim position={[0, 0.03, -5.74]} args={[13.44, 0.06, 0.04]} />
-          </>
-        ) : (
-          <>
         {/* Floor - Diamond Plate */}
         <DiamondPlateFloor args={[14.2, 15.2]} position={[0, 0, -0.5]} />
         {/* Ceiling */}
@@ -1279,8 +1224,6 @@ export function CreatorRoomMVP({
 
         {/* Right acoustic wall remains the desk/screen zone boundary. */}
         <AcousticFoamWall position={[7, wallHeight / 2, -0.5]} rotation={[0, -Math.PI / 2, 0]} args={[15.2, wallHeight, 0.5]} />
-          </>
-        )}
       </Suspense>
 
       {/* STAGE 2: Primary Furniture (Mid-weight assets) */}
@@ -1292,8 +1235,6 @@ export function CreatorRoomMVP({
           scale={tableControls.scale}
         />
 
-        {!isMobile && (
-          <>
         {/* Vocal booth interior sits outside the left wall */}
         <group position={[leftWallX - 0.06, 0, boothControls.posZ]} rotation={[0, Math.PI / 2, 0]}>
           <VocalBooth />
@@ -1308,15 +1249,11 @@ export function CreatorRoomMVP({
             scale={decorControls.rtvScale}
           />
         </DistanceCulledModel>
-          </>
-        )}
       </Suspense>
 
       {/* STAGE 3: Props & Interactive Elements (Heaviest/Lowest Priority) */}
       <Suspense fallback={null}>
 
-        {!isMobile && (
-          <>
         {/* Office Chair */}
         <AutoCenteredModel 
           url="/models/optimized/office_chair.glb" 
@@ -1332,8 +1269,6 @@ export function CreatorRoomMVP({
           rotation={[0, THREE.MathUtils.degToRad(decorControls.organizerRotY), 0]}
           scale={decorControls.organizerScale}
         />
-          </>
-        )}
 
         {/* Golden play plaque also acts as the visible HUD toggle target. */}
         <group
@@ -1390,8 +1325,6 @@ export function CreatorRoomMVP({
           )}
         </group>
 
-        {!isMobile && (
-          <>
         {/* Framed 3S artwork on the brown identity wall */}
         <Thr3StyleWallArt
           url="/textures/branding/logo3s.jpeg"
@@ -1482,8 +1415,6 @@ export function CreatorRoomMVP({
           <TechnicalTrim position={[0.08, 0, -boothControls.width / 2 - 0.12]} args={[0.16, boothControls.height + 0.32, 0.16]} />
           <TechnicalTrim position={[0.08, 0, boothControls.width / 2 + 0.12]} args={[0.16, boothControls.height + 0.32, 0.16]} />
         </group>
-          </>
-        )}
 
         {/* Focal screen: always rendered, texture swapped imperatively. */}
         <group
@@ -1503,7 +1434,7 @@ export function CreatorRoomMVP({
         </group>
 
         {/* ── AUDIO REACTIVE CEILING NEON ── */}
-        {!isMobile && <RoomPerimeterNeon y={5.05} />}
+        <RoomPerimeterNeon y={5.05} />
 
         {/* ── LAPTOP INTERACTIVE ZONE – otwiera HUD panel ── */}
         <group

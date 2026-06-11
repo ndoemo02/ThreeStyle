@@ -6,6 +6,14 @@ import { MatteDarkAccentMaterial, FoliageGreenMaterial } from '../../core/Acoust
 import { RoomDoor } from '../../modules/doors/RoomDoor';
 import * as THREE from 'three';
 
+useTexture.preload('/textures/Concrete035_2K.jpg');
+useTexture.preload('/textures/oak_veneer_01_diff_2k.jpg');
+useTexture.preload('/textures/oak_veneer_01_nor_gl_2k.jpg');
+useTexture.preload('/textures/oak_veneer_01_rough_2k.jpg');
+useTexture.preload('/textures/granite_tile_diff_2k.jpg');
+useTexture.preload('/textures/granite_tile_nor_gl_2k.jpg');
+useTexture.preload('/textures/granite_tile_rough_2k.jpg');
+
 const DOORS: Array<{
   id: string;
   label: string;

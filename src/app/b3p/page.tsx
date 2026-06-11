@@ -33,15 +33,14 @@ function getKTX2Loader(gl: THREE.WebGLRenderer): KTX2Loader {
 }
 
 // Preload KTX2-textured models once renderer is available
-function KTX2Preload({ enabled }: { enabled: boolean }) {
+function KTX2Preload() {
   const gl = useThree(s => s.gl);
   useEffect(() => {
-    if (!enabled) return;
     const ktx2 = getKTX2Loader(gl);
     useGLTF.preload('/models/optimized/facecap.glb', true, false, (loader) => {
       loader.setKTX2Loader(ktx2);
     });
-  }, [enabled, gl]);
+  }, [gl]);
   return null;
 }
 
@@ -51,7 +50,7 @@ function AdaptiveEnvironment({ activeZone }: { activeZone: string }) {
   useEffect(() => {
     // Only disable Environment on actual mobile devices (coarse pointer)
     // NOT just narrow screens — desktop users with narrow windows need it too
-    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768);
+    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 768);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -138,17 +137,12 @@ export default function B3PPage() {
   const releaseElevator = useTransitionStore(s => s.releaseElevator);
   const [bloomLight, setBloomLight] = useState<THREE.PointLight | null>(null);
   const [roomShellReady, setRoomShellReady] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768;
-  });
+  const [isMobile, setIsMobile] = useState(false);
   const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.9, 1.2] : [1.25, 2], [isMobile]);
   const isRoomZone = activeZone !== HUB_ZONE;
-  const ambientIntensity = isRoomZone ? (isMobile ? 0.58 : 0.22) : 0.8;
-  const directionalIntensity = isRoomZone ? (isMobile ? 0.48 : 0.18) : 0.6;
 
   useEffect(() => {
-    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768);
+    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 768);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -234,12 +228,12 @@ export default function B3PPage() {
           camera={{ position: [0, 2.05, 5], fov: 60 }}
           style={{ width: '100%', height: '100%', display: 'block' }}
 >
- <KTX2Preload enabled={!isMobile} />
+ <KTX2Preload />
  <ZoneController activeZone={activeZone} />
         
         {/* Ambient — bazowe oświetlenie (zwiększone na mobile bez Environment) */}
-        <ambientLight intensity={ambientIntensity} />
-        <directionalLight position={[5, 10, 5]} intensity={directionalIntensity} />
+        <ambientLight intensity={isRoomZone ? 0.22 : 0.8} />
+        <directionalLight position={[5, 10, 5]} intensity={isRoomZone ? 0.18 : 0.6} />
 
         {/* Mgła wyłączona */}
         <color attach="background" args={['#1a1a1a']} />
@@ -249,7 +243,7 @@ export default function B3PPage() {
 
         {/* ── Postprocessing ── */}
         <BloomLight onReady={setBloomLight} />
-        {bloomLight && !isMobile && (
+        {bloomLight && (
           <EffectComposer multisampling={isMobile ? 0 : 4}>
             <SMAA />
             <SelectiveBloom
@@ -264,7 +258,7 @@ export default function B3PPage() {
         )}
         <AudioVisualizer />
 
-        {!isMobile && <PerformanceCounter />}
+        <PerformanceCounter />
 
         {/* ── Audio-Reactive Face — tylko w studiu, przy mikrofonie ── */}
         {/* DISABLED: too heavy on mobile */}
