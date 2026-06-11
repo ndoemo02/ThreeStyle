@@ -15,27 +15,9 @@ import { PortalEffect } from '../../modules/fx/PortalEffect';
 import { RoomDoor } from '../../modules/doors/RoomDoor';
 
 // ══════════════════════════════════════════════════════════════════════════
-// 0. PRELOAD HEAVY MODELS — start loading at module import, before any component renders
-// useGLTF.preload() from drei caches per URL — actual network request fires once
+// 0. Runtime loading diagnostics
+// Heavy room assets are loaded by their owning components so mobile avoids eager GPU pressure.
 // ══════════════════════════════════════════════════════════════════════════
-useGLTF.preload('/models/optimized/golden_play_button.glb');
-useGLTF.preload('/models/optimized/ipad_pro_2024.glb');
-useGLTF.preload('/models/optimized/office_chair.glb');
-useGLTF.preload('/models/optimized/organizer.glb');
-useGLTF.preload('/models/optimized/modern_wooden_cabinet.glb');
-useGLTF.preload('/models/optimized/sofa.glb');
-useTexture.preload('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_Color.jpg');
-useTexture.preload('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_AmbientOcclusion.jpg');
-useTexture.preload('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_NormalGL.jpg');
-useTexture.preload('/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_Roughness.jpg');
-useTexture.preload('/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Color.jpg');
-useTexture.preload('/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_NormalGL.jpg');
-useTexture.preload('/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Roughness.jpg');
-useTexture.preload('/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Metalness.jpg');
-useTexture.preload('/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Color.jpg');
-useTexture.preload('/textures/DiamondPlate/DiamondPlate006C_2K-JPG_NormalGL.jpg');
-useTexture.preload('/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Roughness.jpg');
-
 // ══════════════════════════════════════════════════════════════════════════
 // 1. Loading Diagnostics & Asset Performance Monitoring
 // ══════════════════════════════════════════════════════════════════════════
@@ -555,17 +537,19 @@ function StudioDisplayWall({
         <meshStandardMaterial color="#24160f" roughness={0.52} metalness={0.14} />
       </mesh>
 
-      {/* 5. The Video Display Surface (Front-most plain, properly placed above the black panel) */}
-      <mesh position={[0, 0, 0.011]} renderOrder={20}>
-        <planeGeometry args={[screenWidth, screenHeight]} />
-        <meshBasicMaterial
-          key={videoTexture?.uuid ?? 'screen-empty'}
-          map={videoTexture}
-          color={videoTexture ? "#ffffff" : "#0d0d0d"}
-          side={THREE.DoubleSide}
-          toneMapped={false}
-        />
-      </mesh>
+      {/* 5. The Video Display Surface. Skip the empty video plane so fallback branding stays visible. */}
+      {videoTexture && (
+        <mesh position={[0, 0, 0.011]} renderOrder={20}>
+          <planeGeometry args={[screenWidth, screenHeight]} />
+          <meshBasicMaterial
+            key={videoTexture.uuid}
+            map={videoTexture}
+            color="#ffffff"
+            side={THREE.DoubleSide}
+            toneMapped={false}
+          />
+        </mesh>
+      )}
 
       {/* 6. Fallback Branding Layer */}
       {fallbackVisible && (
@@ -607,9 +591,9 @@ function Thr3StyleScreenBranding({ screenUrl, panelHeight = 0.92, showBase = tru
           <meshStandardMaterial color="#06080a" roughness={0.94} metalness={0.04} />
         </mesh>
       )}
-      <mesh position={[0, 0, showBase ? 0.012 : 0.001]} renderOrder={4}>
+      <mesh position={[0, 0, showBase ? 0.012 : 0.001]} renderOrder={30}>
         <planeGeometry args={[panelWidth, panelHeight]} />
-        <meshBasicMaterial map={screenTexture} toneMapped={false} />
+        <meshBasicMaterial map={screenTexture} toneMapped={false} depthWrite={false} depthTest={false} />
       </mesh>
     </group>
   );
@@ -746,7 +730,7 @@ export function CreatorRoomMVP({
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 768);
+    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -824,6 +808,7 @@ export function CreatorRoomMVP({
   // 5. Native Video Texture Pipeline + Selfie Camera Override
   // ══════════════════════════════════════════════════════════════════════════
   const [videoTex, setVideoTex] = useState<THREE.VideoTexture | null>(null);
+  const hudMediaPlaying = useHudStore(s => s.isPlaying);
   const camEnabled = useHudStore(s => s.camEnabled);
   const camFacingMode = useHudStore(s => s.camFacingMode);
   const camVideoElement = useHudStore(s => s.camVideoElement);
@@ -934,7 +919,7 @@ export function CreatorRoomMVP({
     };
   }, [camEnabled, camFacingMode, camVideoElement]);
 
-  const screenTex = camEnabled ? (camTex || null) : videoTex;
+  const screenTex = camEnabled ? (camTex || null) : (hudMediaPlaying ? videoTex : null);
 
   useEffect(() => {
     const video: HTMLVideoElement | null = masterVideoRef || document.querySelector('video');
