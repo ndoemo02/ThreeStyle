@@ -181,7 +181,7 @@ export default function B3PPage() {
           onCreated={({ gl }) => {
             gl.shadowMap.type = THREE.PCFShadowMap;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 1.15;
+            gl.toneMappingExposure = 1.55;
           }}
           camera={{ position: [0, 2.05, 5], fov: 60 }}
           style={{ width: '100%', height: '100%', display: 'block' }}
@@ -189,8 +189,8 @@ export default function B3PPage() {
  <ZoneController activeZone={activeZone} />
         
         {/* Ambient — bazowe oświetlenie (zwiększone na mobile bez Environment) */}
-        <ambientLight intensity={isRoomZone ? 0.34 : 0.8} color={isRoomZone ? '#ffe8d2' : '#ffffff'} />
-        <directionalLight position={[5, 10, 5]} intensity={isRoomZone ? 0.28 : 0.6} color={isRoomZone ? '#fff1df' : '#ffffff'} />
+        <ambientLight intensity={isRoomZone ? 0.65 : 0.8} color={isRoomZone ? '#ffe8d2' : '#ffffff'} />
+        <directionalLight position={[5, 10, 5]} intensity={isRoomZone ? 0.5 : 0.6} color={isRoomZone ? '#fff1df' : '#ffffff'} />
 
         {/* Mgła wyłączona */}
         <color attach="background" args={['#1a1a1a']} />

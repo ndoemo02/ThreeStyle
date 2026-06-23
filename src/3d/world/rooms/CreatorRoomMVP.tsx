@@ -1120,11 +1120,12 @@ export function CreatorRoomMVP({
 
   return (
     <group position={new THREE.Vector3(...position)} rotation={new THREE.Euler(...rotation)}>
-      <ambientLight intensity={0.18} color="#ffe4c7" />
+      <ambientLight intensity={0.35} color="#ffe4c7" />
+      <hemisphereLight args={['#ffe8cf', '#392b24', 1.05]} />
 
       {/* Górny sufit — 2 słabsze pointLight zamiast przepalającego directionala */}
-      <pointLight position={[0, 4.9, 0]} intensity={0.52} color="#ffa95c" distance={9} decay={1.7} />
-      <pointLight position={[-4, 4.9, -4]} intensity={0.42} color="#ffa95c" distance={7} decay={1.8} />
+      <pointLight position={[0, 4.9, 0]} intensity={0.95} color="#ffa95c" distance={9} decay={1.7} />
+      <pointLight position={[-4, 4.9, -4]} intensity={0.75} color="#ffa95c" distance={7} decay={1.8} />
 
       {/* Desk SpotLight (Soft & Focused) */}
       <spotLight
