@@ -1,15 +1,12 @@
 "use client";
 
-import { useState, useMemo, useEffect, useLayoutEffect, useRef, Suspense, type RefObject } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
-import { KTX2Loader } from 'three-stdlib';
 import { Environment } from '@react-three/drei';
 import { EffectComposer, SelectiveBloom, SMAA } from '@react-three/postprocessing';
-import { useControls } from 'leva';
+import { Leva } from 'leva';
 import AudioVisualizer from '../../3d/modules/fx/AudioVisualizer';
-import AudioReactiveFace from '../../3d/modules/fx/AudioReactiveFace';
 import { GroundedHub } from '../../3d/world/hub/GroundedHub';
 import { CreatorRoomMVP } from '../../3d/world/rooms/CreatorRoomMVP';
 import { BaseNavigationControls } from '../../3d/systems/BaseNavigationControls';
@@ -17,33 +14,8 @@ import { HudOverlay } from '../../components/HudOverlay';
 import { NativeMobileJoystick } from '../../components/ui/NativeMobileJoystick';
 import { PerformanceCounter } from '../../components/PerformanceCounter';
 import { useTransitionStore } from '../../store/useTransitionStore';
-import { useAudioStore } from '../../stores/useAudioStore';
 import { ElevatorA } from '../../3d/world/elevators/ElevatorA';
 import { getCameraPreset, HUB_ZONE, ROOM_ZONE } from '../../3d/navigation/navigationConfig';
-
-// Singleton KTX2Loader — initialized once per renderer
-let _ktx2Loader: KTX2Loader | null = null;
-function getKTX2Loader(gl: THREE.WebGLRenderer): KTX2Loader {
-  if (!_ktx2Loader) {
-    _ktx2Loader = new KTX2Loader();
-    _ktx2Loader.setTranscoderPath('https://cdn.jsdelivr.net/gh/pmndrs/drei-assets@master/basis/');
-    _ktx2Loader.detectSupport(gl);
-  }
-  return _ktx2Loader;
-}
-
-// Preload KTX2-textured models once renderer is available
-function KTX2Preload({ enabled }: { enabled: boolean }) {
-  const gl = useThree(s => s.gl);
-  useEffect(() => {
-    if (!enabled) return;
-    const ktx2 = getKTX2Loader(gl);
-    useGLTF.preload('/models/optimized/facecap.glb', true, false, (loader) => {
-      loader.setKTX2Loader(ktx2);
-    });
-  }, [enabled, gl]);
-  return null;
-}
 
 function AdaptiveEnvironment({ activeZone }: { activeZone: string }) {
   const [isMobile, setIsMobile] = useState(false);
@@ -57,8 +29,8 @@ function AdaptiveEnvironment({ activeZone }: { activeZone: string }) {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  if (isMobile) return null;
-  return <Environment preset="apartment" environmentIntensity={activeZone === ROOM_ZONE ? 0.12 : 0.3} />;
+  if (isMobile || activeZone === ROOM_ZONE) return null;
+  return <Environment preset="apartment" environmentIntensity={0.3} />;
 }
 
 function BloomLight({ onReady }: { onReady: (light: THREE.PointLight) => void }) {
@@ -79,26 +51,6 @@ function BloomLight({ onReady }: { onReady: (light: THREE.PointLight) => void })
 // → worldX = -7.06 - (-2.7)  = -4.36
 // → worldZ = -2.5 + 2.61     = +0.11
 // Twarz stoi za mikrofonem (głębiej w kabinie), patrzy w stronę szyby (+X)
-function StudioFacePositioner() {
-  const face = useControls('Studio Face (Booth)', {
-    facePosX: { value: -5.75, min: -15, max: 15, step: 0.05 },
-    facePosY: { value: 2.0,   min: -5,  max: 10, step: 0.05 },
-    facePosZ: { value: 1.15,  min: -10, max: 10, step: 0.05 },
-    faceRotY: { value: 142,   min: -180, max: 180, step: 1 },
-    faceScale: { value: 1.05, min: 0.1, max: 5,  step: 0.05 },
-  });
-
-  return (
-    <group
-      position={[face.facePosX, face.facePosY, face.facePosZ]}
-      rotation={[0, THREE.MathUtils.degToRad(face.faceRotY), 0]}
-      scale={face.faceScale}
-    >
-      <AudioReactiveFace />
-    </group>
-  );
-}
-
 function ZoneController({ activeZone }: { activeZone: string }) {
   const { size, camera } = useThree();
   const elevatorState = useTransitionStore(s => s.elevatorState);
@@ -139,7 +91,7 @@ export default function B3PPage() {
   const [bloomLight, setBloomLight] = useState<THREE.PointLight | null>(null);
   const [roomShellReady, setRoomShellReady] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.75, 1] : [1.25, 2], [isMobile]);
+  const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.75, 1] : [1, 1.5], [isMobile]);
   const glConfig = useMemo(
     () => ({ antialias: !isMobile, powerPreference: 'high-performance' as const, alpha: false, stencil: false }),
     [isMobile],
@@ -169,6 +121,7 @@ export default function B3PPage() {
 
   return (
     <div className="b3p-fullscreen">
+      <Leva hidden />
 
       {/* UI Overlay Help */}
       <div className="absolute top-4 left-4 z-10 p-4 font-mono text-xs text-white/50 pointer-events-none drop-shadow-md">
@@ -226,19 +179,18 @@ export default function B3PPage() {
           dpr={canvasDpr}
           gl={glConfig}
           onCreated={({ gl }) => {
-            gl.shadowMap.type = THREE.PCFSoftShadowMap;
+            gl.shadowMap.type = THREE.PCFShadowMap;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 1.0;
+            gl.toneMappingExposure = 1.15;
           }}
           camera={{ position: [0, 2.05, 5], fov: 60 }}
           style={{ width: '100%', height: '100%', display: 'block' }}
 >
- <KTX2Preload enabled={!isMobile} />
  <ZoneController activeZone={activeZone} />
         
         {/* Ambient — bazowe oświetlenie (zwiększone na mobile bez Environment) */}
-        <ambientLight intensity={isRoomZone ? 0.22 : 0.8} />
-        <directionalLight position={[5, 10, 5]} intensity={isRoomZone ? 0.18 : 0.6} />
+        <ambientLight intensity={isRoomZone ? 0.34 : 0.8} color={isRoomZone ? '#ffe8d2' : '#ffffff'} />
+        <directionalLight position={[5, 10, 5]} intensity={isRoomZone ? 0.28 : 0.6} color={isRoomZone ? '#fff1df' : '#ffffff'} />
 
         {/* Mgła wyłączona */}
         <color attach="background" args={['#1a1a1a']} />
@@ -249,7 +201,7 @@ export default function B3PPage() {
         {/* ── Postprocessing ── */}
         <BloomLight onReady={setBloomLight} />
         {bloomLight && !isMobile && (
-          <EffectComposer multisampling={isMobile ? 0 : 4}>
+          <EffectComposer multisampling={0}>
             <SMAA />
             <SelectiveBloom
               lights={[bloomLight]}

@@ -28,7 +28,7 @@ type MediaLibraryResponse = {
 
 type LibraryStatus = 'loading' | 'ready' | 'error';
 
-const MEDIA_REFRESH_MS = 8000;
+const MEDIA_REFRESH_MS = 30000;
 
 const panelLabels = [
   'Now Playing',
@@ -161,7 +161,7 @@ export function HudOverlay() {
 
   const loadMediaLibrary = useCallback(async () => {
     try {
-      const response = await fetch('/api/media', { cache: 'no-store' });
+      const response = await fetch('/api/media');
       if (!response.ok) {
         throw new Error(`Media scan failed with ${response.status}`);
       }
@@ -182,10 +182,6 @@ export function HudOverlay() {
       setLibraryError('Nie moge odczytac public/media. Sprawdz folder i odswiez HUD.');
     }
   }, []);
-
-  useEffect(() => {
-    void loadMediaLibrary();
-  }, [loadMediaLibrary]);
 
   useEffect(() => {
     if (!isOpen) return;

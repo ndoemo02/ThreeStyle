@@ -20,14 +20,27 @@ type MediaItem = {
   compatibilityNote?: string;
 };
 
+type MediaCatalog = {
+  items: MediaItem[];
+  videos: MediaItem[];
+  audio: MediaItem[];
+  scannedAt: string;
+};
+
 type GitLfsPointer = {
   oid: string;
   size: number;
 };
 
 const MEDIA_ROOT = path.join(process.cwd(), 'public', 'media');
+const MEDIA_CACHE_TTL_MS = 60_000;
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogv']);
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.opus']);
+let mediaCache: { expiresAt: number; payload: MediaCatalog } | null = null;
+
+const cacheHeaders = {
+  'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+};
 
 function getMediaKind(filePath: string): MediaKind | null {
   const extension = path.extname(filePath).toLowerCase();
@@ -165,22 +178,21 @@ async function readMediaDirectory(directory: string, baseDirectory = directory):
 
 export async function GET() {
   try {
+    if (mediaCache && mediaCache.expiresAt > Date.now()) {
+      return NextResponse.json(mediaCache.payload, { headers: cacheHeaders });
+    }
+
     const items = await readMediaDirectory(MEDIA_ROOT);
     const sortedItems = items.toSorted(sortMedia);
+    const payload: MediaCatalog = {
+      items: sortedItems,
+      videos: sortedItems.filter((item) => item.kind === 'video'),
+      audio: sortedItems.filter((item) => item.kind === 'audio'),
+      scannedAt: new Date().toISOString(),
+    };
+    mediaCache = { expiresAt: Date.now() + MEDIA_CACHE_TTL_MS, payload };
 
-    return NextResponse.json(
-      {
-        items: sortedItems,
-        videos: sortedItems.filter((item) => item.kind === 'video'),
-        audio: sortedItems.filter((item) => item.kind === 'audio'),
-        scannedAt: new Date().toISOString(),
-      },
-      {
-        headers: {
-          'Cache-Control': 'no-store, max-age=0',
-        },
-      },
-    );
+    return NextResponse.json(payload, { headers: cacheHeaders });
   } catch (error: unknown) {
     if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
       return NextResponse.json({ items: [], videos: [], audio: [], scannedAt: new Date().toISOString() });

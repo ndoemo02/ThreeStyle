@@ -133,6 +133,9 @@ function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
 
 // 2. Global shared material dla TechnicalTrim (Optymalizacja)
 const globalTrimMaterial = new THREE.MeshStandardMaterial({ color: "#080808", roughness: 0.95, metalness: 0 });
+const roomFallbackWallMaterial = new THREE.MeshStandardMaterial({ color: '#563725', roughness: 0.9 });
+const roomFallbackSideMaterial = new THREE.MeshStandardMaterial({ color: '#302c29', roughness: 0.94 });
+const roomFallbackFloorMaterial = new THREE.MeshStandardMaterial({ color: '#514941', roughness: 0.88 });
 
 function TechnicalTrim({ args, position, rotation = [0, 0, 0] }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number] }) {
   return (
@@ -146,10 +149,10 @@ function BrickWall({ args, position }: { args: [number, number, number], positio
   const { gl } = useThree();
   const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl]);
   const textures = useTexture([
-    '/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_Color.jpg',
-    '/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_AmbientOcclusion.jpg',
-    '/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_NormalGL.jpg',
-    '/textures/drewno/Bricks061_2K-JPG/Bricks061_2K-JPG_Roughness.jpg',
+    '/textures/runtime/bricks/color.webp',
+    '/textures/runtime/bricks/ao.webp',
+    '/textures/runtime/bricks/normal.webp',
+    '/textures/runtime/bricks/roughness.webp',
   ]);
 
   const maps = useMemo(() => {
@@ -191,10 +194,10 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat,
   const { gl } = useThree();
   const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl]);
   const textures = useTexture([
-    '/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Color.jpg',
-    '/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_NormalGL.jpg',
-    '/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Roughness.jpg',
-    '/textures/drewno/AcousticFoam002_2K-JPG/AcousticFoam002_2K-JPG_Metalness.jpg',
+    '/textures/runtime/acoustic/color.webp',
+    '/textures/runtime/acoustic/normal.webp',
+    '/textures/runtime/acoustic/roughness.webp',
+    '/textures/runtime/acoustic/metalness.webp',
   ]);
 
   const maps = useMemo(() => {
@@ -239,11 +242,11 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
   const { gl } = useThree();
   const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl]);
   const textures = useTexture([
-    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Color.jpg',
-    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_NormalGL.jpg',
-    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Roughness.jpg',
-    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_Metalness.jpg',
-    '/textures/DiamondPlate/DiamondPlate006C_2K-JPG_AmbientOcclusion.jpg',
+    '/textures/runtime/diamond/color.webp',
+    '/textures/runtime/diamond/normal.webp',
+    '/textures/runtime/diamond/roughness.webp',
+    '/textures/runtime/diamond/metalness.webp',
+    '/textures/runtime/diamond/ao.webp',
   ]);
 
   const maps = useMemo(() => {
@@ -278,6 +281,39 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
         metalness={0.38}
       />
     </mesh>
+  );
+}
+
+function RoomArchitectureFallback() {
+  return (
+    <group>
+      <mesh position={[0, 0, -0.5]} rotation={[-Math.PI / 2, 0, 0]} material={roomFallbackFloorMaterial}>
+        <planeGeometry args={[14.2, 15.2]} />
+      </mesh>
+      <mesh position={[0, 5.1, -0.5]} material={roomFallbackSideMaterial}>
+        <boxGeometry args={[14.2, 0.2, 15.2]} />
+      </mesh>
+      <mesh position={[0, 2.5, -6]} material={roomFallbackWallMaterial}>
+        <boxGeometry args={[14, 5, 0.5]} />
+      </mesh>
+      <mesh position={[-7, 2.6, -0.5]} rotation={[0, Math.PI / 2, 0]} material={roomFallbackSideMaterial}>
+        <boxGeometry args={[15.2, 5.2, 0.5]} />
+      </mesh>
+      <mesh position={[7, 2.6, -0.5]} rotation={[0, -Math.PI / 2, 0]} material={roomFallbackSideMaterial}>
+        <boxGeometry args={[15.2, 5.2, 0.5]} />
+      </mesh>
+      <group position={[0, 0, 7]}>
+        <mesh position={[-4.15, 2.5, 0]} material={roomFallbackWallMaterial}>
+          <boxGeometry args={[5.7, 5.2, 0.5]} />
+        </mesh>
+        <mesh position={[4.15, 2.5, 0]} material={roomFallbackWallMaterial}>
+          <boxGeometry args={[5.7, 5.2, 0.5]} />
+        </mesh>
+        <mesh position={[0, 4.6, 0]} material={roomFallbackWallMaterial}>
+          <boxGeometry args={[2.6, 1, 0.5]} />
+        </mesh>
+      </group>
+    </group>
   );
 }
 
@@ -922,7 +958,7 @@ export function CreatorRoomMVP({
   const screenTex = camEnabled ? (camTex || null) : (hudMediaPlaying ? videoTex : null);
 
   useEffect(() => {
-    const video: HTMLVideoElement | null = masterVideoRef || document.querySelector('video');
+    const video: HTMLVideoElement | null = masterVideoRef;
     if (!video) {
       setVideoTex(null);
       return;
@@ -1084,7 +1120,7 @@ export function CreatorRoomMVP({
 
   return (
     <group position={new THREE.Vector3(...position)} rotation={new THREE.Euler(...rotation)}>
-      <ambientLight intensity={0.08} color="#2a241f" />
+      <ambientLight intensity={0.18} color="#ffe4c7" />
 
       {/* Górny sufit — 2 słabsze pointLight zamiast przepalającego directionala */}
       <pointLight position={[0, 4.9, 0]} intensity={0.52} color="#ffa95c" distance={9} decay={1.7} />
@@ -1122,7 +1158,7 @@ export function CreatorRoomMVP({
       <directionalLight position={[0, 3, 5]} intensity={0.12} color="#ffe8d0" />
 
       {/* STAGE 1: Static Architecture (Fastest Load) */}
-      <Suspense fallback={null}>
+      <Suspense fallback={<RoomArchitectureFallback />}>
         {/* Floor - Diamond Plate */}
         <DiamondPlateFloor args={[14.2, 15.2]} position={[0, 0, -0.5]} />
         {/* Ceiling */}
