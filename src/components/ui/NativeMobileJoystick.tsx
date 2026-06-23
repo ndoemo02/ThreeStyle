@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useHudStore } from '../../stores/useHudStore';
+import { shouldUseMobileRoomProfileInBrowser } from '../../lib/deviceProfile';
 
 export function NativeMobileJoystick() {
   const [active, setActive] = useState(false);
@@ -13,10 +14,7 @@ export function NativeMobileJoystick() {
 
   useEffect(() => {
     const checkMobile = () => {
-      const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
-      const hasTouch = navigator.maxTouchPoints > 0;
-      const narrowScreen = window.innerWidth <= 1024;
-      setIsMobile(coarsePointer || hasTouch || narrowScreen);
+      setIsMobile(shouldUseMobileRoomProfileInBrowser());
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);

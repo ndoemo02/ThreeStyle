@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Environment } from '@react-three/drei';
-import { EffectComposer, SelectiveBloom, SMAA } from '@react-three/postprocessing';
+import { EffectComposer, FXAA, SelectiveBloom, SMAA } from '@react-three/postprocessing';
 import { Leva } from 'leva';
 import AudioVisualizer from '../../3d/modules/fx/AudioVisualizer';
 import { GroundedHub } from '../../3d/world/hub/GroundedHub';
@@ -16,14 +16,14 @@ import { PerformanceCounter } from '../../components/PerformanceCounter';
 import { useTransitionStore } from '../../store/useTransitionStore';
 import { ElevatorA } from '../../3d/world/elevators/ElevatorA';
 import { getCameraPreset, HUB_ZONE, ROOM_ZONE } from '../../3d/navigation/navigationConfig';
+import { shouldUseMobileRoomProfileInBrowser } from '../../lib/deviceProfile';
 
 function AdaptiveEnvironment({ activeZone }: { activeZone: string }) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    // Only disable Environment on actual mobile devices (coarse pointer)
-    // NOT just narrow screens — desktop users with narrow windows need it too
-    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900);
+    // Keep hybrid touch laptops on the desktop render profile.
+    const check = () => setIsMobile(shouldUseMobileRoomProfileInBrowser());
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -91,7 +91,7 @@ export default function B3PPage() {
   const [bloomLight, setBloomLight] = useState<THREE.PointLight | null>(null);
   const [roomShellReady, setRoomShellReady] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.75, 1] : [1, 1.5], [isMobile]);
+  const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.75, 1] : [1.25, 1.5], [isMobile]);
   const glConfig = useMemo(
     () => ({ antialias: !isMobile, powerPreference: 'high-performance' as const, alpha: false, stencil: false }),
     [isMobile],
@@ -99,7 +99,7 @@ export default function B3PPage() {
   const isRoomZone = activeZone !== HUB_ZONE;
 
   useEffect(() => {
-    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900);
+    const check = () => setIsMobile(shouldUseMobileRoomProfileInBrowser());
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -200,6 +200,11 @@ export default function B3PPage() {
 
         {/* ── Postprocessing ── */}
         <BloomLight onReady={setBloomLight} />
+        {isMobile && (
+          <EffectComposer multisampling={0}>
+            <FXAA />
+          </EffectComposer>
+        )}
         {bloomLight && !isMobile && (
           <EffectComposer multisampling={0}>
             <SMAA />
