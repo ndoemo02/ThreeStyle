@@ -19,25 +19,6 @@ const HUB_NEON_MATERIAL = new THREE.MeshStandardMaterial({
   toneMapped: false,
 });
 
-function Tree({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
-  const { scene } = useGLTF('/models/optimized/stylized_tree.glb');
-  const clonedScene = useMemo(() => {
-    const c = scene.clone();
-    c.traverse((n) => { if (n instanceof THREE.Mesh && n.geometry) n.geometry.computeBoundingSphere(); });
-    return c;
-  }, [scene]);
-
-  return (
-    <primitive
-      object={clonedScene}
-      position={position}
-      scale={scale * 0.5} // Increased base scale for more presence
-      castShadow
-      receiveShadow
-    />
-  );
-}
-
 function VenetianSofa({ position, scale = 1, rotation = 0 }: { position: [number, number, number]; scale?: number; rotation?: number }) {
   const { scene } = useGLTF('/models/optimized/venetian_sofa.glb');
   const clonedScene = useMemo(() => {
@@ -199,27 +180,6 @@ function HubPerimeterNeon({ y = 7.9 }: { y?: number }) {
 }
 
 export function HubShell() {
-  const tree1 = useControls('Stylized Tree 01 - v6', {
-    t1x: { value: -8.3, min: -15, max: 15, step: 0.1 },
-    t1y: { value: 0.0, min: -2, max: 10, step: 0.1 },
-    t1z: { value: -8.0, min: -15, max: 15, step: 0.1 },
-    t1s: { value: 6.5, min: 0.1, max: 20, step: 0.05 },
-    t1r: { value: 0.30, min: -Math.PI, max: Math.PI, step: 0.01 },
-  });
-  const tree2 = useControls('Stylized Tree 02 - v6', {
-    t2x: { value: 8.0, min: -15, max: 15, step: 0.1 },
-    t2y: { value: 0.0, min: -2, max: 10, step: 0.1 },
-    t2z: { value: -8.0, min: -15, max: 15, step: 0.1 },
-    t2s: { value: 7.0, min: 0.1, max: 20, step: 0.05 },
-    t2r: { value: -0.40, min: -Math.PI, max: Math.PI, step: 0.01 },
-  });
-  const tree3 = useControls('Stylized Tree 03 - v6', {
-    t3x: { value: -8.0, min: -15, max: 15, step: 0.1 },
-    t3y: { value: 0.0, min: -2, max: 10, step: 0.1 },
-    t3z: { value: 8.8, min: -15, max: 15, step: 0.1 },
-    t3s: { value: 5.0, min: 0.1, max: 20, step: 0.05 },
-    t3r: { value: 0.10, min: -Math.PI, max: Math.PI, step: 0.01 },
-  });
   const sofaControls = useControls('Venetian Sofa v6 - FINAL', {
     x: { value: -8.8, min: -15, max: 15, step: 0.1 },
     y: { value: 0.0, min: -2, max: 10, step: 0.1 },
@@ -451,17 +411,8 @@ export function HubShell() {
       </group>
 
       {/* ═══════════════ ZIELEŃ ═══════════════ */}
-      <Tree position={[9.2, 0, -7]} scale={1.0} />
-      <Tree position={[9.2, 0, -2]} scale={0.85} />
-      <Tree position={[9.2, 0, 3]} scale={0.9} />
-      <Tree position={[9.2, 0, 8]} scale={1.0} />
-      <Tree position={[-8, 0, 8.8]} scale={1.1} />
       {/* Krzewy — 4 instancje × 2 geometrie = 2 draw calls zamiast 8 */}
       <InstancedShrubs />
-      {/* Dodatkowe proceduralne drzewa */}
-      <Tree position={[tree1.t1x, tree1.t1y, tree1.t1z]} scale={tree1.t1s} />
-      <Tree position={[tree2.t2x, tree2.t2y, tree2.t2z]} scale={tree2.t2s} />
-      <Tree position={[tree3.t3x, tree3.t3y, tree3.t3z]} scale={tree3.t3s} />
       <DistanceCulledModel maxDistance={16}>
         <VenetianSofa position={[sofaControls.x, sofaControls.y, sofaControls.z]} scale={sofaControls.scale} rotation={sofaControls.rotation} />
       </DistanceCulledModel>
