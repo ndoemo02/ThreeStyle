@@ -184,7 +184,7 @@ function BrickWall({ args, position }: { args: [number, number, number], positio
         aoMap={maps[1]} 
         normalMap={maps[2]} 
         roughnessMap={maps[3]} 
-        color="#707070"
+        color="#929292"
       />
     </mesh>
   );
@@ -230,7 +230,7 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat,
         normalMap={maps[1]} 
         roughnessMap={maps[2]} 
         metalnessMap={maps[3]} 
-        color="#77706a"
+        color="#a39b92"
         normalScale={new THREE.Vector2(2.4, 2.4)}
         roughness={0.82}
       />
@@ -275,7 +275,7 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
         roughnessMap={maps[2]} 
         metalnessMap={maps[3]} 
         aoMap={maps[4]}
-        color="#6f5a4c"
+        color="#8a7568"
         normalScale={new THREE.Vector2(1.8, 1.8)}
         roughness={0.82}
         metalness={0.38}
@@ -1197,7 +1197,7 @@ export function CreatorRoomMVP({
         <pointLight position={[-6.5, 4.0, -4.5]} intensity={0.85} color="#8899cc" distance={8} decay={2} />
         <mesh position={[0, 2.5, -6]} castShadow receiveShadow>
           <boxGeometry args={[14, 5, 0.5]} />
-          <meshStandardMaterial color="#4a2b19" roughness={0.78} metalness={0.03} />
+          <meshStandardMaterial color="#613b25" roughness={0.78} metalness={0.03} />
         </mesh>
 
         <TechnicalTrim position={[-6.72, 2.5, -5.74]} args={[0.06, 5.0, 0.04]} />
