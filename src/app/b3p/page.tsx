@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Environment } from '@react-three/drei';
-import { EffectComposer, FXAA, SelectiveBloom, SMAA } from '@react-three/postprocessing';
+import { EffectComposer, SelectiveBloom, SMAA } from '@react-three/postprocessing';
 import { Leva } from 'leva';
 import AudioVisualizer from '../../3d/modules/fx/AudioVisualizer';
 import { GroundedHub } from '../../3d/world/hub/GroundedHub';
@@ -202,7 +202,7 @@ export default function B3PPage() {
         <BloomLight onReady={setBloomLight} />
         {isMobile && (
           <EffectComposer multisampling={0}>
-            <FXAA />
+            <SMAA />
           </EffectComposer>
         )}
         {bloomLight && !isMobile && (
