@@ -2,12 +2,11 @@
 
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
+import dynamic from 'next/dynamic';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Environment } from '@react-three/drei';
 import { EffectComposer, SelectiveBloom, SMAA } from '@react-three/postprocessing';
 import { Leva } from 'leva';
 import AudioVisualizer from '../../3d/modules/fx/AudioVisualizer';
-import { GroundedHub } from '../../3d/world/hub/GroundedHub';
 import { CreatorRoomMVP } from '../../3d/world/rooms/CreatorRoomMVP';
 import { BaseNavigationControls } from '../../3d/systems/BaseNavigationControls';
 import { HudOverlay } from '../../components/HudOverlay';
@@ -18,20 +17,11 @@ import { ElevatorA } from '../../3d/world/elevators/ElevatorA';
 import { getCameraPreset, HUB_ZONE, ROOM_ZONE } from '../../3d/navigation/navigationConfig';
 import { shouldUseMobileRoomProfileInBrowser } from '../../lib/deviceProfile';
 
-function AdaptiveEnvironment({ activeZone }: { activeZone: string }) {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    // Keep hybrid touch laptops on the desktop render profile.
-    const check = () => setIsMobile(shouldUseMobileRoomProfileInBrowser());
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
-
-  if (isMobile || activeZone === ROOM_ZONE) return null;
-  return <Environment preset="apartment" environmentIntensity={0.3} />;
-}
+const loadGroundedHub = () => import('../../3d/world/hub/GroundedHub');
+const GroundedHub = dynamic(
+  () => loadGroundedHub().then(module => module.GroundedHub),
+  { ssr: false, loading: () => null },
+);
 
 function BloomLight({ onReady }: { onReady: (light: THREE.PointLight) => void }) {
   const ref = useRef<THREE.PointLight>(null);
@@ -88,6 +78,7 @@ export default function B3PPage() {
   const activeZone = useTransitionStore(s => s.activeZone);
   const setActiveZone = useTransitionStore(s => s.setActiveZone);
   const releaseElevator = useTransitionStore(s => s.releaseElevator);
+  const elevatorState = useTransitionStore(s => s.elevatorState);
   const [bloomLight, setBloomLight] = useState<THREE.PointLight | null>(null);
   const [roomShellReady, setRoomShellReady] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -97,7 +88,6 @@ export default function B3PPage() {
     [isMobile],
   );
   const isRoomZone = activeZone !== HUB_ZONE;
-
   useEffect(() => {
     const check = () => setIsMobile(shouldUseMobileRoomProfileInBrowser());
     check();
@@ -118,6 +108,17 @@ export default function B3PPage() {
       setRoomShellReady(false);
     }
   }, [activeZone]);
+
+  useEffect(() => {
+    if (activeZone !== ROOM_ZONE || elevatorState === 'idle') return;
+    void loadGroundedHub();
+    const variant = isMobile ? 'mobile' : 'desktop';
+    for (const map of ['albedo.webp', 'normal.webp', 'orm.webp']) {
+      const image = new Image();
+      image.decoding = 'async';
+      image.src = `/textures/runtime/lobby/${variant}/${map}`;
+    }
+  }, [activeZone, elevatorState, isMobile]);
 
   return (
     <div className="b3p-fullscreen">
@@ -174,7 +175,7 @@ export default function B3PPage() {
 
       <div className="b3p-canvas-wrap">
         <Canvas
-          shadows={!isMobile}
+          shadows={!isMobile && isRoomZone}
           frameloop="always"
           dpr={canvasDpr}
           gl={glConfig}
@@ -189,23 +190,24 @@ export default function B3PPage() {
  <ZoneController activeZone={activeZone} />
         
         {/* Ambient — bazowe oświetlenie (zwiększone na mobile bez Environment) */}
-        <ambientLight intensity={isRoomZone ? 0.65 : 0.8} color={isRoomZone ? '#ffe8d2' : '#ffffff'} />
-        <directionalLight position={[5, 10, 5]} intensity={isRoomZone ? 0.5 : 0.6} color={isRoomZone ? '#fff1df' : '#ffffff'} />
+        {isRoomZone ? (
+          <>
+            <ambientLight intensity={0.65} color="#ffe8d2" />
+            <directionalLight position={[5, 10, 5]} intensity={0.5} color="#fff1df" />
+          </>
+        ) : null}
 
         {/* Mgła wyłączona */}
         <color attach="background" args={['#1a1a1a']} />
 
-        {/* Ciepłe, subtelne refleksy środowiskowe — zredukowane na mobile */}
-        <AdaptiveEnvironment activeZone={activeZone} />
-
         {/* ── Postprocessing ── */}
-        <BloomLight onReady={setBloomLight} />
+        {isRoomZone ? <BloomLight onReady={setBloomLight} /> : null}
         {isMobile && (
           <EffectComposer multisampling={0}>
             <SMAA />
           </EffectComposer>
         )}
-        {bloomLight && !isMobile && (
+        {bloomLight && !isMobile && isRoomZone && (
           <EffectComposer multisampling={0}>
             <SMAA />
             <SelectiveBloom
@@ -218,9 +220,9 @@ export default function B3PPage() {
             />
           </EffectComposer>
         )}
-        <AudioVisualizer />
+        {isRoomZone ? <AudioVisualizer /> : null}
 
-        {!isMobile && <PerformanceCounter />}
+        {!isMobile && isRoomZone ? <PerformanceCounter /> : null}
 
         {/* ── Audio-Reactive Face — tylko w studiu, przy mikrofonie ── */}
         {/* DISABLED: too heavy on mobile */}

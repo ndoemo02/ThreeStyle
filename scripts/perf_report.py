@@ -59,7 +59,7 @@ lines.append("=== Freeflow Live Performance ===")
 lines.append(f"Entries: {len(data)} | Time: {data[0]['created_at'][:19] if data else 'N/A'}")
 
 # By model
-models = set(row.get('model', '?') for row in data)
+models = set(str(r.get('model') or '?') for r in data if r.get('model') is not None)
 lines.append(f"Models: {', '.join(sorted(models))}")
 
 lines.append("")

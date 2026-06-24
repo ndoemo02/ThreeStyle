@@ -1,435 +1,145 @@
 "use client";
 
-import { useMemo, useRef, useLayoutEffect } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { useTexture, useGLTF } from '@react-three/drei';
-import { useAudioStore } from '../../../stores/useAudioStore';
-import { DistanceCulledModel } from '../../systems/DistanceCulledModel';
-import { useControls } from 'leva';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { GalaxyCeilingMaterial } from './GalaxyCeilingMaterial';
+import { InstancedLobbyBoxes, MergedLobbyBoxes, type LobbyBoxSpec, type LobbyInstanceTransform } from './LobbyMeshes';
+import type { LobbyMaterials } from './LobbyMaterials';
 
-// ══════════════════════════════════════════════════════════════════════════
-// Heavy hub assets load from their owning components to keep mobile startup lighter.
-// ══════════════════════════════════════════════════════════════════════════
-const HUB_NEON_MATERIAL = new THREE.MeshStandardMaterial({
-  color: '#ffffff',
-  emissive: '#00f3ff',
-  emissiveIntensity: 0.5,
-  toneMapped: false,
-});
-
-function VenetianSofa({ position, scale = 1, rotation = 0 }: { position: [number, number, number]; scale?: number; rotation?: number }) {
-  const { scene } = useGLTF('/models/optimized/venetian_sofa.glb');
-  const clonedScene = useMemo(() => {
-    const c = scene.clone();
-    c.traverse((n) => {
-      if (n instanceof THREE.Mesh) {
-        n.frustumCulled = false;
-      }
-    });
-    return c;
-  }, [scene]);
-
-  return (
-    <primitive
-      object={clonedScene}
-      position={position}
-      scale={scale * 0.01} // Corrected scale multiplier
-      rotation={[0, rotation, 0]} 
-      castShadow 
-      receiveShadow 
-    />
-  );
-}
-// InstancedMesh helpers — redukują draw calls z O(n) do O(1) dla powtarzalnej geometrii
-
-function BackWallSlats({ material }: { material: THREE.MeshStandardMaterial }) {
-  const ref = useRef<THREE.InstancedMesh>(null);
-  const count = 41;
-
-  useLayoutEffect(() => {
-    if (!ref.current) return;
-    const matrix = new THREE.Matrix4();
-    const pos = new THREE.Vector3();
-    const quat = new THREE.Quaternion();
-    const scl = new THREE.Vector3(1, 1, 1);
-
-    for (let i = 0; i < count; i++) {
-      pos.set(-10 + i * 0.5, 4, -9.65);
-      matrix.compose(pos, quat, scl);
-      ref.current.setMatrixAt(i, matrix);
-    }
-    ref.current.instanceMatrix.needsUpdate = true;
-  }, []);
-
-  return (
-    <instancedMesh ref={ref} args={[undefined, undefined, count]} castShadow material={material}>
-      <boxGeometry args={[0.06, 7.4, 0.08]} />
-    </instancedMesh>
-  );
-}
-
-const shrubData = [
-  { pos: [-6, 0.3, 8.8] as [number, number, number], scale: 1.0 },
-  { pos: [8.8, 0.3, -4.5] as [number, number, number], scale: 0.8 },
-  { pos: [8.8, 0.3, 0.5] as [number, number, number], scale: 0.9 },
-  { pos: [8.8, 0.3, 5.5] as [number, number, number], scale: 0.85 },
+const HUB_STONE: LobbyBoxSpec[] = [
+  { position: [0, -0.045, 0], size: [30, 0.09, 20] },
 ];
 
-function InstancedShrubs() {
-  const bigRef = useRef<THREE.InstancedMesh>(null);
-  const smallRef = useRef<THREE.InstancedMesh>(null);
-  const count = shrubData.length;
+const HUB_PLASTER: LobbyBoxSpec[] = [
+  { position: [0, 2.4, -10], size: [28, 4.8, 0.36] },
+  { position: [-5.5, 2.4, 10], size: [17, 4.8, 0.36] },
+  { position: [9.5, 2.4, 10], size: [9, 4.8, 0.36] },
+  { position: [10, 2.4, 0], size: [20, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
+  { position: [-10, 2.4, 3.1], size: [13.8, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
+  { position: [-10, 2.4, -8.1], size: [3.8, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
+];
+
+const HUB_DARK: LobbyBoxSpec[] = [
+  { position: [0, 4.82, 0], size: [30, 0.18, 20] },
+];
+
+const HUB_WOOD: LobbyBoxSpec[] = [
+  { position: [0, 0.12, -9.78], size: [28, 0.16, 0.12] },
+  { position: [9.78, 0.12, 0], size: [0.12, 0.16, 19.5] },
+  { position: [-9.78, 2.35, -6.3], size: [0.12, 4.5, 0.14] },
+  { position: [-9.78, 2.35, -3.7], size: [0.12, 4.5, 0.14] },
+  { position: [-9.78, 4.58, -5], size: [0.12, 0.14, 2.74] },
+];
+
+const HUB_LED: LobbyBoxSpec[] = [
+  { position: [0, 4.66, -7.2], size: [25.5, 0.035, 0.045] },
+  { position: [0, 4.66, 7.2], size: [25.5, 0.035, 0.045] },
+  { position: [-8.8, 4.66, 0], size: [0.045, 0.035, 13.8] },
+  { position: [8.8, 4.66, 0], size: [0.045, 0.035, 13.8] },
+];
+
+const WALL_SLATS: LobbyInstanceTransform[] = Array.from({ length: 45 }, (_, index) => ({
+  position: [-12.1 + index * 0.55, 2.45, -9.77],
+}));
+
+const CEILING_BAFFLES: LobbyInstanceTransform[] = Array.from({ length: 35 }, (_, index) => ({
+  position: [-13.6 + index * 0.8, 4.7, 0],
+}));
+
+const PLANTER_POSITIONS: Array<[number, number, number]> = [
+  [-7.2, 0, -8.8],
+  [8.7, 0, -4.3],
+  [8.7, 0, 5.4],
+];
+
+function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMaterials }) {
+  const visiblePositions = useMemo(() => PLANTER_POSITIONS.slice(0, count), [count]);
+  const trunkRef = useRef<THREE.InstancedMesh>(null);
+  const foliageRef = useRef<THREE.InstancedMesh>(null);
+  const shadowRef = useRef<THREE.InstancedMesh>(null);
 
   useLayoutEffect(() => {
-    const matrix = new THREE.Matrix4();
-    const pos = new THREE.Vector3();
-    const quat = new THREE.Quaternion();
+    const helper = new THREE.Object3D();
+    visiblePositions.forEach(([x, , z], index) => {
+      helper.position.set(x, 0.98, z);
+      helper.rotation.set(0, 0, index % 2 ? 0.06 : -0.05);
+      helper.scale.set(1, 1, 1);
+      helper.updateMatrix();
+      trunkRef.current?.setMatrixAt(index, helper.matrix);
 
-    shrubData.forEach((s, i) => {
-      // Big sphere at local offset [0, 0, 0]
-      pos.set(s.pos[0], s.pos[1], s.pos[2]);
-      matrix.compose(pos, quat, new THREE.Vector3(s.scale, s.scale, s.scale));
-      bigRef.current?.setMatrixAt(i, matrix);
+      helper.position.set(x + (index % 2 ? 0.08 : -0.06), 1.72, z);
+      helper.rotation.set(0, index * 0.8, 0);
+      helper.scale.set(0.85, 1.35, 0.85);
+      helper.updateMatrix();
+      foliageRef.current?.setMatrixAt(index, helper.matrix);
 
-      // Small sphere at local offset [0.15, 0.45, 0.1] relative to group center
-      pos.set(s.pos[0] + 0.15 * s.scale, s.pos[1] + 0.45 * s.scale, s.pos[2] + 0.1 * s.scale);
-      matrix.compose(pos, quat, new THREE.Vector3(s.scale, s.scale, s.scale));
-      smallRef.current?.setMatrixAt(i, matrix);
+      helper.position.set(x, 0.012, z);
+      helper.rotation.set(-Math.PI / 2, 0, 0);
+      helper.scale.set(1.2, 0.72, 1);
+      helper.updateMatrix();
+      shadowRef.current?.setMatrixAt(index, helper.matrix);
     });
 
-    if (bigRef.current) bigRef.current.instanceMatrix.needsUpdate = true;
-    if (smallRef.current) smallRef.current.instanceMatrix.needsUpdate = true;
-  }, []);
+    for (const ref of [trunkRef, foliageRef, shadowRef]) {
+      if (!ref.current) continue;
+      ref.current.instanceMatrix.needsUpdate = true;
+      ref.current.computeBoundingSphere();
+    }
+  }, [visiblePositions]);
+
+  const potTransforms = useMemo<LobbyInstanceTransform[]>(
+    () => visiblePositions.map(([x, , z]) => ({ position: [x, 0.34, z] })),
+    [visiblePositions],
+  );
 
   return (
     <>
-      <instancedMesh ref={bigRef} args={[undefined, undefined, count]} castShadow>
-        <sphereGeometry args={[0.35, 16, 12]} />
-        <meshStandardMaterial color="#4a6b3a" roughness={0.9} metalness={0.0} />
+      <InstancedLobbyBoxes
+        size={[0.72, 0.68, 0.62]}
+        surface="dark"
+        material={materials.dark}
+        transforms={potTransforms}
+      />
+      <instancedMesh ref={trunkRef} args={[undefined, undefined, count]} material={materials.trunk} frustumCulled>
+        <cylinderGeometry args={[0.055, 0.085, 1.15, 7]} />
       </instancedMesh>
-      <instancedMesh ref={smallRef} args={[undefined, undefined, count]} castShadow>
-        <sphereGeometry args={[0.25, 12, 10]} />
-        <meshStandardMaterial color="#4a6b3a" roughness={0.9} metalness={0.0} />
+      <instancedMesh ref={foliageRef} args={[undefined, undefined, count]} material={materials.foliage} frustumCulled>
+        <icosahedronGeometry args={[0.58, 1]} />
+      </instancedMesh>
+      <instancedMesh ref={shadowRef} args={[undefined, undefined, count]} material={materials.shadow} frustumCulled renderOrder={-1}>
+        <circleGeometry args={[0.72, 20]} />
       </instancedMesh>
     </>
   );
 }
 
-function HubPerimeterNeon({ y = 7.9 }: { y?: number }) {
-  const hudAnalyser = useAudioStore(s => s.analyserNode);
-  const lightRef = useRef<THREE.PointLight>(null);
-  const dataArrayRef = useRef(new Uint8Array(0));
-
-  useFrame(() => {
-
-    // Early return: brak audio = stała intensywność
-    if (!hudAnalyser) {
-      HUB_NEON_MATERIAL.emissiveIntensity = 0.5;
-      if (lightRef.current) lightRef.current.intensity = 0.2;
-      return;
-    }
-
-    // Ensure data array is allocated once
-    if (dataArrayRef.current.length !== hudAnalyser.frequencyBinCount) {
-      dataArrayRef.current = new Uint8Array(hudAnalyser.frequencyBinCount);
-    }
-    hudAnalyser.getByteFrequencyData(dataArrayRef.current);
-
-    let sum = 0;
-    for (let i = 0; i < 16; i++) {
-      sum += dataArrayRef.current[i];
-    }
-    const avg = sum / 16 / 255; 
-
-    const intensity = 0.5 + avg * 8.0; 
-    HUB_NEON_MATERIAL.emissiveIntensity = intensity;
-    if (lightRef.current) lightRef.current.intensity = intensity * 0.5;
-  });
-
-  const width = 20.0;
-  const depth = 20.0;
-
-  return (
-    <group position={[0, y, 0]}>
-      {/* Front */}
-      <mesh position={[0, 0, depth/2 - 0.1]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.04, 0.04, width, 8]} />
-        <primitive object={HUB_NEON_MATERIAL} attach="material" />
-      </mesh>
-      {/* Back */}
-      <mesh position={[0, 0, -depth/2 + 0.1]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.04, 0.04, width, 8]} />
-        <primitive object={HUB_NEON_MATERIAL} attach="material" />
-      </mesh>
-      {/* Left */}
-      <mesh position={[-width/2 + 0.1, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.04, 0.04, depth, 8]} />
-        <primitive object={HUB_NEON_MATERIAL} attach="material" />
-      </mesh>
-      {/* Right */}
-      <mesh position={[width/2 - 0.1, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.04, 0.04, depth, 8]} />
-        <primitive object={HUB_NEON_MATERIAL} attach="material" />
-      </mesh>
-      
-      <pointLight ref={lightRef} distance={10} decay={2} color="#00f3ff" intensity={0.2} />
-    </group>
-  );
-}
-
-export function HubShell() {
-  const sofaControls = useControls('Venetian Sofa v6 - FINAL', {
-    x: { value: -8.8, min: -15, max: 15, step: 0.1 },
-    y: { value: 0.0, min: -2, max: 10, step: 0.1 },
-    z: { value: 2.8, min: -15, max: 15, step: 0.1 },
-    scale: { value: 2.3, min: 0.01, max: 50, step: 0.1 },
-    rotation: { value: 1.61, min: -Math.PI, max: Math.PI, step: 0.01 },
-  });
-
-  const textures = useTexture({
-    map: '/textures/Concrete035_2K.jpg',
-    woodMap: '/textures/oak_veneer_01_diff_2k.jpg',
-    woodNormalMap: '/textures/oak_veneer_01_nor_gl_2k.jpg',
-    woodRoughnessMap: '/textures/oak_veneer_01_rough_2k.jpg',
-    barkMap: '/textures/bark_brown_02_diff_2k.jpg',
-    barkNormalMap: '/textures/bark_brown_02_nor_gl_2k.jpg',
-    barkRoughnessMap: '/textures/bark_brown_02_rough_2k.jpg',
-    floorMap: '/textures/granite_tile_diff_2k.jpg',
-    floorNormalMap: '/textures/granite_tile_nor_gl_2k.jpg',
-    floorRoughnessMap: '/textures/granite_tile_rough_2k.jpg',
-  });
-
-  const materials = useMemo(() => {
-    // Klonowanie tekstur przed modyfikacją (hook immutability)
-    const concreteTex = textures.map.clone();
-    concreteTex.wrapS = concreteTex.wrapT = THREE.RepeatWrapping;
-    concreteTex.colorSpace = THREE.SRGBColorSpace;
-    concreteTex.repeat.set(8, 3);
-    concreteTex.needsUpdate = true;
-
-    const barkTex = textures.barkMap.clone();
-    barkTex.wrapS = barkTex.wrapT = THREE.RepeatWrapping;
-    barkTex.colorSpace = THREE.SRGBColorSpace;
-    barkTex.repeat.set(4, 2);
-    barkTex.needsUpdate = true;
-
-    const woodTex = textures.woodMap.clone();
-    const woodNormTex = textures.woodNormalMap.clone();
-    const woodRoughTex = textures.woodRoughnessMap.clone();
-    [woodTex, woodNormTex, woodRoughTex].forEach(t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.needsUpdate = true; });
-    woodTex.colorSpace = THREE.SRGBColorSpace;
-    woodTex.repeat.set(1, 3);
-
-    // Podłoga — granit
-    const floorTex = textures.floorMap.clone();
-    const floorNormTex = textures.floorNormalMap.clone();
-    const floorRoughTex = textures.floorRoughnessMap.clone();
-    [floorTex, floorNormTex, floorRoughTex].forEach(t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.needsUpdate = true; });
-    floorTex.colorSpace = THREE.SRGBColorSpace;
-    floorTex.repeat.set(12, 8);
-
-    const concreteWall = new THREE.MeshStandardMaterial({
-      map: concreteTex, color: '#e8e0d5', roughness: 0.55, metalness: 0.02,
-    });
-    const woodSlat = new THREE.MeshStandardMaterial({
-      map: woodTex, normalMap: woodNormTex, roughnessMap: woodRoughTex,
-      color: '#c4a882', roughness: 0.45, metalness: 0.04,
-    });
-    const graniteFloor = new THREE.MeshStandardMaterial({
-      map: floorTex, normalMap: floorNormTex, roughnessMap: floorRoughTex,
-      color: '#d8d0c4', roughness: 0.3, metalness: 0.05,
-    });
-    const barkAccent = new THREE.MeshStandardMaterial({
-      map: barkTex, normalMap: textures.barkNormalMap.clone(), roughnessMap: textures.barkRoughnessMap.clone(),
-      color: '#8b6b4a', roughness: 0.9, metalness: 0.0,
-    });
-    const blockerMat = new THREE.MeshStandardMaterial({
-      color: '#d8cfc0', roughness: 0.8, metalness: 0.02,
-    });
-
-    return { concreteWall, woodSlat, graniteFloor, barkAccent, blockerMat };
-  }, [textures]);
-
+export function HubShell({
+  materials,
+  planterCount,
+}: {
+  materials: LobbyMaterials;
+  planterCount: number;
+}) {
   return (
     <group>
-      {/* ═══════════════ PODŁOGA — 30×20, dębowa ═══════════════ */}
-      <mesh position={[0, -0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[30, 20]} />
-        <primitive object={materials.graniteFloor} attach="material" />
-      </mesh>
+      <MergedLobbyBoxes boxes={HUB_STONE} surface="stone" material={materials.stone} />
+      <MergedLobbyBoxes boxes={HUB_PLASTER} surface="plaster" material={materials.plaster} />
+      <MergedLobbyBoxes boxes={HUB_DARK} surface="dark" material={materials.dark} />
+      <MergedLobbyBoxes boxes={HUB_WOOD} surface="wood" material={materials.wood} />
+      <MergedLobbyBoxes boxes={HUB_LED} surface="wood" material={materials.led} />
 
-      {/* ═══════════════ SUFIT — Galaxy Shader ═══════════════ */}
-      <mesh position={[0, 8, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[30, 20]} />
-        <GalaxyCeilingMaterial />
-      </mesh>
-      <mesh position={[0, 7.86, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[18, 14]} />
-        <meshStandardMaterial color="#e8e2d8" roughness={0.7} metalness={0.03} />
-      </mesh>
-      {/* Drewniane krawędzie recessu */}
-      {[[-9, 0], [9, 0], [0, -7], [0, 7]].map(([px, pz], i) => (
-        <mesh key={`cove-${i}`} position={[px, 7.82, pz]} rotation={i >= 2 ? [0, 0, 0] : [0, Math.PI / 2, 0]}>
-          <boxGeometry args={[i >= 2 ? 14 : 18, 0.04, 0.06]} />
-          <primitive object={materials.woodSlat} attach="material" />
-        </mesh>
-      ))}
-      {/* Cove LED */}
-      {[[-8.8, 0], [8.8, 0], [0, -6.8], [0, 6.8]].map(([px, pz], i) => (
-        <mesh key={`cove-led-${i}`} position={[px, 7.79, pz]} rotation={i >= 2 ? [Math.PI / 2, 0, 0] : [0, 0, Math.PI / 2]}>
-          <planeGeometry args={[i >= 2 ? 13.6 : 17.6, 0.04]} />
-          <meshBasicMaterial color="#f5e6d0" transparent opacity={0.18} side={THREE.DoubleSide} depthWrite={false} />
-        </mesh>
-      ))}
-
-      {/* ═══════════════ ŚCIANA TYLNA (Z=-10) — beton + lamele drewniane ═══════════════ */}
-      <mesh position={[0, 4, -10]} castShadow receiveShadow>
-        <boxGeometry args={[28, 8, 0.6]} />
-        <primitive object={materials.concreteWall} attach="material" />
-      </mesh>
-      {/* Pionowe lamele — dębowy fornir (InstancedMesh: 41→1 draw call) */}
-      <BackWallSlats material={materials.woodSlat} />
-      {/* Szerokie panele akcentowe — kora */}
-      {[-6, 0, 6].map((x, i) => (
-        <mesh key={`bp-${i}`} position={[x, 4, -9.5]} castShadow receiveShadow>
-          <boxGeometry args={[2.8, 7.2, 0.25]} />
-          <primitive object={materials.barkAccent} attach="material" />
-        </mesh>
-      ))}
-
-      {/* ═══════════════ ŚCIANA FRONTOWA (Z=10) ═══════════════ */}
-      <mesh position={[-5.5, 4, 10]} castShadow receiveShadow>
-        <boxGeometry args={[17, 8, 0.6]} />
-        <primitive object={materials.concreteWall} attach="material" />
-      </mesh>
-      <mesh position={[9.5, 4, 10]} castShadow receiveShadow>
-        <boxGeometry args={[9, 8, 0.6]} />
-        <primitive object={materials.concreteWall} attach="material" />
-      </mesh>
-      {/* Drewniane lamele akcentowe na froncie */}
-      {[-10, -7, -4, -1, 2, 5, 8, 11, 14].map((x, i) => (
-        <mesh key={`fs-${i}`} position={[x, 4, 9.65]} castShadow>
-          <boxGeometry args={[0.05, 7.2, 0.08]} />
-          <primitive object={materials.woodSlat} attach="material" />
-        </mesh>
-      ))}
-      {/* Narożne słupy */}
-      {[-13.8, 13.8].map((x, i) => (
-        <mesh key={`fc-${i}`} position={[x, 4, 9.8]} castShadow receiveShadow>
-          <boxGeometry args={[0.4, 8, 0.6]} />
-          <primitive object={materials.concreteWall} attach="material" />
-        </mesh>
-      ))}
-
-      {/* ═══════════════ BLOKERY za lewą ścianą ═══════════════ */}
-      {[
-        { pos: [-10.6, 4, -5], args: [2.4, 8, 1.0] },
-        { pos: [-10.6, 4, -8.1], args: [3.8, 8, 1.0] },
-        { pos: [-10.6, 4, 3.1], args: [13.8, 8, 1.0] },
-      ].map((b, i) => (
-        <mesh key={`blocker-${i}`} position={b.pos as [number, number, number]} rotation={[0, Math.PI / 2, 0]}>
-          <boxGeometry args={b.args as [number, number, number]} />
-          <primitive object={materials.blockerMat} attach="material" />
-        </mesh>
-      ))}
-      <mesh position={[-10.5, 0.2, -5]}>
-        <boxGeometry args={[0.8, 0.4, 2.4]} />
-        <primitive object={materials.blockerMat} attach="material" />
-      </mesh>
-
-      {/* ═══════════════ ŚCIANY BOCZNE ═══════════════ */}
-      <mesh position={[-10, 4, 3.1]} rotation={[0, Math.PI / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[13.8, 8, 0.6]} />
-        <primitive object={materials.concreteWall} attach="material" />
-      </mesh>
-      <mesh position={[-10, 4, -8.1]} rotation={[0, Math.PI / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[3.8, 8, 0.6]} />
-        <primitive object={materials.concreteWall} attach="material" />
-      </mesh>
-      {/* Drewniane obramowanie portalu */}
-      {[
-        { pos: [-9.68, 4, -3.8], args: [0.06, 7.6, 0.08] },
-        { pos: [-9.68, 4, -6.2], args: [0.06, 7.6, 0.08] },
-      ].map((f, i) => (
-        <mesh key={`pf-${i}`} position={f.pos as [number, number, number]}>
-          <boxGeometry args={f.args as [number, number, number]} />
-          <primitive object={materials.woodSlat} attach="material" />
-        </mesh>
-      ))}
-
-      {/* Prawa ściana */}
-      <mesh position={[10, 4, 0]} rotation={[0, -Math.PI / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[20, 8, 0.6]} />
-        <primitive object={materials.concreteWall} attach="material" />
-      </mesh>
-      {[-7, -5, -3, -1, 1, 3, 5, 7].map((z, i) => (
-        <mesh key={`rs-${i}`} position={[9.68, 4, z]} castShadow>
-          <boxGeometry args={[0.05, 7.2, 0.04]} />
-          <primitive object={materials.woodSlat} attach="material" />
-        </mesh>
-      ))}
-
-      {/* ═══════════════ NADPROŻE NAD PORTALEM ═══════════════ */}
-      <mesh position={[-10, 6.2, -5]} rotation={[0, Math.PI / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[2.4, 3.6, 0.6]} />
-        <primitive object={materials.concreteWall} attach="material" />
-      </mesh>
-      <mesh position={[-10, 6.1, -5]} rotation={[0, Math.PI / 2, 0]}>
-        <boxGeometry args={[2.6, 0.2, 0.15]} />
-        <primitive object={materials.woodSlat} attach="material" />
-      </mesh>
-
-      {/* ═══════════════ PORTAL ═══════════════ */}
-      <group position={[-9.5, 0, -5]} rotation={[0, Math.PI / 2, 0]}>
-        <pointLight position={[0, 2.5, 1.2]} intensity={2.0} distance={7} decay={2} color="#f5e6d0" />
-        {[1.35, -1.35].map((x, i) => (
-          <group key={`col-${i}`}>
-            <mesh position={[x, 2.0, 0.3]} castShadow receiveShadow>
-              <boxGeometry args={[0.45, 4.0, 0.7]} />
-              <primitive object={materials.concreteWall} attach="material" />
-            </mesh>
-            <mesh position={[x, 2.0, 0.67]}>
-              <boxGeometry args={[0.38, 3.6, 0.04]} />
-              <primitive object={materials.woodSlat} attach="material" />
-            </mesh>
-          </group>
-        ))}
-        <mesh position={[0, 3.8, 0.2]} castShadow receiveShadow>
-          <boxGeometry args={[3.2, 0.5, 0.6]} />
-          <primitive object={materials.concreteWall} attach="material" />
-        </mesh>
-        <mesh position={[0, 3.8, 0.52]}>
-          <boxGeometry args={[2.8, 0.35, 0.04]} />
-          <primitive object={materials.woodSlat} attach="material" />
-        </mesh>
-        <mesh position={[0, 0.02, 0.4]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[2.7, 0.6]} />
-          <meshBasicMaterial color="#f5e6d0" transparent opacity={0.08} blending={2} />
-        </mesh>
-      </group>
-
-      {/* ═══════════════ ZIELEŃ ═══════════════ */}
-      {/* Krzewy — 4 instancje × 2 geometrie = 2 draw calls zamiast 8 */}
-      <InstancedShrubs />
-      <DistanceCulledModel maxDistance={16}>
-        <VenetianSofa position={[sofaControls.x, sofaControls.y, sofaControls.z]} scale={sofaControls.scale} rotation={sofaControls.rotation} />
-      </DistanceCulledModel>
-
-      {/* ═══════════════ OŚWIETLENIE ═══════════════ */}
-      {/* Back wall cove — 2 słabsze pointLight zamiast 3 */}
-      <pointLight position={[-8, 5.5, -9]} intensity={1.8} distance={7} decay={2} color="#f5e6d0" />
-      <pointLight position={[8, 5.5, -9]} intensity={1.8} distance={7} decay={2} color="#f5e6d0" />
-      {/* Górny akcent */}
-      <pointLight position={[0, 7.0, -7]} intensity={2.0} distance={10} decay={2} color="#f5e6d0" />
-      {/* Front fill */}
-      <pointLight position={[0, 5, 5]} intensity={1.5} distance={14} decay={2} color="#faf5ed" />
-      {/* Boczny akcent dla głębi */}
-      <pointLight position={[8.5, 3, 0]} intensity={1.2} distance={8} decay={2} color="#f0ebe0" />
-      
-      {/* Audio-reactive neon perimeter at the ceiling */}
-      <HubPerimeterNeon y={7.9} />
+      <InstancedLobbyBoxes
+        size={[0.13, 4.35, 0.11]}
+        surface="wood"
+        material={materials.wood}
+        transforms={WALL_SLATS}
+      />
+      <InstancedLobbyBoxes
+        size={[0.13, 0.12, 18.2]}
+        surface="dark"
+        material={materials.dark}
+        transforms={CEILING_BAFFLES}
+      />
+      <LobbyPlanters count={planterCount} materials={materials} />
     </group>
   );
 }

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useLayoutEffect, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Html } from '@react-three/drei';
@@ -14,6 +14,100 @@ import {
   ROOM_ZONE,
 } from '../../navigation/navigationConfig';
 
+type ElevatorBox = {
+  position: [number, number, number];
+  scale: [number, number, number];
+};
+
+const LOBBY_ELEVATOR_DARK_BOXES: ElevatorBox[] = [
+  { position: [0, 0.05, 0], scale: [4.4, 0.1, 5] },
+  { position: [0, 3.45, 0], scale: [4.4, 0.15, 5] },
+  { position: [0, 3.34, 0], scale: [3.4, 0.08, 4.2] },
+  { position: [-2.1, 1.75, 0], scale: [0.35, 3.5, 5] },
+  { position: [2.1, 1.75, 0], scale: [0.35, 3.5, 5] },
+  { position: [0, 1.75, -2.4], scale: [3.8, 3.5, 0.35] },
+  ...[-1.8, -0.6, 0.6, 1.8].flatMap(z => ([
+    { position: [-2, 1.75, z], scale: [0.008, 3.2, 0.03] },
+    { position: [2, 1.75, z], scale: [0.008, 3.2, 0.03] },
+  ] as ElevatorBox[])),
+];
+
+const LOBBY_ELEVATOR_BRASS_BOXES: ElevatorBox[] = [
+  { position: [-2.08, 0.16, 0], scale: [0.04, 0.12, 5] },
+  { position: [2.08, 0.16, 0], scale: [0.04, 0.12, 5] },
+  { position: [0, 0.16, -2.28], scale: [4, 0.12, 0.04] },
+  { position: [-2.08, 1.75, -2.38], scale: [0.04, 3.3, 0.04] },
+  { position: [2.08, 1.75, -2.38], scale: [0.04, 3.3, 0.04] },
+  { position: [-1.88, 1.75, -2.38], scale: [0.04, 3.3, 0.04] },
+  { position: [1.88, 1.75, -2.38], scale: [0.04, 3.3, 0.04] },
+  { position: [0, 3.28, -2.38], scale: [3.84, 0.04, 0.04] },
+  { position: [0, 1.05, -2.35], scale: [3.2, 0.04, 0.06] },
+  { position: [-1.2, 0.95, -2.33], scale: [0.04, 0.2, 0.04] },
+  { position: [1.2, 0.95, -2.33], scale: [0.04, 0.2, 0.04] },
+  { position: [0, 3.28, 2.48], scale: [3.84, 0.05, 0.06] },
+];
+
+function InstancedElevatorBoxes({
+  boxes,
+  color,
+  metalness,
+  roughness,
+}: {
+  boxes: ElevatorBox[];
+  color: string;
+  metalness: number;
+  roughness: number;
+}) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    const helper = new THREE.Object3D();
+    boxes.forEach((box, index) => {
+      helper.position.set(...box.position);
+      helper.scale.set(...box.scale);
+      helper.updateMatrix();
+      ref.current?.setMatrixAt(index, helper.matrix);
+    });
+    ref.current.instanceMatrix.needsUpdate = true;
+    ref.current.computeBoundingSphere();
+  }, [boxes]);
+
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, boxes.length]} frustumCulled>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color={color} metalness={metalness} roughness={roughness} />
+    </instancedMesh>
+  );
+}
+
+function OptimizedLobbyElevatorShell({
+  leftDoorRef,
+  rightDoorRef,
+}: {
+  leftDoorRef: RefObject<THREE.Mesh | null>;
+  rightDoorRef: RefObject<THREE.Mesh | null>;
+}) {
+  return (
+    <group>
+      <InstancedElevatorBoxes boxes={LOBBY_ELEVATOR_DARK_BOXES} color="#171513" metalness={0.58} roughness={0.48} />
+      <InstancedElevatorBoxes boxes={LOBBY_ELEVATOR_BRASS_BOXES} color="#b8875e" metalness={0.9} roughness={0.35} />
+      <mesh position={[0, 3.37, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[2.8, 3.6]} />
+        <meshBasicMaterial color="#ffd8b5" toneMapped={false} />
+      </mesh>
+      <mesh ref={leftDoorRef} position={[-1, 1.75, 2.5]}>
+        <boxGeometry args={[2, 3.5, 0.1]} />
+        <meshStandardMaterial color="#292725" roughness={0.72} metalness={0.42} />
+      </mesh>
+      <mesh ref={rightDoorRef} position={[1, 1.75, 2.5]}>
+        <boxGeometry args={[2, 3.5, 0.1]} />
+        <meshStandardMaterial color="#292725" roughness={0.72} metalness={0.42} />
+      </mesh>
+    </group>
+  );
+}
+
 export function ElevatorA({ visible = true }: { visible?: boolean }) {
   const elevatorState = useTransitionStore((s) => s.elevatorState);
   const setElevatorState = useTransitionStore((s) => s.setElevatorState);
@@ -24,6 +118,8 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
 
   const leftDoorRef = useRef<THREE.Mesh>(null);
   const rightDoorRef = useRef<THREE.Mesh>(null);
+  const lobbyLeftDoorRef = useRef<THREE.Mesh>(null);
+  const lobbyRightDoorRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
   const shaftGroupRef = useRef<THREE.Group>(null);
   const panelHitRef = useRef<THREE.Mesh>(null);
@@ -113,6 +209,14 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
   }, [camera, elevatorState, isCameraInInteractionZone, panelHovered, triggerElevator, visible]);
 
   useFrame((state, delta) => {
+    const syncLobbyDoors = () => {
+      if (leftDoorRef.current && lobbyLeftDoorRef.current) {
+        lobbyLeftDoorRef.current.position.x = leftDoorRef.current.position.x;
+      }
+      if (rightDoorRef.current && lobbyRightDoorRef.current) {
+        lobbyRightDoorRef.current.position.x = rightDoorRef.current.position.x;
+      }
+    };
     const inInteractionZone = elevatorState === 'idle' && isCameraInInteractionZone();
     if (inInteractionZone !== panelInteractable) {
       setPanelInteractable(inInteractionZone);
@@ -150,6 +254,7 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
         leftDoorRef.current.position.x = THREE.MathUtils.lerp(leftDoorRef.current.position.x, -3.0, 5 * delta);
         rightDoorRef.current.position.x = THREE.MathUtils.lerp(rightDoorRef.current.position.x, 3.0, 5 * delta);
       }
+      syncLobbyDoors();
       return;
     }
 
@@ -187,6 +292,7 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
     }
 
     if (animating) state.invalidate();
+    syncLobbyDoors();
   });
 
   useEffect(() => {
@@ -213,6 +319,10 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
 
   return (
     <group ref={groupRef} position={[targetPos.x, targetPos.y, targetPos.z]} rotation={[0, Math.PI, 0]}>
+      {activeZone === HUB_ZONE ? (
+        <OptimizedLobbyElevatorShell leftDoorRef={lobbyLeftDoorRef} rightDoorRef={lobbyRightDoorRef} />
+      ) : null}
+      <group visible={activeZone !== HUB_ZONE}>
       <mesh position={[0, 0.05, 0]} receiveShadow>
         <boxGeometry args={[4.4, 0.1, 5.0]} />
         <meshStandardMaterial color="#141418" roughness={0.5} metalness={0.08} />
@@ -338,6 +448,7 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
         <boxGeometry args={[3.84, 0.05, 0.06]} />
         <meshStandardMaterial color="#b8875e" roughness={0.35} metalness={0.9} />
       </mesh>
+      </group>
 
       <mesh
         ref={panelHitRef}

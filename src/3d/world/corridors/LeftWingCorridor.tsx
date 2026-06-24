@@ -1,381 +1,190 @@
 "use client";
 
-import { useMemo } from 'react';
-import { Html, RoundedBox, useTexture } from '@react-three/drei';
-import { MatteDarkAccentMaterial, FoliageGreenMaterial } from '../../core/AcousticDarkMaterial';
-import { RoomDoor } from '../../modules/doors/RoomDoor';
+import { useRef, useState } from 'react';
+import { Html } from '@react-three/drei';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { RoomDoor } from '../../modules/doors/RoomDoor';
+import { LOBBY_DOORS } from '../hub/lobbyConfig';
+import { InstancedLobbyBoxes, MergedLobbyBoxes, type LobbyBoxSpec, type LobbyInstanceTransform } from '../hub/LobbyMeshes';
+import type { LobbyMaterials } from '../hub/LobbyMaterials';
+import { shouldShowLobbyWorldLabel } from '../hub/lobbyVisibility';
 
-const DOORS: Array<{
-  id: string;
-  label: string;
-  status: 'active' | 'locked' | 'offline';
-  users: number;
-  pos: [number, number, number];
-  rot: [number, number, number];
-}> = [
-  { id: 'room-2', label: 'LOFI BEATS', status: 'active', users: 8, pos: [-19, 0, 3.9], rot: [0, Math.PI, 0] },
-  { id: 'room-3', label: 'PODCAST 1', status: 'locked', users: 0, pos: [-14, 0, -3.9], rot: [0, 0, 0] },
-  { id: 'room-4', label: 'PRIVATE', status: 'offline', users: 0, pos: [-19, 0, -3.9], rot: [0, 0, 0] },
-  { id: 'room-6', label: 'CHILLOUT', status: 'active', users: 5, pos: [-34, 0, 3.9], rot: [0, Math.PI, 0] },
-  { id: 'room-7', label: 'MIX ROOM', status: 'locked', users: 1, pos: [-29, 0, -3.9], rot: [0, 0, 0] },
-  { id: 'room-8', label: 'ARCHIVE', status: 'offline', users: 0, pos: [-34, 0, -3.9], rot: [0, 0, 0] },
+const CORRIDOR_STONE: LobbyBoxSpec[] = [
+  { position: [-25, -0.045, -5], size: [30, 0.09, 8] },
 ];
 
-type SlatPanelMaterials = {
-  blackMetal: THREE.Material;
-  darkPlaster: THREE.Material;
-  warmLed: THREE.Material;
-  woodSlat: THREE.Material;
-};
+const CORRIDOR_DARK: LobbyBoxSpec[] = [
+  { position: [-25, 4.82, -5], size: [30, 0.18, 8] },
+  { position: [-39.78, 2.24, -5], size: [0.18, 4.28, 3.86] },
+];
 
-function WallSlatPanel({
-  centerX,
-  z,
-  width,
-  materials,
-}: {
-  centerX: number;
-  z: number;
-  width: number;
-  materials: SlatPanelMaterials;
-}) {
-  const slatCount = Math.max(3, Math.floor(width / 0.58));
-  const spacing = width / (slatCount + 1);
+const CORRIDOR_PLASTER: LobbyBoxSpec[] = [
+  { position: [-33.1, 2.4, -1], size: [13.8, 4.8, 0.36] },
+  { position: [-15.9, 2.4, -1], size: [11.8, 4.8, 0.36] },
+  { position: [-25, 2.4, -9], size: [30, 4.8, 0.36] },
+  { position: [-40, 2.4, -7.7], size: [2.6, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
+  { position: [-40, 2.4, -2.3], size: [2.6, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
+  { position: [-10, 2.4, -7.5], size: [3, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
+  { position: [-10, 2.4, -2.5], size: [3, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
+];
 
+const CORRIDOR_WOOD: LobbyBoxSpec[] = [
+  { position: [-25, 0.12, -1.18], size: [30, 0.16, 0.12] },
+  { position: [-25, 0.12, -8.82], size: [30, 0.16, 0.12] },
+  { position: [-39.66, 2.3, -7.06], size: [0.14, 4.42, 0.12] },
+  { position: [-39.66, 2.3, -2.94], size: [0.14, 4.42, 0.12] },
+  { position: [-39.66, 4.48, -5], size: [0.14, 0.14, 4.24] },
+];
+
+const CORRIDOR_LED: LobbyBoxSpec[] = [
+  { position: [-25, 4.64, -2.12], size: [27.5, 0.035, 0.045] },
+  { position: [-25, 4.64, -7.88], size: [27.5, 0.035, 0.045] },
+  { position: [-39.55, 4.35, -5], size: [0.035, 0.04, 3.72] },
+];
+
+const CEILING_BAFFLES: LobbyInstanceTransform[] = Array.from({ length: 37 }, (_, index) => ({
+  position: [-39.4 + index * 0.8, 4.69, -5],
+}));
+
+function slatsInRanges(ranges: Array<[number, number]>, z: number): LobbyInstanceTransform[] {
+  const transforms: LobbyInstanceTransform[] = [];
+  for (const [start, end] of ranges) {
+    for (let x = start; x <= end; x += 0.42) transforms.push({ position: [x, 2.42, z] });
+  }
+  return transforms;
+}
+
+const WALL_SLATS = [
+  ...slatsInRanges([[-39.2, -35.4], [-21.2, -16.8], [-13.2, -10.8]], -1.2),
+  ...slatsInRanges([[-39.2, -34.8], [-31.2, -26.8], [-21.6, -16.6], [-12.8, -10.8]], -8.8),
+];
+
+function localOffset(
+  position: [number, number, number],
+  rotationY: number,
+  offset: [number, number, number],
+): [number, number, number] {
+  const [x, y, z] = position;
+  const [offsetX, offsetY, offsetZ] = offset;
+  return [
+    x + offsetX * Math.cos(rotationY) + offsetZ * Math.sin(rotationY),
+    y + offsetY,
+    z - offsetX * Math.sin(rotationY) + offsetZ * Math.cos(rotationY),
+  ];
+}
+
+const DOOR_FRAMES: LobbyInstanceTransform[] = LOBBY_DOORS.map(door => ({
+  position: localOffset(door.position, door.rotationY, [0, 2.1, 0]),
+  rotation: [0, door.rotationY, 0],
+}));
+const DOOR_PANELS: LobbyInstanceTransform[] = LOBBY_DOORS.map(door => ({
+  position: localOffset(door.position, door.rotationY, [0, 2.1, 0.2]),
+  rotation: [0, door.rotationY, 0],
+}));
+const DOOR_TRIMS: LobbyInstanceTransform[] = LOBBY_DOORS.map(door => ({
+  position: localOffset(door.position, door.rotationY, [-0.9, 2.1, 0.28]),
+  rotation: [0, door.rotationY, 0],
+}));
+const DOOR_HANDLES: LobbyInstanceTransform[] = LOBBY_DOORS.map(door => ({
+  position: localOffset(door.position, door.rotationY, [0.64, 1.55, 0.3]),
+  rotation: [0, door.rotationY, 0],
+}));
+
+function LobbyDoorGeometry({ materials }: { materials: LobbyMaterials }) {
   return (
-    <group position={[centerX, 0, z]}>
-      <RoundedBox args={[width, 4.75, 0.08]} radius={0.045} smoothness={8} position={[0, 2.78, 0]}>
-        <primitive object={materials.darkPlaster} attach="material" />
-      </RoundedBox>
-      <RoundedBox args={[width + 0.12, 0.12, 0.12]} radius={0.035} smoothness={6} position={[0, 5.2, 0.02]}>
-        <primitive object={materials.blackMetal} attach="material" />
-      </RoundedBox>
-      <RoundedBox args={[width + 0.12, 0.12, 0.12]} radius={0.035} smoothness={6} position={[0, 0.38, 0.02]}>
-        <primitive object={materials.blackMetal} attach="material" />
-      </RoundedBox>
-      <RoundedBox args={[0.12, 4.82, 0.12]} radius={0.035} smoothness={6} position={[-width / 2 - 0.02, 2.8, 0.02]}>
-        <primitive object={materials.blackMetal} attach="material" />
-      </RoundedBox>
-      <RoundedBox args={[0.12, 4.82, 0.12]} radius={0.035} smoothness={6} position={[width / 2 + 0.02, 2.8, 0.02]}>
-        <primitive object={materials.blackMetal} attach="material" />
-      </RoundedBox>
-      {Array.from({ length: slatCount }).map((_, i) => (
-        <RoundedBox
-          key={`slat-${i}`}
-          args={[0.16, 4.28, 0.13]}
-          radius={0.045}
-          smoothness={8}
-          position={[-width / 2 + spacing * (i + 1), 2.78, 0.095]}
-          castShadow
-        >
-          <primitive object={materials.woodSlat} attach="material" />
-        </RoundedBox>
-      ))}
-      <RoundedBox args={[width - 0.36, 0.035, 0.035]} radius={0.018} smoothness={5} position={[0, 5.02, 0.12]}>
-        <primitive object={materials.warmLed} attach="material" />
-      </RoundedBox>
-    </group>
+    <>
+      <InstancedLobbyBoxes size={[2.52, 4.22, 0.34]} surface="dark" material={materials.dark} transforms={DOOR_FRAMES} />
+      <InstancedLobbyBoxes size={[1.96, 3.84, 0.1]} surface="dark" material={materials.dark} transforms={DOOR_PANELS} />
+      <InstancedLobbyBoxes size={[0.08, 3.76, 0.06]} surface="wood" material={materials.wood} transforms={DOOR_TRIMS} />
+      <InstancedLobbyBoxes size={[0.045, 0.34, 0.08]} surface="wood" material={materials.brass} transforms={DOOR_HANDLES} />
+    </>
   );
 }
 
-export function LeftWingCorridor({ onEnterRoom }: { onEnterRoom: (id: string) => void }) {
-  const textures = useTexture({
-    map: '/textures/Concrete035_2K.jpg',
-    woodMap: '/textures/oak_veneer_01_diff_2k.jpg',
-    woodNormalMap: '/textures/oak_veneer_01_nor_gl_2k.jpg',
-    woodRoughnessMap: '/textures/oak_veneer_01_rough_2k.jpg',
-    floorMap: '/textures/granite_tile_diff_2k.jpg',
-    floorNormalMap: '/textures/granite_tile_nor_gl_2k.jpg',
-    floorRoughnessMap: '/textures/granite_tile_rough_2k.jpg',
+function EventRoomLabel() {
+  const camera = useThree(state => state.camera);
+  const [visible, setVisible] = useState(false);
+  const elapsedRef = useRef(0);
+  const forwardRef = useRef(new THREE.Vector3());
+
+  useFrame((_, delta) => {
+    elapsedRef.current += delta;
+    if (elapsedRef.current < 0.25) return;
+    elapsedRef.current = 0;
+    camera.getWorldDirection(forwardRef.current);
+    const nextVisible = shouldShowLobbyWorldLabel(
+      camera.position.toArray(),
+      forwardRef.current.toArray(),
+      [-39.45, 4.32, -5],
+      12,
+    );
+    setVisible(current => current === nextVisible ? current : nextVisible);
   });
 
-  const materials = useMemo(() => {
-    // Klonowanie tekstur przed modyfikacją (hook immutability)
-    const woodTex = textures.woodMap.clone();
-    const woodNormTex = textures.woodNormalMap.clone();
-    const woodRoughTex = textures.woodRoughnessMap.clone();
-    [woodTex, woodNormTex, woodRoughTex].forEach(t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.needsUpdate = true; });
-    woodTex.colorSpace = THREE.SRGBColorSpace;
-    woodTex.repeat.set(1, 3);
-
-    // Podłoga — granit
-    const floorTex = textures.floorMap.clone();
-    const floorNormTex = textures.floorNormalMap.clone();
-    const floorRoughTex = textures.floorRoughnessMap.clone();
-    [floorTex, floorNormTex, floorRoughTex].forEach(t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.needsUpdate = true; });
-    floorTex.colorSpace = THREE.SRGBColorSpace;
-    floorTex.repeat.set(12, 2);
-
-    const warmPlaster = new THREE.MeshStandardMaterial({
-      color: '#938471',
-      roughness: 0.88,
-      metalness: 0.0,
-    });
-    const darkPlaster = new THREE.MeshStandardMaterial({
-      color: '#4a4035',
-      roughness: 0.92,
-      metalness: 0.0,
-    });
-    const blackMetal = new THREE.MeshStandardMaterial({
-      color: '#12100e',
-      roughness: 0.58,
-      metalness: 0.38,
-    });
-    const smokedGlass = new THREE.MeshPhysicalMaterial({
-      color: '#050505',
-      roughness: 0.08,
-      metalness: 0.15,
-      transparent: true,
-      opacity: 0.64,
-      clearcoat: 1,
-      reflectivity: 0.65,
-    });
-    const concreteWall = new THREE.MeshStandardMaterial({
-      color: '#938471', roughness: 0.84, metalness: 0.0,
-    });
-    const woodSlat = new THREE.MeshStandardMaterial({
-      map: woodTex, normalMap: woodNormTex, roughnessMap: woodRoughTex,
-      color: '#68472d', roughness: 0.68, metalness: 0.02,
-    });
-    const graniteFloor = new THREE.MeshStandardMaterial({
-      map: floorTex, normalMap: floorNormTex, roughnessMap: floorRoughTex,
-      color: '#2c2925', roughness: 0.38, metalness: 0.08,
-    });
-    const ceilingDark = new THREE.MeshStandardMaterial({
-      color: '#1d1712',
-      roughness: 0.76,
-      metalness: 0.05,
-    });
-    const warmLed = new THREE.MeshBasicMaterial({
-      color: '#ffd7a1',
-      toneMapped: false,
-    });
-
-    return { warmPlaster, darkPlaster, blackMetal, smokedGlass, concreteWall, woodSlat, graniteFloor, ceilingDark, warmLed };
-  }, [textures]);
-
+  if (!visible) return null;
   return (
-    <group position={[-10, 0, -5]}>
+    <Html transform occlude position={[-39.45, 4.32, -5]} rotation={[0, Math.PI / 2, 0]} distanceFactor={3.2} pointerEvents="none">
+      <div style={{
+        border: '1px solid rgba(213,160,107,.48)',
+        background: 'rgba(12,10,9,.9)',
+        color: '#e9ded2',
+        padding: '8px 18px',
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        fontWeight: 700,
+        letterSpacing: '.24em',
+        whiteSpace: 'nowrap',
+      }}>
+        EVENT ROOM
+      </div>
+    </Html>
+  );
+}
 
-      {/* ═══════════════ PODŁOGA — 30×8, dębowa ═══════════════ */}
-      <mesh position={[-15, -0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[30, 8]} />
-        <primitive object={materials.graniteFloor} attach="material" />
-      </mesh>
-      {[-3, -1.5, 0, 1.5, 3].map((z) => (
-        <mesh key={`floor-z-${z}`} position={[-15, -0.044, z]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[30, 0.018]} />
-          <meshBasicMaterial color="#151311" transparent opacity={0.34} depthWrite={false} />
-        </mesh>
-      ))}
-      {[-27, -24, -21, -18, -15, -12, -9, -6, -3].map((x) => (
-        <mesh key={`floor-x-${x}`} position={[x, -0.043, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
-          <planeGeometry args={[8, 0.018]} />
-          <meshBasicMaterial color="#151311" transparent opacity={0.28} depthWrite={false} />
-        </mesh>
-      ))}
-      {/* Drewniane listwy przypodłogowe */}
-      <mesh position={[-15, 0.12, -3.75]}>
-        <boxGeometry args={[30, 0.12, 0.04]} />
-        <primitive object={materials.woodSlat} attach="material" />
-      </mesh>
-      <mesh position={[-15, 0.12, 3.75]}>
-        <boxGeometry args={[30, 0.12, 0.04]} />
-        <primitive object={materials.woodSlat} attach="material" />
-      </mesh>
+export function LeftWingCorridor({
+  onEnterRoom,
+  materials,
+}: {
+  onEnterRoom: (id: string) => void;
+  materials: LobbyMaterials;
+}) {
+  return (
+    <group>
+      <MergedLobbyBoxes boxes={CORRIDOR_STONE} surface="stone" material={materials.stone} />
+      <MergedLobbyBoxes boxes={CORRIDOR_DARK} surface="dark" material={materials.dark} />
+      <MergedLobbyBoxes boxes={CORRIDOR_PLASTER} surface="plaster" material={materials.plaster} />
+      <MergedLobbyBoxes boxes={CORRIDOR_WOOD} surface="wood" material={materials.wood} />
+      <MergedLobbyBoxes boxes={CORRIDOR_LED} surface="wood" material={materials.led} />
 
-      {/* ═══════════════ SUFIT ═══════════════ */}
-      <mesh position={[-15, 6, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[30, 8]} />
-        <primitive object={materials.ceilingDark} attach="material" />
-      </mesh>
-      <mesh position={[-15, 5.86, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[28, 4.5]} />
-        <primitive object={materials.ceilingDark} attach="material" />
-      </mesh>
-      {[-2.55, 2.55].map((z) => (
-        <RoundedBox key={`ceiling-led-${z}`} args={[28, 0.035, 0.045]} radius={0.018} smoothness={5} position={[-15, 5.81, z]}>
-          <primitive object={materials.warmLed} attach="material" />
-        </RoundedBox>
-      ))}
-      {[-26.6, -24.6, -22.6, -20.6, -18.6, -16.6, -14.6, -12.6, -10.6, -8.6, -6.6, -4.6].map((x) => (
-        <RoundedBox key={`ceiling-groove-${x}`} args={[0.075, 0.035, 4.05]} radius={0.015} smoothness={5} position={[x, 5.825, 0]}>
-          <primitive object={materials.blackMetal} attach="material" />
-        </RoundedBox>
-      ))}
-      <pointLight position={[-22, 5.45, -2.4]} intensity={2.0} distance={8} decay={2} color="#ffd7a1" />
-      <pointLight position={[-10, 5.45, 2.4]} intensity={1.8} distance={8} decay={2} color="#ffd7a1" />
+      <InstancedLobbyBoxes
+        size={[0.12, 0.12, 7.5]}
+        surface="dark"
+        material={materials.dark}
+        transforms={CEILING_BAFFLES}
+      />
+      <InstancedLobbyBoxes
+        size={[0.11, 4.25, 0.11]}
+        surface="wood"
+        material={materials.wood}
+        transforms={WALL_SLATS}
+      />
+      <LobbyDoorGeometry materials={materials} />
 
-      {/* ═══════════════ ŚCIANA LEWA (strona pokoi) ═══════════════ */}
-      {[
-        { pos: [-6.35, 3, 4], args: [12.7, 6, 0.5] },
-        { pos: [-22.15, 3, 4], args: [13.7, 6, 0.5] },
-        { pos: [-33.15, 3, 4], args: [3.7, 6, 0.5] },
-      ].map((s, i) => (
-        <mesh key={`lw-${i}`} position={s.pos as [number, number, number]} castShadow receiveShadow>
-          <boxGeometry args={s.args as [number, number, number]} />
-          <primitive object={materials.concreteWall} attach="material" />
-        </mesh>
-      ))}
-      {[
-        { pos: [-14, 4.5, 4], args: [2.6, 3, 0.5] },
-        { pos: [-30, 4.5, 4], args: [2.6, 3, 0.5] },
-      ].map((s, i) => (
-        <mesh key={`lwt-${i}`} position={s.pos as [number, number, number]} castShadow receiveShadow>
-          <boxGeometry args={s.args as [number, number, number]} />
-          <primitive object={materials.concreteWall} attach="material" />
-        </mesh>
-      ))}
-      {/* Drewniane lamele na lewej ścianie */}
-      {[
-        { centerX: -4.2, width: 4.2 },
-        { centerX: -17.2, width: 5.8 },
-        { centerX: -32.0, width: 4.2 },
-      ].map((panel) => (
-        <WallSlatPanel
-          key={`left-panel-${panel.centerX}`}
-          centerX={panel.centerX}
-          z={3.63}
-          width={panel.width}
-          materials={materials}
-        />
-      ))}
-
-      {/* ═══════════════ ŚCIANA PRAWA ═══════════════ */}
-      <mesh position={[-15, 3, -4]} castShadow receiveShadow>
-        <boxGeometry args={[30, 6, 0.5]} />
-        <primitive object={materials.concreteWall} attach="material" />
-      </mesh>
-      <mesh position={[-15, 5.55, -3.71]}>
-        <boxGeometry args={[28, 0.05, 0.04]} />
-        <primitive object={materials.warmLed} attach="material" />
-      </mesh>
-      {[
-        { centerX: -2.1, width: 3.2 },
-        { centerX: -14.2, width: 5.0 },
-        { centerX: -30.8, width: 5.4 },
-      ].map((panel) => (
-        <WallSlatPanel
-          key={`right-panel-${panel.centerX}`}
-          centerX={panel.centerX}
-          z={-3.63}
-          width={panel.width}
-          materials={materials}
-        />
-      ))}
-
-      {/* ═══════════════ WESTYBUL ═══════════════ */}
-      <mesh position={[-0.25, 3, 2.6]} receiveShadow castShadow>
-        <boxGeometry args={[0.5, 6, 2.8]} />
-        <primitive object={materials.concreteWall} attach="material" />
-      </mesh>
-      <mesh position={[-0.25, 3, -2.6]} receiveShadow castShadow>
-        <boxGeometry args={[0.5, 6, 2.8]} />
-        <primitive object={materials.concreteWall} attach="material" />
-      </mesh>
-
-      {/* ═══════════════ ZIELEŃ ═══════════════ */}
-      {[-24, -12, -3].map((x, i) => (
-        <group key={`planter-${i}`} position={[x, 0, -3.5]}>
-          <mesh position={[0, 0.3, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.72, 0.58, 0.52]} />
-            <primitive object={MatteDarkAccentMaterial} attach="material" />
-          </mesh>
-          <mesh position={[0, 0.6, 0]}>
-            <boxGeometry args={[0.74, 0.03, 0.54]} />
-            <meshStandardMaterial color="#4a4540" roughness={0.5} metalness={0.1} />
-          </mesh>
-          <mesh position={[0, 1.3, 0]} castShadow>
-            <sphereGeometry args={[0.36, 18, 12]} />
-            <primitive object={FoliageGreenMaterial} attach="material" />
-          </mesh>
-          <mesh position={[0.12, 1.62, 0.06]} scale={[0.8, 1.15, 0.8]} castShadow>
-            <sphereGeometry args={[0.28, 18, 12]} />
-            <meshStandardMaterial color="#4b6f3a" roughness={0.9} metalness={0.0} />
-          </mesh>
-          <mesh position={[-0.12, 1.55, -0.04]} scale={[0.7, 1.0, 0.7]} castShadow>
-            <sphereGeometry args={[0.24, 18, 12]} />
-            <meshStandardMaterial color="#4a6b3a" roughness={0.9} metalness={0.0} />
-          </mesh>
-        </group>
-      ))}
-
-      {/* ═══════════════ POCKET TRANZYTOWY ═══════════════ */}
-      <group position={[-21.5, 0, 0]}>
-        <mesh position={[0, -0.04, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[4, 11]} />
-          <primitive object={materials.graniteFloor} attach="material" />
-        </mesh>
-        <mesh position={[0, 3, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.3, 0.4, 6, 24]} />
-          <primitive object={materials.concreteWall} attach="material" />
-        </mesh>
-        <mesh position={[0, 4.0, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.45, 0.55, 32]} />
-          <meshBasicMaterial color="#c4a882" transparent opacity={0.5} />
-        </mesh>
-        <pointLight position={[0, 4.5, 0]} intensity={2.5} distance={6} decay={2} color="#f5e6d0" />
-      </group>
-
-      {/* ═══════════════ END HUB — WEJŚCIE DO EVENT ROOMU ═══════════════ */}
-      <group position={[-29.5, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
-        <mesh position={[0, -0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[8, 7]} />
-          <meshStandardMaterial color="#d4ccc0" roughness={0.3} metalness={0.05} />
-        </mesh>
-        <mesh position={[0, 3, -1.5]} castShadow receiveShadow>
-          <boxGeometry args={[8, 6, 0.5]} />
-          <primitive object={materials.concreteWall} attach="material" />
-        </mesh>
-        <mesh position={[0, 3, -1.15]} castShadow receiveShadow>
-          <boxGeometry args={[4.4, 5.4, 0.35]} />
-          <primitive object={MatteDarkAccentMaterial} attach="material" />
-        </mesh>
-        {[
-          { pos: [-2.0, 3, -0.95], args: [0.08, 5.2, 0.06] },
-          { pos: [2.0, 3, -0.95], args: [0.08, 5.2, 0.06] },
-          { pos: [0, 5.55, -0.95], args: [4.08, 0.08, 0.06] },
-        ].map((f, i) => (
-          <mesh key={`ef-${i}`} position={f.pos as [number, number, number]}>
-            <boxGeometry args={f.args as [number, number, number]} />
-            <primitive object={materials.woodSlat} attach="material" />
-          </mesh>
-        ))}
-        <mesh position={[0, 3, -0.75]}>
-          <boxGeometry args={[3.8, 5.0, 0.06]} />
-          <meshStandardMaterial color="#1a1816" roughness={0.5} metalness={0.15} />
-        </mesh>
-        <mesh position={[0, 3, -0.7]}>
-          <boxGeometry args={[4.0, 5.2, 0.02]} />
-          <meshBasicMaterial color="#f5e6d0" transparent opacity={0.06} depthWrite={false} />
-        </mesh>
-        <pointLight position={[0, 3, 0.5]} intensity={3.5} distance={8} decay={2} color="#f5e6d0" />
-        <Html transform occlude position={[0, 5.8, 0.2]} distanceFactor={3}>
-          <div className="flex border border-[#c4a882]/50 bg-black/70 px-6 py-2 rounded text-white font-bold tracking-[0.3em] backdrop-blur text-sm">
-            EVENT ROOM
-          </div>
-        </Html>
-      </group>
-
-      {/* ═══════════════ OŚWIETLENIE ═══════════════ */}
-      <pointLight position={[-8, 4.5, 0]} intensity={2.5} distance={12} decay={2} color="#f5e6d0" />
-      <pointLight position={[-18, 4.5, 0]} intensity={2.5} distance={12} decay={2} color="#f5e6d0" />
-      <pointLight position={[-25, 4.5, 0]} intensity={2.5} distance={12} decay={2} color="#f5e6d0" />
-      <pointLight position={[-32, 4.5, 0]} intensity={2.5} distance={12} decay={2} color="#f5e6d0" />
-
-      {/* ═══════════════ DRZWI DO POKOJÓW ═══════════════ */}
-      {DOORS.map(d => (
+      {LOBBY_DOORS.map(door => (
         <RoomDoor
-          key={d.id}
-          position={[(d.pos[0] + 10), d.pos[1], d.pos[2]] as [number, number, number]}
-          rotation={d.rot as [number, number, number]}
-          label={d.label}
-          status={d.status}
-          userCount={d.users}
-          onEnter={() => onEnterRoom(d.id)}
+          key={door.id}
+          position={door.position}
+          rotation={[0, door.rotationY, 0]}
+          label={door.label}
+          status={door.status}
+          userCount={door.users}
+          onEnter={() => onEnterRoom(door.id)}
+          renderGeometry={false}
         />
       ))}
+
+      <EventRoomLabel />
     </group>
   );
 }
