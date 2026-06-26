@@ -10,3 +10,5 @@
 public/media/video/Przejście_pory_dnia_202604291837.mp4 -filter -diff -merge -text
 public/media/video/Spodek_odleciał_z_miejsca_202604292318.mp4 -filter -diff -merge -text
 "public/media/video/Veo3 Generated Video.mp4" -filter -diff -merge -text
+public/media/video/day-cycle.mp4 -filter -diff -merge -text
+public/media/video/spodek.mp4 -filter -diff -merge -text
