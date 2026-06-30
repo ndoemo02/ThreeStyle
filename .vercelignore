@@ -1,0 +1,17 @@
+# Source and archive assets are kept in the repository but are not part of the web runtime.
+public/Nowy folder/
+public/models/new/
+public/models/models/
+public/models/TV/
+public/models/modern_wooden_cabinet_4k.blend/
+public/textures/bark_brown_02_4k.blend/
+public/textures/drewno/plastered_stone_wall_4k.blend/
+public/textures/jolcham_oak_bark_01_4k.blend/
+public/textures/pine_bark_4k.blend/
+public/textures/tree_small_02_4k.blend/
+public/hdri/
+public/**/*.zip
+public/**/*.obj
+public/**/*.blend
+public/**/*.exr
+public/**/*.NEF
