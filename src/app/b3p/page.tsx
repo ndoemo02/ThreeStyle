@@ -5,8 +5,6 @@ import * as THREE from 'three';
 import dynamic from 'next/dynamic';
 import { Canvas, useThree } from '@react-three/fiber';
 import { EffectComposer, SelectiveBloom, SMAA } from '@react-three/postprocessing';
-import { Leva } from 'leva';
-import AudioVisualizer from '../../3d/modules/fx/AudioVisualizer';
 import { CreatorRoomMVP } from '../../3d/world/rooms/CreatorRoomMVP';
 import { BaseNavigationControls } from '../../3d/systems/BaseNavigationControls';
 import { HudOverlay } from '../../components/HudOverlay';
@@ -25,6 +23,10 @@ const GroundedHub = dynamic(
 const loadEventRoom = () => import('../../3d/world/event-room');
 const EventRoomScene = dynamic(
   () => loadEventRoom().then(module => module.EventRoomScene),
+  { ssr: false, loading: () => null },
+);
+const AudioVisualizer = dynamic(
+  () => import('../../3d/modules/fx/AudioVisualizer'),
   { ssr: false, loading: () => null },
 );
 
@@ -135,8 +137,6 @@ export default function B3PPage() {
 
   return (
     <div className="b3p-fullscreen">
-      <Leva hidden />
-
       {/* UI Overlay Help */}
       <div className="absolute top-4 left-4 z-10 p-4 font-mono text-xs text-white/50 pointer-events-none drop-shadow-md">
         <div>B3P (Blok Trzech Pięter)</div>
@@ -188,12 +188,12 @@ export default function B3PPage() {
 
       <div className="b3p-canvas-wrap">
         <Canvas
-          shadows={!isMobile && usesCreatorRoomPipeline}
+          shadows={false}
           frameloop="always"
           dpr={canvasDpr}
           gl={glConfig}
           onCreated={({ gl }) => {
-            gl.shadowMap.type = THREE.PCFShadowMap;
+            gl.shadowMap.enabled = false;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
             gl.toneMappingExposure = 1.55;
           }}
@@ -233,7 +233,7 @@ export default function B3PPage() {
             />
           </EffectComposer>
         )}
-        {usesCreatorRoomPipeline ? <AudioVisualizer /> : null}
+        {!isMobile && usesCreatorRoomPipeline ? <AudioVisualizer /> : null}
 
         {!isMobile && usesCreatorRoomPipeline ? <PerformanceCounter /> : null}
 

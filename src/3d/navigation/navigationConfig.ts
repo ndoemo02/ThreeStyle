@@ -63,24 +63,24 @@ export function getHubCameraPreset(width: number, height: number): CameraPreset 
 export function getEventRoomCameraPreset(width: number, height: number): CameraPreset {
   if (height > width) {
     return {
-      position: [0, 2.05, 5.35],
-      target: [0, 1.82, -3.25],
-      fov: 64,
+      position: [0, 1.62, 7.2],
+      target: [0, 3.08, -10.2],
+      fov: 62,
     };
   }
 
   if (width < 1024) {
     return {
-      position: [0, 2.05, 5.15],
-      target: [0, 1.82, -3.2],
-      fov: 62,
+      position: [0, 1.68, 6.9],
+      target: [0, 3.08, -10.2],
+      fov: 59,
     };
   }
 
   return {
-    position: [0, 2.12, 5.25],
-    target: [0, 1.82, -3.45],
-    fov: 62,
+    position: [0, 1.72, 7.05],
+    target: [0, 3.12, -10.2],
+    fov: 56,
   };
 }
 

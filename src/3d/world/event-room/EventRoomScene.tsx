@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useReducer } from 'react';
 import { Html } from '@react-three/drei';
+import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { RoomDoor } from '../../modules/doors/RoomDoor';
 import { shouldUseMobileRoomProfileInBrowser } from '../../../lib/deviceProfile';
 import { HUB_ZONE } from '../../navigation/navigationConfig';
@@ -47,12 +48,20 @@ export function EventRoomScene({ onExit }: { onExit: (zone: string) => void }) {
 
   return (
     <group>
+      <EffectComposer multisampling={0}>
+        <Bloom
+          intensity={qualityTier === 'desktop' ? 0.38 : 0.24}
+          luminanceThreshold={qualityTier === 'desktop' ? 0.84 : 0.9}
+          luminanceSmoothing={0.18}
+          mipmapBlur={qualityTier === 'desktop'}
+        />
+      </EffectComposer>
       <EventRoomLighting theme={theme} qualityTier={qualityTier} />
       <EventRoomShell materials={materials} />
       <EventRoomScreens materials={materials} show={show} theme={theme} />
 
       <RoomDoor
-        position={[0, 0, 6.78]}
+        position={[0, 0, 12.45]}
         rotation={[0, Math.PI, 0]}
         label="BACK TO LOBBY"
         status="active"
@@ -61,7 +70,7 @@ export function EventRoomScene({ onExit }: { onExit: (zone: string) => void }) {
         renderGeometry={false}
       />
 
-      <Html transform position={[0, 1.9, 6.62]} distanceFactor={4.2} pointerEvents="none">
+      <Html transform position={[0, 2.08, 12.22]} distanceFactor={4.6} pointerEvents="none">
         <div style={{
           border: `1px solid ${theme.ledSoft}88`,
           background: 'rgba(10,8,7,.76)',

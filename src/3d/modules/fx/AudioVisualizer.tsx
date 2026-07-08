@@ -88,6 +88,7 @@ export default function AudioVisualizer() {
   const { size } = useThree();
   const groupRef = useRef<THREE.Group>(null);
   const linesRef = useRef<Array<{ mat: LineMaterial }>>([]);
+  const frequencyDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
 
   const resolution = useMemo(
     () => new THREE.Vector2(size.width, size.height),
@@ -144,7 +145,11 @@ export default function AudioVisualizer() {
     }
 
     const bins = analyserNode.frequencyBinCount;
-    const data = new Uint8Array(bins);
+    let data = frequencyDataRef.current;
+    if (!data || data.length !== bins) {
+      data = new Uint8Array(bins);
+      frequencyDataRef.current = data;
+    }
     analyserNode.getByteFrequencyData(data);
 
     let bassSum = 0;

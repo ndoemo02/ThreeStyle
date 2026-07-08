@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import type { PointerLockControls as PointerLockControlsImpl } from 'three-stdlib';
 import { useHudStore } from '../../stores/useHudStore';
 import { useTransitionStore } from '../../store/useTransitionStore';
+import { EVENT_ROOM_ZONE, ROOM_ZONE } from '../navigation/navigationConfig';
 
 type JoystickVector = {
   x: number;
@@ -37,6 +38,20 @@ function isPointerLockError(reason: unknown): boolean {
   );
 }
 
+function clampCameraToCreatorRoom(camera: THREE.Camera) {
+  camera.position.x = THREE.MathUtils.clamp(camera.position.x, -6.65, 6.65);
+  camera.position.z = THREE.MathUtils.clamp(camera.position.z, -5.45, 7.55);
+}
+
+function clampCameraToEventRoom(camera: THREE.Camera) {
+  camera.position.x = THREE.MathUtils.clamp(camera.position.x, -10.85, 10.85);
+  camera.position.z = THREE.MathUtils.clamp(camera.position.z, -7.1, 11.95);
+}
+
+function getZoneEyeHeight(zone: string) {
+  return zone === EVENT_ROOM_ZONE ? 1.64 : 2.05;
+}
+
 export function BaseNavigationControls() {
   const controlsRef = useRef<PointerLockControlsImpl | null>(null);
   const direction = useRef(new THREE.Vector3());
@@ -46,6 +61,7 @@ export function BaseNavigationControls() {
   const { camera } = useThree();
   const isHudOpen = useHudStore(s => s.isOpen);
   const elevatorState = useTransitionStore(s => s.elevatorState);
+  const activeZone = useTransitionStore(s => s.activeZone);
 
   const startPointerLockCooldown = () => {
     pointerLockCooldownUntil.current = Date.now() + 450;
@@ -275,7 +291,9 @@ export function BaseNavigationControls() {
       }
 
       // Keep grounded at natural human eye level
-      state.camera.position.y = 2.05;
+      state.camera.position.y = getZoneEyeHeight(activeZone);
+      if (activeZone === ROOM_ZONE) clampCameraToCreatorRoom(state.camera);
+      if (activeZone === EVENT_ROOM_ZONE) clampCameraToEventRoom(state.camera);
       if (moved) state.invalidate();
       return;
     }
@@ -296,7 +314,9 @@ export function BaseNavigationControls() {
       }
 
       // Keep grounded at natural human eye level
-      state.camera.position.y = 2.05;
+      state.camera.position.y = getZoneEyeHeight(activeZone);
+      if (activeZone === ROOM_ZONE) clampCameraToCreatorRoom(state.camera);
+      if (activeZone === EVENT_ROOM_ZONE) clampCameraToEventRoom(state.camera);
     }
 
     // PointerLockControls rotates camera via its own internal RAF — always invalidate when locked

@@ -7,7 +7,6 @@ import * as THREE from 'three';
 import { EditingTable } from '../../modules/furniture/EditingTable';
 import { DistanceCulledModel } from '../../systems/DistanceCulledModel';
 import { VocalBooth } from './VocalBooth';
-import { useControls } from 'leva';
 import { useHudStore } from '../../../stores/useHudStore';
 import { useAudioStore } from '../../../stores/useAudioStore';
 import { ParticleWaveFloor } from '../../modules/fx/ParticleWaveFloor';
@@ -31,6 +30,80 @@ type SceneObjectProps = {
   scale?: number | [number, number, number];
 };
 
+const tableControls = {
+  posX: 3.5,
+  posY: -0.1,
+  posZ: -3.4,
+  rotY: 0,
+  scale: 1.85,
+};
+
+const hudControls = {
+  hudPosX: 3.6,
+  hudPosY: 3.0,
+  hudPosZ: -5.6,
+  hudRotX: 0,
+  hudRotY: 0,
+  hudRotZ: 0,
+  hudScale: 1.55,
+};
+
+const boothControls = {
+  posX: -6.7,
+  posY: 2.2,
+  posZ: -2.5,
+  rotY: 0,
+  width: 4.4,
+  height: 1.4,
+};
+
+const decorControls = {
+  chairPosX: 3.8,
+  chairPosY: 0.7,
+  chairPosZ: -2.0,
+  chairRotY: -78,
+  chairScale: 0.5,
+  organizerPosX: 4.85,
+  organizerPosY: 1.55,
+  organizerPosZ: -4.4,
+  organizerRotY: 0,
+  organizerScale: 1.96,
+  buttonPosX: 6.3,
+  buttonPosY: 1.9,
+  buttonPosZ: -2.2,
+  buttonRotY: 180,
+  buttonScale: 0.7,
+  laptopPosX: 6.0,
+  laptopPosY: 1.4,
+  laptopPosZ: -2.0,
+  laptopRotY: -157,
+  laptopScale: 3.3,
+  sofaPosX: 4.2,
+  sofaPosY: 0.7,
+  sofaPosZ: 3.2,
+  sofaRotY: -180,
+  sofaScale: 0.72,
+  rtvPosX: -6.0,
+  rtvPosY: 0.60,
+  rtvPosZ: 3.2,
+  rtvRotY: 90,
+  rtvScale: 2.5,
+};
+
+const logoControls = {
+  logoPosX: -2.8,
+  logoPosY: 3.0,
+  logoPosZ: -5.6,
+  logoScale: 1.4,
+};
+
+const artControls = {
+  offsetX: 0,
+  offsetY: 0,
+  repeatX: 1,
+  repeatY: 1,
+};
+
 function StageReadySignal({ onReady }: { onReady?: () => void }) {
   useEffect(() => {
     onReady?.();
@@ -49,9 +122,9 @@ function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
   // Stabilny materiał tworzony raz
   const ledMaterial = useMemo(() => {
     const mat = new THREE.MeshStandardMaterial({
-      color: '#ffffff',
-      emissive: '#00f3ff',
-      emissiveIntensity: 0.7,
+      color: '#ffd2a0',
+      emissive: '#ff9f45',
+      emissiveIntensity: 0.46,
       toneMapped: false,
       depthWrite: false,
     });
@@ -68,8 +141,8 @@ function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
     if (!mat || !light) return;
 
     if (!hudAnalyser) {
-      mat.emissiveIntensity = 0.5;
-      light.intensity = 0.18;
+      mat.emissiveIntensity = 0.42;
+      light.intensity = 0.1;
       return;
     }
 
@@ -84,9 +157,9 @@ function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
     for (let i = 0; i < 16; i++) sum += data[i];
     const avg = sum / 16 / 255;
 
-    const intensity = 0.5 + avg * 6.0;
+    const intensity = 0.42 + avg * 1.2;
     mat.emissiveIntensity = intensity;
-    light.intensity = intensity * 0.45;
+    light.intensity = intensity * 0.16;
   });
 
   // Wymiary pokoju
@@ -122,9 +195,9 @@ function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
       <pointLight
         ref={lightRef}
         position={[0, -0.15, 0]}
-        color="#00f3ff"
+        color="#ff9f45"
         distance={14}
-        intensity={0.22}
+        intensity={0.1}
         decay={1.5}
       />
     </group>
@@ -132,10 +205,10 @@ function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
 }
 
 // 2. Global shared material dla TechnicalTrim (Optymalizacja)
-const globalTrimMaterial = new THREE.MeshStandardMaterial({ color: "#080808", roughness: 0.95, metalness: 0 });
-const roomFallbackWallMaterial = new THREE.MeshStandardMaterial({ color: '#563725', roughness: 0.9 });
-const roomFallbackSideMaterial = new THREE.MeshStandardMaterial({ color: '#302c29', roughness: 0.94 });
-const roomFallbackFloorMaterial = new THREE.MeshStandardMaterial({ color: '#514941', roughness: 0.88 });
+const globalTrimMaterial = new THREE.MeshStandardMaterial({ color: "#060504", roughness: 0.96, metalness: 0.02 });
+const roomFallbackWallMaterial = new THREE.MeshStandardMaterial({ color: '#4b2f1f', roughness: 0.92 });
+const roomFallbackSideMaterial = new THREE.MeshStandardMaterial({ color: '#12100e', roughness: 0.95 });
+const roomFallbackFloorMaterial = new THREE.MeshStandardMaterial({ color: '#332820', roughness: 0.9 });
 
 function TechnicalTrim({ args, position, rotation = [0, 0, 0] }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number] }) {
   return (
@@ -230,9 +303,9 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat,
         normalMap={maps[1]} 
         roughnessMap={maps[2]} 
         metalnessMap={maps[3]} 
-        color="#a39b92"
-        normalScale={new THREE.Vector2(2.4, 2.4)}
-        roughness={0.82}
+        color="#2f2a25"
+        normalScale={new THREE.Vector2(2.0, 2.0)}
+        roughness={0.9}
       />
     </mesh>
   );
@@ -275,12 +348,27 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
         roughnessMap={maps[2]} 
         metalnessMap={maps[3]} 
         aoMap={maps[4]}
-        color="#8a7568"
-        normalScale={new THREE.Vector2(1.8, 1.8)}
-        roughness={0.82}
-        metalness={0.38}
+        color="#4a3329"
+        normalScale={new THREE.Vector2(1.15, 1.15)}
+        roughness={0.9}
+        metalness={0.08}
       />
     </mesh>
+  );
+}
+
+function StudioReferenceCoveLight() {
+  return (
+    <group>
+      <rectAreaLight
+        color="#ffad63"
+        intensity={2.15}
+        width={8.5}
+        height={2.2}
+        position={[1.05, 3.25, -5.35]}
+        rotation={[0.18, 0, 0]}
+      />
+    </group>
   );
 }
 
@@ -295,6 +383,22 @@ function RoomArchitectureFallback() {
       </mesh>
       <mesh position={[0, 2.5, -6]} material={roomFallbackWallMaterial}>
         <boxGeometry args={[14, 5, 0.5]} />
+      </mesh>
+      <mesh position={[3.45, 3.0, -5.68]}>
+        <boxGeometry args={[4.1, 1.82, 0.08]} />
+        <meshBasicMaterial color="#f1ebe4" toneMapped={false} />
+      </mesh>
+      <mesh position={[-2.65, 2.65, -5.68]}>
+        <boxGeometry args={[2.15, 1.35, 0.08]} />
+        <meshStandardMaterial color="#080605" roughness={0.82} metalness={0.12} />
+      </mesh>
+      <mesh position={[-7.02, 2.32, -2.55]} rotation={[0, Math.PI / 2, 0]}>
+        <boxGeometry args={[3.95, 1.05, 0.08]} />
+        <meshBasicMaterial color="#d8f1ff" transparent opacity={0.12} />
+      </mesh>
+      <mesh position={[-2.2, 0.72, -5.05]}>
+        <boxGeometry args={[3.25, 0.72, 0.42]} />
+        <meshStandardMaterial color="#5a321e" roughness={0.78} metalness={0.02} />
       </mesh>
       <mesh position={[-7, 2.6, -0.5]} rotation={[0, Math.PI / 2, 0]} material={roomFallbackSideMaterial}>
         <boxGeometry args={[15.2, 5.2, 0.5]} />
@@ -404,19 +508,22 @@ function createSoftFrameTexture({ color, strength, bottomFactor = 0.35, shadow =
 }
 
 function Thr3StyleWallArt({ url, offsetX = 0, offsetY = 0, repeatX = 1, repeatY = 1, ...props }: { url: string, offsetX?: number, offsetY?: number, repeatX?: number, repeatY?: number } & SceneObjectProps) {
-  const texture = useTexture(url) as THREE.Texture;
-
-  // Apply an offset to perfectly center the logo
-  useMemo(() => {
+  const sourceTexture = useTexture(url) as THREE.Texture;
+  const texture = useMemo(() => {
+    const clone = sourceTexture.clone();
     if (url.includes('logo3s.jpeg')) {
-      texture.wrapS = THREE.RepeatWrapping;
-      texture.wrapT = THREE.RepeatWrapping;
+      clone.wrapS = THREE.RepeatWrapping;
+      clone.wrapT = THREE.RepeatWrapping;
       // offset.x: negative moves image right, positive moves image left
-      texture.offset.set(offsetX, offsetY); 
-      texture.repeat.set(repeatX, repeatY); 
-      texture.needsUpdate = true;
+      clone.offset.set(offsetX, offsetY);
+      clone.repeat.set(repeatX, repeatY);
     }
-  }, [texture, url, offsetX, offsetY, repeatX, repeatY]);
+    clone.colorSpace = THREE.SRGBColorSpace;
+    clone.needsUpdate = true;
+    return clone;
+  }, [sourceTexture, url, offsetX, offsetY, repeatX, repeatY]);
+
+  useEffect(() => () => texture.dispose(), [texture]);
 
   const logoAspect = useMemo(() => {
     const image = texture.image as { width?: number; height?: number } | undefined;
@@ -491,7 +598,7 @@ function Thr3StyleWallArt({ url, offsetX = 0, offsetY = 0, repeatX = 1, repeatY 
       </mesh>
       <mesh position={[0, 0, 0.095]} renderOrder={20}>
         <planeGeometry args={[logoWidth, logoHeight]} />
-        <meshBasicMaterial map={texture} transparent alphaTest={0.02} side={THREE.DoubleSide} depthWrite={false} depthTest={false} toneMapped={false} />
+        <meshBasicMaterial map={texture} transparent alphaTest={0.02} side={THREE.DoubleSide} depthWrite={false} depthTest toneMapped={false} />
       </mesh>
       <mesh position={[0, 0.08, 0.075]} renderOrder={9}>
         <planeGeometry args={[artworkWidth - 0.22, artworkHeight - 0.22]} />
@@ -589,47 +696,30 @@ function StudioDisplayWall({
 
       {/* 6. Fallback Branding Layer */}
       {fallbackVisible && (
-        <Thr3StyleScreenBranding
-          screenUrl="/textures/branding/logo3s.jpeg"
-          panelHeight={screenHeight}
-          showBase={false}
-          position={[0, 0, 0.012]}
-        />
+        <CreatorScreenFallback screenWidth={screenWidth} screenHeight={screenHeight} />
       )}
     </group>
   );
 }
 
-function Thr3StyleScreenBranding({ screenUrl, panelHeight = 0.92, showBase = true, ...props }: { screenUrl: string, panelHeight?: number, showBase?: boolean } & SceneObjectProps) {
-  const sourceTexture = useTexture(screenUrl) as THREE.Texture;
-  const screenTexture = useMemo(() => {
-    const clone = sourceTexture.clone();
-    clone.colorSpace = THREE.SRGBColorSpace;
-    clone.minFilter = THREE.LinearFilter;
-    clone.magFilter = THREE.LinearFilter;
-    clone.needsUpdate = true;
-    return clone;
-  }, [sourceTexture]);
-  const screenAspect = useMemo(() => {
-    const image = screenTexture.image as { width?: number; height?: number } | undefined;
-    if (image?.width && image?.height) {
-      return image.width / image.height;
-    }
-    return 1344 / 768;
-  }, [screenTexture]);
-  const panelWidth = panelHeight * screenAspect;
-
+function CreatorScreenFallback({ screenWidth, screenHeight }: { screenWidth: number; screenHeight: number }) {
   return (
-    <group {...props}>
-      {showBase && (
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[panelWidth + 0.02, panelHeight + 0.02, 0.02]} />
-          <meshStandardMaterial color="#06080a" roughness={0.94} metalness={0.04} />
-        </mesh>
-      )}
-      <mesh position={[0, 0, showBase ? 0.012 : 0.001]} renderOrder={30}>
-        <planeGeometry args={[panelWidth, panelHeight]} />
-        <meshBasicMaterial map={screenTexture} toneMapped={false} depthWrite={false} depthTest={false} />
+    <group position={[0, 0, 0.012]}>
+      <mesh renderOrder={20}>
+        <planeGeometry args={[screenWidth, screenHeight]} />
+        <meshBasicMaterial color="#efe4d7" toneMapped={false} />
+      </mesh>
+      <mesh position={[0, 0, 0.003]} renderOrder={21}>
+        <planeGeometry args={[screenWidth * 0.88, screenHeight * 0.78]} />
+        <meshBasicMaterial color="#f8f2ea" transparent opacity={0.92} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, -screenHeight * 0.34, 0.006]} renderOrder={22}>
+        <planeGeometry args={[screenWidth * 0.48, 0.035]} />
+        <meshBasicMaterial color="#8a4f2e" transparent opacity={0.42} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, screenHeight * 0.32, 0.007]} renderOrder={22}>
+        <planeGeometry args={[screenWidth * 0.22, 0.026]} />
+        <meshBasicMaterial color="#2b211b" transparent opacity={0.18} toneMapped={false} />
       </mesh>
     </group>
   );
@@ -1016,97 +1106,6 @@ export function CreatorRoomMVP({
     }
   });
 
-  const tableControls = useControls('Editing Table', {
-    posX: { value: 3.5, min: -10, max: 10, step: 0.1 },
-    posY: { value: -0.1, min: -5, max: 5, step: 0.1 },
-    posZ: { value: -3.4, min: -15, max: 10, step: 0.1 },
-    rotY: { value: 0, min: -180, max: 180, step: 1 },
-    scale: { value: 1.85, min: 0.1, max: 5, step: 0.05 },
-  });
-
-  const hudControls = useControls('HUD Screen', {
-    hudPosX: { value: 3.6, min: -10, max: 10, step: 0.1 },
-    hudPosY: { value: 3.0, min: -5, max: 10, step: 0.1 },
-    hudPosZ: { value: -5.6, min: -15, max: 10, step: 0.1 },
-    hudRotX: { value: 0, min: -180, max: 180, step: 1 },
-    hudRotY: { value: 0, min: -180, max: 180, step: 1 },
-    hudRotZ: { value: 0, min: -180, max: 180, step: 1 },
-    hudScale: { value: 1.55, min: 0.1, max: 5, step: 0.05 },
-  });
-
-  const lightControls = useControls('Lighting', {
-    lightPosX: { value: -3.6, min: -10, max: 10, step: 0.1 },
-    lightPosY: { value: 5.3, min: 0, max: 10, step: 0.1 },
-    lightPosZ: { value: -6.3, min: -15, max: 10, step: 0.1 },
-    conePosX: { value: -3.0, min: -10, max: 10, step: 0.1 },
-    conePosY: { value: 4.6, min: 0, max: 10, step: 0.1 },
-    conePosZ: { value: -5.5, min: -15, max: 10, step: 0.1 }, // moved even further forward to clear wall textures
-    targetPosX: { value: 7.2, min: -10, max: 10, step: 0.1 },
-    targetPosY: { value: 4.2, min: 0, max: 10, step: 0.1 },
-    targetPosZ: { value: 9.8, min: -15, max: 10, step: 0.1 },
-  });
-
-  const boothControls = useControls('Vocal Booth Glass', {
-    posX:   { value: -6.7,  min: -7.2, max: -6.2, step: 0.01 }, // left wall depth
-    posY:   { value: 2.2,   min: 0,    max: 10,   step: 0.1 },
-    posZ:   { value: -2.5,  min: -5.2, max: 4.8,  step: 0.1 },  // along left wall
-    rotY:   { value: 0,     min: -12,  max: 12,   step: 1 },
-    width:  { value: 4.4,   min: 1.0,  max: 6.2,  step: 0.1 },
-    height: { value: 1.4,   min: 0.6,  max: 2.5,  step: 0.1 },
-  });
-
-  const decorControls = useControls('Room Decor', {
-    chairPosX: { value: 3.8, min: -10, max: 10, step: 0.1 },
-    chairPosY: { value: 0.7, min: -5, max: 5, step: 0.1 },
-    chairPosZ: { value: -2.0, min: -10, max: 10, step: 0.1 }, // Tucked in more towards the desk
-    chairRotY: { value: -78, min: -180, max: 180, step: 1 },
-    chairScale: { value: 0.5, min: 0.1, max: 5, step: 0.05 },
-
-    organizerPosX: { value: 4.85, min: -10, max: 10, step: 0.05 },
-    organizerPosY: { value: 1.55, min: -5, max: 5, step: 0.01 },
-    organizerPosZ: { value: -4.4, min: -10, max: 10, step: 0.05 },
-    organizerRotY: { value: 0, min: -180, max: 180, step: 1 },
-    organizerScale: { value: 1.96, min: 0.01, max: 2, step: 0.01 },
-
-    buttonPosX: { value: 6.3, min: -10, max: 10, step: 0.1 },
-    buttonPosY: { value: 1.9, min: -5, max: 5, step: 0.1 },
-    buttonPosZ: { value: -2.2, min: -10, max: 10, step: 0.1 },
-    buttonRotY: { value: 180, min: -180, max: 180, step: 1 },
-    buttonScale: { value: 0.7, min: 0.1, max: 10, step: 0.1 },
-
-    laptopPosX: { value: 6.0, min: -10, max: 10, step: 0.1 },
-    laptopPosY: { value: 1.4, min: -5, max: 5, step: 0.05 },
-    laptopPosZ: { value: -2.0, min: -10, max: 10, step: 0.1 },
-    laptopRotY: { value: -157, min: -180, max: 180, step: 1 },
-    laptopScale: { value: 3.3, min: 0.01, max: 50, step: 0.1 },
-
-    sofaPosX: { value: 4.2, min: -10, max: 10, step: 0.1 },
-    sofaPosY: { value: 0.7, min: -5, max: 5, step: 0.1 },
-    sofaPosZ: { value: 3.2, min: -10, max: 10, step: 0.1 },
-    sofaRotY: { value: -180, min: -180, max: 180, step: 1 },
-    sofaScale: { value: 0.72, min: 0.01, max: 5, step: 0.01 },
-
-    rtvPosX: { value: -6.0, min: -12, max: 12, step: 0.1 },
-    rtvPosY: { value: 0.60, min: -5, max: 5, step: 0.05 },
-    rtvPosZ: { value: 3.2, min: -12, max: 12, step: 0.1 },
-    rtvRotY: { value: 90, min: -180, max: 180, step: 1 },
-    rtvScale: { value: 2.5, min: 0.01, max: 10, step: 0.1 },
-  });
-
-  const logoControls = useControls('Wall Logo', {
-    logoPosX: { value: -2.8, min: -10, max: 10, step: 0.1 },
-    logoPosY: { value: 3.0, min: 0, max: 10, step: 0.1 },
-    logoPosZ: { value: -5.6, min: -15, max: 10, step: 0.01 },
-    logoScale: { value: 1.4, min: 0.1, max: 5, step: 0.1 },
-  });
-
-  const artControls = useControls('Wall Artwork', {
-    offsetX: { value: 0, min: -0.5, max: 0.5, step: 0.001 },
-    offsetY: { value: 0, min: -0.5, max: 0.5, step: 0.001 },
-    repeatX: { value: 1, min: 0.5, max: 2, step: 0.001 },
-    repeatY: { value: 1, min: 0.5, max: 2, step: 0.001 },
-  });
-
   const roomBackZ = -6;
   const roomFrontZ = 7;
   const leftWallX = -7;
@@ -1124,8 +1123,8 @@ export function CreatorRoomMVP({
       <hemisphereLight args={['#ffe8cf', '#392b24', 1.05]} />
 
       {/* Górny sufit — 2 słabsze pointLight zamiast przepalającego directionala */}
-      <pointLight position={[0, 4.9, 0]} intensity={0.95} color="#ffa95c" distance={9} decay={1.7} />
-      <pointLight position={[-4, 4.9, -4]} intensity={0.75} color="#ffa95c" distance={7} decay={1.8} />
+      <pointLight position={[0, 4.9, 0]} intensity={0.58} color="#ffad66" distance={9} decay={1.8} />
+      <pointLight position={[-4, 4.9, -4]} intensity={0.38} color="#ffad66" distance={7} decay={1.9} />
 
       {/* Desk SpotLight (Soft & Focused) */}
       <spotLight
@@ -1136,7 +1135,6 @@ export function CreatorRoomMVP({
         decay={1.5}
         color="#ffecd6"
         distance={9}
-        castShadow
         shadow-mapSize={[512, 512]}
       >
         <object3D position={[3.5, 0, -3.4]} attach="target" />
@@ -1188,17 +1186,18 @@ export function CreatorRoomMVP({
           {/* {!isMobile && (
             <PortalEffect position={[0, 2.5, 0.3]} radius={1.2} active={true} />
           )} */}
-          <pointLight position={[0, 2.5, -2]} intensity={2.4} color="#ff8c42" distance={5} decay={2} />
+          <pointLight position={[0, 2.5, -2]} intensity={1.45} color="#ff9f52" distance={5} decay={2} />
         </group>
 
         {/* Back wall — ciepły akcent */}
-        <pointLight position={[1.9, 3.0, -4.8]} intensity={1.9} color="#ffe0a0" distance={4.5} decay={2} />
+        <pointLight position={[1.9, 3.0, -4.8]} intensity={1.25} color="#ffd39a" distance={4.7} decay={2} />
         {/* Cool rim fill — przełamuje pomarańczową paletę */}
-        <pointLight position={[-6.5, 4.0, -4.5]} intensity={0.85} color="#8899cc" distance={8} decay={2} />
+        <pointLight position={[-6.5, 4.0, -4.5]} intensity={0.32} color="#8a93ac" distance={8} decay={2} />
         <mesh position={[0, 2.5, -6]} castShadow receiveShadow>
           <boxGeometry args={[14, 5, 0.5]} />
-          <meshStandardMaterial color="#613b25" roughness={0.78} metalness={0.03} />
+          <meshStandardMaterial color="#4a2d1d" roughness={0.86} metalness={0.02} />
         </mesh>
+        <StudioReferenceCoveLight />
 
         <TechnicalTrim position={[-6.72, 2.5, -5.74]} args={[0.06, 5.0, 0.04]} />
         <TechnicalTrim position={[6.72, 2.5, -5.74]} args={[0.06, 5.0, 0.04]} />
@@ -1292,18 +1291,11 @@ export function CreatorRoomMVP({
           scale={decorControls.organizerScale}
         />
 
-        {/* Golden play plaque also acts as the visible HUD toggle target. */}
+        {/* Golden play plaque marks the HUD interaction target. Clicks are left for pointer-lock; [E] opens HUD. */}
         <group
           position={[decorControls.buttonPosX, decorControls.buttonPosY, decorControls.buttonPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.buttonRotY), 0]}
           scale={decorControls.buttonScale}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            if (document.pointerLockElement) {
-              document.exitPointerLock();
-            }
-            requestAnimationFrame(() => toggleHud());
-          }}
           onPointerOver={(e) => {
             e.stopPropagation();
             setDeviceScreenHovered(true);
@@ -1363,13 +1355,6 @@ export function CreatorRoomMVP({
           position={[decorControls.laptopPosX, decorControls.laptopPosY, decorControls.laptopPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.laptopRotY), 0]}
           scale={decorControls.laptopScale}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            if (document.pointerLockElement) {
-              document.exitPointerLock();
-            }
-            requestAnimationFrame(() => toggleHud());
-          }}
           onPointerOver={(e) => {
             e.stopPropagation();
             setDeviceScreenHovered(true);
@@ -1469,13 +1454,6 @@ export function CreatorRoomMVP({
           <mesh
             position={[0, 0.035, 0.012]}
             rotation={[-Math.PI / 2, 0, 0]}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (document.pointerLockElement) {
-                document.exitPointerLock();
-              }
-              requestAnimationFrame(() => toggleHud());
-            }}
             onPointerOver={() => setDeviceScreenHovered(true)}
             onPointerOut={() => setDeviceScreenHovered(false)}
           >

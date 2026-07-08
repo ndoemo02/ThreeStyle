@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useRef, useLayoutEffect } from 'react';
-import { useControls } from 'leva';
 import * as THREE from 'three';
 import { useTexture, useGLTF } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
@@ -11,6 +10,23 @@ import { AcousticFoamWall } from './CreatorRoomMVP';
 // PRELOAD HEAVY MODELS
 // ══════════════════════════════════════════════════════════════════════════
 useGLTF.preload('/models/optimized/mic-transformed.glb');
+
+const light = {
+  mainIntensity: 3.5,
+  fillIntensity: 1.8,
+  accentIntensity: 8,
+  ceilingIntensity: 8,
+  ambientIntensity: 0.15,
+  lightColor: '#ffffff',
+};
+
+const mic = {
+  posX: 2.61,
+  posY: 0.25,
+  posZ: -2.7,
+  rotY: -132,
+  scale: 1.60,
+};
 
 // ─── Real Microphone Component ───────────────────────────────────────────────
 function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, number, number], rotation?: [number, number, number], scale?: number }) {
@@ -94,23 +110,6 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
       instancedSlatsRef.current.instanceMatrix.needsUpdate = true;
     }
   }, [W, H, D, slatCount, slatMatrix]);
-
-  const light = useControls('Vocal Booth Lighting', {
-    mainIntensity: { value: 3.5, min: 0, max: 100, step: 1, label: 'Main (overhead)' },
-    fillIntensity: { value: 1.8, min: 0, max: 80, step: 1, label: 'Fill (front)' },
-    accentIntensity: { value: 8, min: 0, max: 40, step: 1, label: 'Accent (mic rim)' },
-    ceilingIntensity: { value: 8, min: 0, max: 40, step: 1, label: 'Ceiling bounce' },
-    ambientIntensity: { value: 0.15, min: 0, max: 5, step: 0.05, label: 'Ambient' },
-    lightColor: { value: '#ffffff', label: 'Light color' },
-  });
-
-  const mic = useControls('Microphone', {
-    posX: { value: 2.61, min: -4, max: 4, step: 0.01 },
-    posY: { value: 0.25, min: 0, max: 2, step: 0.01 },
-    posZ: { value: -2.7, min: -5, max: 0, step: 0.01 },
-    rotY: { value: -132, min: -180, max: 180, step: 1 },
-    scale: { value: 1.60, min: 0.1, max: 5, step: 0.05 },
-  });
 
   return (
     <group position={position}>
