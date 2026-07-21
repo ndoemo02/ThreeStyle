@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { EVENT_ROOM_EYE_HEIGHT } from './eventRoomLayout';
 
 export const ROOM_ZONE = 'room1' as const;
 export const HUB_ZONE = 'hub' as const;
@@ -63,23 +64,23 @@ export function getHubCameraPreset(width: number, height: number): CameraPreset 
 export function getEventRoomCameraPreset(width: number, height: number): CameraPreset {
   if (height > width) {
     return {
-      position: [0, 1.62, 7.2],
-      target: [0, 3.08, -10.2],
-      fov: 62,
+      position: [0, EVENT_ROOM_EYE_HEIGHT, 9.6],
+      target: [0, 3.0, -9.9],
+      fov: 74,
     };
   }
 
   if (width < 1024) {
     return {
-      position: [0, 1.68, 6.9],
-      target: [0, 3.08, -10.2],
-      fov: 59,
+      position: [0, EVENT_ROOM_EYE_HEIGHT, 8.6],
+      target: [0, 3.05, -10.0],
+      fov: 61,
     };
   }
 
   return {
-    position: [0, 1.72, 7.05],
-    target: [0, 3.12, -10.2],
+    position: [0, EVENT_ROOM_EYE_HEIGHT, 8.25],
+    target: [0, 3.08, -10.0],
     fov: 56,
   };
 }

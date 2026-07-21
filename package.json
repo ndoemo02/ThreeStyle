@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
+    "assets:event-room": "node scripts/build-event-room-preview-textures.mjs",
     "start": "next start",
     "lint": "eslint"
   },

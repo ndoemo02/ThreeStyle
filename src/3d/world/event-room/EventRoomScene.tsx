@@ -16,12 +16,14 @@ import { EVENT_ROOM_THEMES, INITIAL_EVENT_ROOM_SHOW_STATE, type EventRoomQuality
 export function EventRoomScene({ onExit }: { onExit: (zone: string) => void }) {
   const [show, dispatch] = useReducer(eventRoomShowReducer, INITIAL_EVENT_ROOM_SHOW_STATE);
   const theme = EVENT_ROOM_THEMES[show.theme];
-  const materials = useEventRoomMaterials(theme);
-
   const qualityTier = useMemo<EventRoomQualityTier>(() => {
     if (typeof window === 'undefined') return 'desktop';
     return shouldUseMobileRoomProfileInBrowser() ? 'mobile' : 'desktop';
   }, []);
+  const materials = useEventRoomMaterials(theme, qualityTier);
+  const bloomIntensity = qualityTier === 'desktop'
+    ? (show.phase === 'finale' ? 0.52 : show.phase === 'trackReveal' ? 0.44 : 0.36)
+    : (show.phase === 'finale' ? 0.3 : 0.22);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -50,15 +52,15 @@ export function EventRoomScene({ onExit }: { onExit: (zone: string) => void }) {
     <group>
       <EffectComposer multisampling={0}>
         <Bloom
-          intensity={qualityTier === 'desktop' ? 0.38 : 0.24}
+          intensity={bloomIntensity}
           luminanceThreshold={qualityTier === 'desktop' ? 0.84 : 0.9}
           luminanceSmoothing={0.18}
           mipmapBlur={qualityTier === 'desktop'}
         />
       </EffectComposer>
-      <EventRoomLighting theme={theme} qualityTier={qualityTier} />
-      <EventRoomShell materials={materials} />
-      <EventRoomScreens materials={materials} show={show} theme={theme} />
+      <EventRoomLighting theme={theme} qualityTier={qualityTier} phase={show.phase} />
+      <EventRoomShell materials={materials} qualityTier={qualityTier} />
+      <EventRoomScreens materials={materials} show={show} theme={theme} qualityTier={qualityTier} />
 
       <RoomDoor
         position={[0, 0, 12.45]}
