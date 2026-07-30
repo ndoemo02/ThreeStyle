@@ -1,6 +1,40 @@
-export const EVENT_ROOM_FLOOR_Y = 0;
+/**
+ * Event Room — legacy compatibility layer over `eventRoomGeometrySpec.ts`.
+ *
+ * Two things live here and nothing else:
+ *
+ * 1. The full arena spec, re-exported unchanged. New code should import
+ *    `./eventRoomGeometrySpec` directly; this re-export exists so the current
+ *    navigation and renderer imports keep working while the arena is built.
+ * 2. The legacy, render-facing constants of the *current* rectangular room —
+ *    straight lounge banks at Y = 0.18 / 0.42, their Z tables, the hand-written
+ *    nav-surface table and the rectangular movement clamp. `EventRoomLoungeBanks`
+ *    and `EventRoomPodium` still read these, so their values are frozen
+ *    bit-for-bit until the stage that rebuilds each renderer.
+ *
+ * Do not mix the two. The arena values (lounge tops 0.24 / 0.58, elliptical runs,
+ * `getEventRoomSurfaces()`) are not wired into rendering, collision or camera
+ * clamping yet — see the stage boundary note in `eventRoomGeometrySpec.ts`.
+ *
+ * `EVENT_ROOM_EYE_HEIGHT` and `constrainEventRoomMovement` are consumed by
+ * `BaseNavigationControls`, which drives Hub and Creator Room too: their
+ * signatures and behaviour must stay identical.
+ */
+import {
+  EVENT_ROOM_FLOOR_Y,
+  isEventRoomPositionBlocked,
+  mirrorPolygonAcrossX,
+  type EventRoomLoungeTier,
+  type EventRoomNavSurface,
+  type EventRoomPoint2D,
+  type EventRoomSide,
+} from './eventRoomGeometrySpec';
+
+export * from './eventRoomGeometrySpec';
+
 export const EVENT_ROOM_EYE_HEIGHT = 1.68;
-export const EVENT_ROOM_CAMERA_RADIUS = 0.35;
+
+// ── Legacy render-facing constants (current room, frozen values) ─────────────
 
 export const EVENT_ROOM_STAGE_SURFACE_Y = 0.46;
 export const EVENT_ROOM_RUNWAY_SURFACE_Y = 0.3;
@@ -13,35 +47,6 @@ export const EVENT_ROOM_MOBILE_LOUNGE_Z = [-1.2, 1.2, 3.6, 6.0] as const;
 export const EVENT_ROOM_DESKTOP_LOUNGE_SEGMENT_LENGTH = 1.72;
 export const EVENT_ROOM_MOBILE_LOUNGE_SEGMENT_LENGTH = 2.55;
 
-export type EventRoomLoungeTier = 'inner' | 'outer';
-export type EventRoomSide = -1 | 1;
-export type EventRoomSurfaceId =
-  | 'floor'
-  | 'runway'
-  | 'stage'
-  | 'lounge-inner-left'
-  | 'lounge-inner-right'
-  | 'lounge-outer-left'
-  | 'lounge-outer-right';
-
-export type EventRoomPoint2D = readonly [x: number, z: number];
-
-export type EventRoomFootprint =
-  | { kind: 'aabb'; minX: number; maxX: number; minZ: number; maxZ: number }
-  | { kind: 'ellipse'; center: EventRoomPoint2D; radiusX: number; radiusZ: number }
-  | { kind: 'polygon'; points: readonly EventRoomPoint2D[] };
-
-export type EventRoomNavSurface = {
-  id: EventRoomSurfaceId;
-  footprint: EventRoomFootprint;
-  surfaceTopY: number;
-  access: 'walkable' | 'blocked';
-};
-
-export function centerYFromBottom(bottomY: number, height: number) {
-  return bottomY + height / 2;
-}
-
 export function getEventRoomLoungeAbsX(tier: EventRoomLoungeTier, z: number) {
   const normalized = (z - 2.4) / 4.8;
   return tier === 'inner'
@@ -53,10 +58,6 @@ export function getEventRoomLoungeYaw(tier: EventRoomLoungeTier, z: number, side
   const coefficient = tier === 'inner' ? 0.65 : 0.55;
   const derivative = (2 * coefficient * (z - 2.4)) / (4.8 * 4.8);
   return side * Math.atan(derivative);
-}
-
-function mirrorPolygon(points: readonly EventRoomPoint2D[]): EventRoomPoint2D[] {
-  return points.map(([x, z]) => [-x, z]);
 }
 
 const RIGHT_INNER_LOUNGE: readonly EventRoomPoint2D[] = [
@@ -77,15 +78,11 @@ const RIGHT_OUTER_LOUNGE: readonly EventRoomPoint2D[] = [
   [5.95, -0.2],
 ];
 
-const RIGHT_LOUNGE_COLLIDER: readonly EventRoomPoint2D[] = [
-  [3.45, -3.4],
-  [10.35, -3.4],
-  [10.35, 7.9],
-  [3.65, 7.9],
-  [2.7, 4.9],
-  [2.7, -0.25],
-];
-
+/**
+ * Legacy nav-surface table of the current rectangular room. Superseded by
+ * `getEventRoomSurfaces()`, which returns the arena contract (7 active surfaces
+ * out of 14 stable ids); consumers switch over in the footprint stage.
+ */
 export const EVENT_ROOM_NAV_SURFACES: readonly EventRoomNavSurface[] = [
   {
     id: 'floor',
@@ -113,7 +110,7 @@ export const EVENT_ROOM_NAV_SURFACES: readonly EventRoomNavSurface[] = [
   },
   {
     id: 'lounge-inner-left',
-    footprint: { kind: 'polygon', points: mirrorPolygon(RIGHT_INNER_LOUNGE) },
+    footprint: { kind: 'polygon', points: mirrorPolygonAcrossX(RIGHT_INNER_LOUNGE) },
     surfaceTopY: EVENT_ROOM_INNER_LOUNGE_SURFACE_Y,
     access: 'blocked',
   },
@@ -125,47 +122,15 @@ export const EVENT_ROOM_NAV_SURFACES: readonly EventRoomNavSurface[] = [
   },
   {
     id: 'lounge-outer-left',
-    footprint: { kind: 'polygon', points: mirrorPolygon(RIGHT_OUTER_LOUNGE) },
+    footprint: { kind: 'polygon', points: mirrorPolygonAcrossX(RIGHT_OUTER_LOUNGE) },
     surfaceTopY: EVENT_ROOM_OUTER_LOUNGE_SURFACE_Y,
     access: 'blocked',
   },
 ];
 
-const BLOCKED_FOOTPRINTS: readonly EventRoomFootprint[] = [
-  { kind: 'polygon', points: RIGHT_LOUNGE_COLLIDER },
-  { kind: 'polygon', points: mirrorPolygon(RIGHT_LOUNGE_COLLIDER) },
-  { kind: 'aabb', minX: -1.47, maxX: 1.47, minZ: -4.75, maxZ: 7.2 },
-  { kind: 'ellipse', center: [0, 6.15], radiusX: 1.95, radiusZ: 1.6 },
-  { kind: 'ellipse', center: [0, -7], radiusX: 5.85, radiusZ: 2.7 },
-];
-
-function isPointInPolygon(x: number, z: number, points: readonly EventRoomPoint2D[]) {
-  let inside = false;
-  for (let current = 0, previous = points.length - 1; current < points.length; previous = current, current += 1) {
-    const [currentX, currentZ] = points[current];
-    const [previousX, previousZ] = points[previous];
-    const crosses = (currentZ > z) !== (previousZ > z)
-      && x < ((previousX - currentX) * (z - currentZ)) / (previousZ - currentZ) + currentX;
-    if (crosses) inside = !inside;
-  }
-  return inside;
-}
-
-function footprintContains(footprint: EventRoomFootprint, x: number, z: number) {
-  if (footprint.kind === 'aabb') {
-    return x >= footprint.minX && x <= footprint.maxX && z >= footprint.minZ && z <= footprint.maxZ;
-  }
-  if (footprint.kind === 'ellipse') {
-    const normalizedX = (x - footprint.center[0]) / footprint.radiusX;
-    const normalizedZ = (z - footprint.center[1]) / footprint.radiusZ;
-    return normalizedX * normalizedX + normalizedZ * normalizedZ <= 1;
-  }
-  return isPointInPolygon(x, z, footprint.points);
-}
-
-export function isEventRoomPositionBlocked(x: number, z: number) {
-  return BLOCKED_FOOTPRINTS.some(footprint => footprintContains(footprint, x, z));
-}
+// ── Movement (unchanged) ─────────────────────────────────────────────────────
+// Rectangular clamp of the current room. The elliptical boundary arrives with the
+// footprint stage; until then this stays exactly as shipped.
 
 function clampToEventRoomBounds(x: number, z: number): EventRoomPoint2D {
   return [
