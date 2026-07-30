@@ -8,6 +8,14 @@ import { EventRoomInstancedBoxes, type EventRoomInstanceTransform } from './Even
 import type { EventRoomMaterials } from './EventRoomMaterials';
 import { EventRoomPodium } from './EventRoomPodium';
 import type { EventRoomQualityTier } from './EventRoomTypes';
+import {
+  ARENA_RX,
+  ARENA_RZ,
+  ARENA_SHELL_THETA_FROM,
+  ARENA_SHELL_THETA_TO,
+  arenaPoint,
+  arenaTangentYaw,
+} from '../../navigation/eventRoomGeometrySpec';
 
 function Box({
   position,
@@ -36,6 +44,84 @@ function Box({
   return <mesh geometry={geometry} material={material} position={position} rotation={rotation} />;
 }
 
+// ── Arena wall (Stage 3 — powłoka) ────────────────────────────────────────────
+// First renderer to consume `eventRoomGeometrySpec.ts`. Only the XZ footprint
+// comes from the arena ellipse; wall height/thickness match the unmodified
+// ceiling and back-wall interface (Stage 4/6 own those).
+
+const ARENA_WALL_HEIGHT = 6.6;
+const ARENA_WALL_CENTER_Y = ARENA_WALL_HEIGHT / 2;
+const ARENA_WALL_THICKNESS = 0.3;
+const ARENA_WALL_THETA_STEP = THREE.MathUtils.degToRad(2.4);
+const ARENA_WALL_SEGMENT_LENGTH = 0.62;
+
+/**
+ * Door opening half-width, borrowed from the exit LED strip already rendered in
+ * `EventRoomScene.tsx` (3.9 m) — not a new number. Converted to an exact ellipse
+ * azimuth via x = ARENA_RX · sin θ, so the curved wall meets the unchanged door
+ * frame without a seam.
+ */
+const ARENA_DOOR_GAP_HALF_WIDTH = 1.95;
+const ARENA_DOOR_GAP_HALF_THETA = Math.asin(ARENA_DOOR_GAP_HALF_WIDTH / ARENA_RX);
+const ARENA_WALL_RIGHT_THETA_TO = Math.PI - ARENA_DOOR_GAP_HALF_THETA;
+const ARENA_WALL_LEFT_THETA_FROM = Math.PI + ARENA_DOOR_GAP_HALF_THETA;
+const ARENA_DOOR_HEADER_Z = arenaPoint(1, Math.PI)[1];
+
+/**
+ * Legacy back-wall corner (screen backdrop, Stage 6 territory, frozen). The
+ * ellipse's natural reach (RX 12.6) falls short of it, so each side gets one
+ * straight return panel closing the shell between the arena mouth and the
+ * existing screen backdrop.
+ */
+const BACK_WALL_HALF_WIDTH = 13.25;
+const BACK_WALL_Z = -10.55;
+
+type ArenaWallSample = { x: number; z: number; yaw: number };
+
+function sampleArenaWallArc(thetaFrom: number, thetaTo: number, step: number): ArenaWallSample[] {
+  const span = thetaTo - thetaFrom;
+  const count = Math.max(1, Math.round(span / step));
+  const samples: ArenaWallSample[] = [];
+  for (let index = 0; index <= count; index += 1) {
+    const theta = thetaFrom + (span * index) / count;
+    const [x, z] = arenaPoint(1, theta);
+    samples.push({ x, z, yaw: arenaTangentYaw(1, theta, 1) });
+  }
+  return samples;
+}
+
+/** Both curved side arcs (right, then left), split around the door opening. */
+function sampleArenaWallSides(step: number): ArenaWallSample[] {
+  return [
+    ...sampleArenaWallArc(ARENA_SHELL_THETA_FROM, ARENA_WALL_RIGHT_THETA_TO, step),
+    ...sampleArenaWallArc(ARENA_WALL_LEFT_THETA_FROM, ARENA_SHELL_THETA_TO, step),
+  ];
+}
+
+function arenaWallTransforms(y: number, step: number): EventRoomInstanceTransform[] {
+  return sampleArenaWallSides(step).map(({ x, z, yaw }) => ({ position: [x, y, z], rotation: [0, yaw, 0] }));
+}
+
+function arenaThetaStepForSpacing(spacingMeters: number) {
+  return spacingMeters / ((ARENA_RX + ARENA_RZ) / 2);
+}
+
+/** Straight return panel from an arena mouth point to the legacy back-wall corner. */
+function arenaReturnPanel(mouthTheta: number, cornerX: number): {
+  position: [number, number, number];
+  rotation: [number, number, number];
+  length: number;
+} {
+  const [fx, fz] = arenaPoint(1, mouthTheta);
+  const dx = cornerX - fx;
+  const dz = BACK_WALL_Z - fz;
+  return {
+    position: [(fx + cornerX) / 2, ARENA_WALL_CENTER_Y, (fz + BACK_WALL_Z) / 2],
+    rotation: [0, Math.atan2(dx, dz), 0],
+    length: Math.hypot(dx, dz),
+  };
+}
+
 export function EventRoomShell({
   materials,
   qualityTier,
@@ -48,10 +134,7 @@ export function EventRoomShell({
     for (let x = -11.4; x <= 11.4; x += 0.62) {
       if (Math.abs(x) > 7.15) transforms.push({ position: [x, 3.45, -10.12] });
     }
-    for (let z = -8.8; z <= 10.6; z += 0.72) {
-      transforms.push({ position: [-12.18, 3.12, z], rotation: [0, Math.PI / 2, 0] });
-      transforms.push({ position: [12.18, 3.12, z], rotation: [0, Math.PI / 2, 0] });
-    }
+    transforms.push(...arenaWallTransforms(3.12, arenaThetaStepForSpacing(0.72)));
     return transforms;
   }, []);
 
@@ -64,14 +147,10 @@ export function EventRoomShell({
     return transforms;
   }, []);
 
-  const sidePanels = useMemo<EventRoomInstanceTransform[]>(() => {
-    const transforms: EventRoomInstanceTransform[] = [];
-    for (let z = -8.0; z <= 10.0; z += 1.35) {
-      transforms.push({ position: [-12.62, 1.5, z], rotation: [0, Math.PI / 2, 0] });
-      transforms.push({ position: [12.62, 1.5, z], rotation: [0, Math.PI / 2, 0] });
-    }
-    return transforms;
-  }, []);
+  const sidePanels = useMemo<EventRoomInstanceTransform[]>(
+    () => arenaWallTransforms(1.5, arenaThetaStepForSpacing(1.35)),
+    [],
+  );
 
   const ceilingSlats = useMemo<EventRoomInstanceTransform[]>(() => {
     const transforms: EventRoomInstanceTransform[] = [];
@@ -98,22 +177,42 @@ export function EventRoomShell({
     for (let x = -11.4; x <= 11.4; x += 3.8) {
       if (Math.abs(x) >= 7.2) transforms.push({ position: [x, 3.18, -10.22] });
     }
-    for (let z = -7.8; z <= 8.8; z += 4.15) {
-      transforms.push({ position: [-12.06, 3.12, z], rotation: [0, Math.PI / 2, 0] });
-      transforms.push({ position: [12.06, 3.12, z], rotation: [0, Math.PI / 2, 0] });
-    }
+    transforms.push(...arenaWallTransforms(3.12, arenaThetaStepForSpacing(4.15)));
     return transforms;
   }, []);
+
+  const arenaWallSegments = useMemo<EventRoomInstanceTransform[]>(
+    () => arenaWallTransforms(ARENA_WALL_CENTER_Y, ARENA_WALL_THETA_STEP),
+    [],
+  );
+
+  const arenaReturnPanels = useMemo(() => [
+    arenaReturnPanel(ARENA_SHELL_THETA_FROM, BACK_WALL_HALF_WIDTH),
+    arenaReturnPanel(ARENA_SHELL_THETA_TO, -BACK_WALL_HALF_WIDTH),
+  ], []);
 
   return (
     <group>
       <Box position={[0, -0.06, 0.75]} size={[27, 0.12, 25.4]} material={materials.floor} />
       <Box position={[0, 3.3, -10.55]} size={[26.5, 6.6, 0.3]} material={materials.stone} />
-      <Box position={[-13.25, 3.3, 0.75]} size={[0.3, 6.6, 25.4]} material={materials.stone} />
-      <Box position={[13.25, 3.3, 0.75]} size={[0.3, 6.6, 25.4]} material={materials.stone} />
-      <Box position={[-7.55, 3.3, 12.35]} size={[11.2, 6.6, 0.28]} material={materials.stone} />
-      <Box position={[7.55, 3.3, 12.35]} size={[11.2, 6.6, 0.28]} material={materials.stone} />
-      <Box position={[0, 5.38, 12.35]} size={[3.6, 2.45, 0.28]} material={materials.woodDark} />
+      <Box
+        position={arenaReturnPanels[0].position}
+        rotation={arenaReturnPanels[0].rotation}
+        size={[ARENA_WALL_THICKNESS, ARENA_WALL_HEIGHT, arenaReturnPanels[0].length]}
+        material={materials.stone}
+      />
+      <Box
+        position={arenaReturnPanels[1].position}
+        rotation={arenaReturnPanels[1].rotation}
+        size={[ARENA_WALL_THICKNESS, ARENA_WALL_HEIGHT, arenaReturnPanels[1].length]}
+        material={materials.stone}
+      />
+      <EventRoomInstancedBoxes
+        size={[ARENA_WALL_THICKNESS, ARENA_WALL_HEIGHT, ARENA_WALL_SEGMENT_LENGTH]}
+        material={materials.stone}
+        transforms={arenaWallSegments}
+      />
+      <Box position={[0, 5.38, ARENA_DOOR_HEADER_Z]} size={[3.6, 2.45, 0.28]} material={materials.woodDark} />
       <Box position={[0, 6.72, 0.75]} size={[27, 0.16, 25.4]} material={materials.metal} />
 
       <Box position={[0, 3.25, -10.4]} size={[14.7, 5.2, 0.1]} material={materials.woodDark} bevelRadius={0.05} />
