@@ -2,6 +2,8 @@
 
 import { useEffect, useLayoutEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { useEventRoomScreenSurfaceBinding } from './EventRoomLightRig';
+import { EVENT_ROOM_LIGHT_STATES, eventRoomScreenMultiplier } from './eventRoomLightStates';
 import type {
   EventRoomQualityTier,
   EventRoomShowState,
@@ -208,18 +210,41 @@ export function EventRoomCurvedScreen({
     [segmentCount],
   );
   const texture = useRankingCanvasTexture(show, theme, qualityTier);
+  const screenSurfaceBinding = useEventRoomScreenSurfaceBinding();
+
+  // Kanał `screenKey` mnoży kolor tego materiału (dolny clamp 0.06), więc ekran
+  // ściemnia się razem z salą pomimo `toneMapped={false}` (D8). Wartość startowa
+  // odpowiada stanowi `house`, żeby pierwsza klatka nie mignęła pełną jasnością.
+  const screenMaterial = useMemo(() => new THREE.MeshBasicMaterial({
+    map: texture,
+    toneMapped: false,
+    color: new THREE.Color().setScalar(
+      eventRoomScreenMultiplier(EVENT_ROOM_LIGHT_STATES.house.screenKey),
+    ),
+  }), [texture]);
+
+  useLayoutEffect(() => {
+    if (!screenSurfaceBinding) return;
+    const binding = screenSurfaceBinding;
+    // Rejestracja uchwytu w pudełku rigu — jedyny kanał komunikacji z driverem
+    // świateł bez re-renderu i bez zmiany EventRoomScreens (poza zakresem Etapu 2).
+    // eslint-disable-next-line react-hooks/immutability
+    binding.material = screenMaterial;
+    return () => {
+      if (binding.material === screenMaterial) binding.material = null;
+    };
+  }, [screenMaterial, screenSurfaceBinding]);
 
   useEffect(() => () => {
     screenGeometry.dispose();
     frameGeometry.dispose();
-  }, [frameGeometry, screenGeometry]);
+    screenMaterial.dispose();
+  }, [frameGeometry, screenGeometry, screenMaterial]);
 
   return (
     <group position={[0, 3.35, -10.3]}>
       <mesh geometry={frameGeometry} position={[0, 0, -0.12]} material={frameMaterial} />
-      <mesh geometry={screenGeometry}>
-        <meshBasicMaterial map={texture} toneMapped={false} />
-      </mesh>
+      <mesh geometry={screenGeometry} material={screenMaterial} />
     </group>
   );
 }

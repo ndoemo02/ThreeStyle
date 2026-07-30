@@ -215,7 +215,7 @@ export default function B3PPage() {
 
         {/* ── Postprocessing ── */}
         {usesCreatorRoomPipeline ? <BloomLight onReady={setBloomLight} /> : null}
-        {isMobile && (
+        {isMobile && !isEventRoomZone && (
           <EffectComposer multisampling={0}>
             <SMAA />
           </EffectComposer>
