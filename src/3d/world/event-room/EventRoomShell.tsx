@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three-stdlib';
+import { EventRoomCeiling } from './EventRoomCeiling';
 import { EventRoomLoungeBanks } from './EventRoomLoungeBanks';
 import { EventRoomInstancedBoxes, type EventRoomInstanceTransform } from './EventRoomInstancing';
 import type { EventRoomMaterials } from './EventRoomMaterials';
@@ -152,15 +153,7 @@ export function EventRoomShell({
     [],
   );
 
-  const ceilingSlats = useMemo<EventRoomInstanceTransform[]>(() => {
-    const transforms: EventRoomInstanceTransform[] = [];
-    for (let x = -11.6; x <= 11.6; x += 0.64) transforms.push({ position: [x, 6.52, 0.6] });
-    return transforms;
-  }, []);
-
-  const ceilingLedStrips = useMemo<EventRoomInstanceTransform[]>(() => [
-    { position: [-5.65, 6.45, 0.1], rotation: [0, Math.PI / 2, 0], scale: [1.85, 1, 1] },
-    { position: [5.65, 6.45, 0.1], rotation: [0, Math.PI / 2, 0], scale: [1.85, 1, 1] },
+  const wallSlitTransforms = useMemo<EventRoomInstanceTransform[]>(() => [
     { position: [-9.85, 2.2, -4.6], rotation: [0, Math.PI / 2, 0], scale: [0.34, 1, 1] },
     { position: [9.85, 2.2, -4.6], rotation: [0, Math.PI / 2, 0], scale: [0.34, 1, 1] },
   ], []);
@@ -213,7 +206,7 @@ export function EventRoomShell({
         transforms={arenaWallSegments}
       />
       <Box position={[0, 5.38, ARENA_DOOR_HEADER_Z]} size={[3.6, 2.45, 0.28]} material={materials.woodDark} />
-      <Box position={[0, 6.72, 0.75]} size={[27, 0.16, 25.4]} material={materials.metal} />
+      <EventRoomCeiling materials={materials} qualityTier={qualityTier} />
 
       <Box position={[0, 3.25, -10.4]} size={[14.7, 5.2, 0.1]} material={materials.woodDark} bevelRadius={0.05} />
       <Box position={[0, 5.96, -10.18]} size={[16.2, 0.34, 0.16]} material={materials.metal} bevelRadius={0.04} />
@@ -227,8 +220,7 @@ export function EventRoomShell({
       <EventRoomInstancedBoxes size={[0.1, 5.1, 0.12]} material={materials.wood} transforms={woodRibs} />
       <EventRoomInstancedBoxes size={[0.12, 1.42, 0.12]} material={materials.wood} transforms={screenFrameRibs} />
       <EventRoomInstancedBoxes size={[0.18, 2.15, 0.72]} material={materials.woodDark} transforms={sidePanels} bevelRadius={0.035} />
-      <EventRoomInstancedBoxes size={[0.12, 0.08, 21]} material={materials.woodDark} transforms={ceilingSlats} />
-      <EventRoomInstancedBoxes size={[7.4, 0.035, 0.055]} material={materials.led} transforms={ceilingLedStrips} />
+      <EventRoomInstancedBoxes size={[7.4, 0.035, 0.055]} material={materials.wallSlit} transforms={wallSlitTransforms} />
       <EventRoomInstancedBoxes size={[0.34, 4.55, 0.14]} material={materials.metal} transforms={rearCovePanels} bevelRadius={0.035} />
       <EventRoomInstancedBoxes size={[0.22, 3.35, 0.16]} material={materials.metal} transforms={softWallPilasters} bevelRadius={0.04} />
     </group>
