@@ -67,6 +67,8 @@ export function BaseNavigationControls() {
   const controlsRef = useRef<PointerLockControlsImpl | null>(null);
   const direction = useRef(new THREE.Vector3());
   const moveState = useRef({ forward: false, backward: false, left: false, right: false });
+  const jumpVelocity = useRef(0);
+  const isJumping = useRef(false);
   const pointerLockCooldownUntil = useRef(0);
   const [isMobile, setIsMobile] = useState(false);
   const { camera } = useThree();
@@ -248,12 +250,18 @@ export function BaseNavigationControls() {
         startPointerLockCooldown();
         document.exitPointerLock();
       }
-      
+
       switch(e.code) {
         case 'KeyW': moveState.current.forward = true; break;
         case 'KeyA': moveState.current.left = true; break;
         case 'KeyS': moveState.current.backward = true; break;
         case 'KeyD': moveState.current.right = true; break;
+        case 'Space':
+          if (!isJumping.current) {
+            isJumping.current = true;
+            jumpVelocity.current = 5.0; // initial upward velocity (m/s)
+          }
+          break;
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -283,6 +291,21 @@ export function BaseNavigationControls() {
     const speed = 6.0 * delta; // standard walk speed
     const previousX = state.camera.position.x;
     const previousZ = state.camera.position.z;
+    const eyeHeight = getZoneEyeHeight(activeZone);
+
+    // ── Jump physics (gravity = 12 m/s²) ──────────────────────────────────
+    if (isJumping.current) {
+      const gravity = 12.0;
+      jumpVelocity.current -= gravity * delta;
+      state.camera.position.y += jumpVelocity.current * delta;
+
+      if (state.camera.position.y <= eyeHeight) {
+        state.camera.position.y = eyeHeight;
+        jumpVelocity.current = 0;
+        isJumping.current = false;
+      }
+      moved = true;
+    }
 
     if (isMobile) {
       const joystick = window.joystickVector;
@@ -303,7 +326,10 @@ export function BaseNavigationControls() {
         moved = true;
       }
 
+      // Save jump Y before constrainCameraToZone locks it
+      const savedY = state.camera.position.y;
       constrainCameraToZone(state.camera, activeZone, previousX, previousZ);
+      if (isJumping.current) state.camera.position.y = savedY;
       if (moved) state.invalidate();
       return;
     }
@@ -323,7 +349,10 @@ export function BaseNavigationControls() {
         moved = true;
       }
 
+      // Save jump Y before constrainCameraToZone locks it
+      const savedY = state.camera.position.y;
       constrainCameraToZone(state.camera, activeZone, previousX, previousZ);
+      if (isJumping.current) state.camera.position.y = savedY;
     }
 
     // PointerLockControls rotates camera via its own internal RAF — always invalidate when locked
@@ -337,8 +366,8 @@ export function BaseNavigationControls() {
   }
 
   return (
-    <PointerLockControls 
-      ref={controlsRef} 
+    <PointerLockControls
+      ref={controlsRef}
       selector=".b3p-canvas-wrap" // Restrict lock trigger to the canvas area
     />
   );
