@@ -3,11 +3,13 @@
 import { useRef, useState, useEffect } from 'react';
 import { Html } from '@react-three/drei';
 
-const SAMPLE_WINDOW = 30;
+const SAMPLE_WINDOW = 60;
+const UPDATE_INTERVAL_MS = 1000; // only update React state 1×/sec
 
 export function PerformanceCounter() {
   const samples = useRef<number[]>([]);
   const lastTime = useRef<number>(0);
+  const lastUpdate = useRef<number>(0);
   const raf = useRef<number>(0);
   const [display, setDisplay] = useState({ fps: 0, frameMs: 0 });
 
@@ -24,17 +26,22 @@ export function PerformanceCounter() {
           samples.current.shift();
         }
 
-        const avgFps = samples.current.reduce((a, b) => a + b, 0) / samples.current.length;
-        setDisplay({
-          fps: Math.round(avgFps),
-          frameMs: Math.round(elapsed * 10) / 10,
-        });
+        // Throttle React re-renders to 1×/sec
+        if (now - lastUpdate.current >= UPDATE_INTERVAL_MS) {
+          lastUpdate.current = now;
+          const avgFps = samples.current.reduce((a, b) => a + b, 0) / samples.current.length;
+          setDisplay({
+            fps: Math.round(avgFps),
+            frameMs: Math.round(elapsed * 10) / 10,
+          });
+        }
       }
 
       raf.current = requestAnimationFrame(tick);
     };
 
     lastTime.current = performance.now();
+    lastUpdate.current = performance.now();
     raf.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf.current);
   }, []);

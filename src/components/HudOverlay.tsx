@@ -2,8 +2,7 @@
 
 import { useHudStore } from '../stores/useHudStore';
 import { useAudioStore } from '../stores/useAudioStore';
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject, type SyntheticEvent, type UIEvent } from 'react';
-import { flushSync } from 'react-dom';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject, type UIEvent } from 'react';
 import { Thr3StyleHudMark } from './branding/Thr3StyleHudMark';
 
 type MediaKind = 'video' | 'audio';
@@ -18,6 +17,12 @@ type HudMediaItem = {
   videoCodec?: 'h264' | 'hevc' | 'av1' | 'vp9' | 'mpeg4' | 'unknown';
   isVideoDisplayable?: boolean;
   compatibilityNote?: string;
+  bpm?: number;
+  artist?: string;
+  votes?: number;
+  winRate?: number;
+  rank?: number;
+  category?: string;
 };
 
 type MediaLibraryResponse = {
@@ -32,10 +37,9 @@ const MEDIA_REFRESH_MS = 30000;
 
 const panelLabels = [
   'Now Playing',
-  'Vote / Discovery',
-  'Queue / Next',
-  'Session / Room',
-  'Media Library',
+  'Battles & Vote',
+  'Drop & Upload',
+  'Top 10 Charts',
 ] as const;
 
 function isDisplayableVideo(item: HudMediaItem) {
@@ -61,7 +65,7 @@ function formatTime(time: number) {
 
 function formatStamp(input: string) {
   const date = new Date(input);
-  if (Number.isNaN(date.getTime())) return 'No timestamp';
+  if (Number.isNaN(date.getTime())) return 'Nowy drop';
   return new Intl.DateTimeFormat('pl-PL', {
     day: '2-digit',
     month: 'short',
@@ -70,10 +74,108 @@ function formatStamp(input: string) {
   }).format(date);
 }
 
-function getMediaItems(response: MediaLibraryResponse) {
+function getMediaItems(response: MediaLibraryResponse): HudMediaItem[] {
   if (Array.isArray(response.items)) return response.items;
   return [...(response.videos ?? []), ...(response.audio ?? [])];
 }
+
+// ── Mock Initial Battle & Charts Data ──
+const INITIAL_BATTLES = [
+  {
+    id: 'battle-01',
+    round: '1/4 Finals',
+    category: '#Freestyle',
+    trackA: {
+      id: 'a1',
+      alias: 'Unknown MC #1',
+      title: 'Neon Cypher 04',
+      bpm: 94,
+      votes: 142,
+      score: 64,
+    },
+    trackB: {
+      id: 'b1',
+      alias: 'Unknown MC #2',
+      title: 'Raw Concrete 808',
+      bpm: 96,
+      votes: 80,
+      score: 36,
+    }
+  }
+];
+
+const INITIAL_CHARTS: HudMediaItem[] = [
+  {
+    id: 'chart-1',
+    rank: 1,
+    title: '3Style Championship Anthem',
+    artist: 'ShadowFlow MC',
+    bpm: 92,
+    votes: 1240,
+    winRate: 88,
+    category: 'Freestyle',
+    kind: 'audio',
+    src: '/media/audio/anthem.mp3',
+    size: 5.4 * 1024 * 1024,
+    modifiedAt: new Date().toISOString(),
+  },
+  {
+    id: 'chart-2',
+    rank: 2,
+    title: 'Midnight Drum & 808s',
+    artist: 'VocalBooth God',
+    bpm: 140,
+    votes: 980,
+    winRate: 82,
+    category: 'Trap',
+    kind: 'audio',
+    src: '/media/audio/trap808.mp3',
+    size: 4.8 * 1024 * 1024,
+    modifiedAt: new Date().toISOString(),
+  },
+  {
+    id: 'chart-3',
+    rank: 3,
+    title: 'Golden Mic Session #9',
+    artist: 'Lil Verse',
+    bpm: 90,
+    votes: 750,
+    winRate: 76,
+    category: 'BoomBap',
+    kind: 'audio',
+    src: '/media/audio/session9.mp3',
+    size: 6.1 * 1024 * 1024,
+    modifiedAt: new Date().toISOString(),
+  },
+  {
+    id: 'chart-4',
+    rank: 4,
+    title: 'Studio Identity Drop',
+    artist: 'Andruia Beatmaker',
+    bpm: 95,
+    votes: 620,
+    winRate: 71,
+    category: 'Freestyle',
+    kind: 'audio',
+    src: '/media/audio/drop.mp3',
+    size: 3.9 * 1024 * 1024,
+    modifiedAt: new Date().toISOString(),
+  },
+  {
+    id: 'chart-5',
+    rank: 5,
+    title: 'Warsaw Nights Flow',
+    artist: 'Kolektyw 3S',
+    bpm: 128,
+    votes: 510,
+    winRate: 68,
+    category: 'Drill',
+    kind: 'audio',
+    src: '/media/audio/warsaw.mp3',
+    size: 4.2 * 1024 * 1024,
+    modifiedAt: new Date().toISOString(),
+  }
+];
 
 export function HudOverlay() {
   const { isOpen, closeHud, activeScreenId, isPlaying, setIsPlaying, camEnabled, setCamEnabled } = useHudStore();
@@ -87,7 +189,7 @@ export function HudOverlay() {
   const camVideoRef = useRef<HTMLVideoElement | null>(null);
   const camStreamRef = useRef<MediaStream | null>(null);
 
-  // ── Native Web Audio pipeline (created during user gesture) ──────────
+  // ── Native Web Audio pipeline ──────────
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const videoSourceCreatedRef = useRef(false);
@@ -96,18 +198,22 @@ export function HudOverlay() {
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // Sync camera video element to store after mount (avoids React error #185)
+  // Sync camera and master video element to store after mount (prevents re-render loop)
   useEffect(() => {
-    if (mounted) setCamVideoElement(camVideoRef.current);
-  }, [mounted, setCamVideoElement]);
+    if (mounted) {
+      setCamVideoElement(camVideoRef.current);
+      setMasterVideoRef(masterVideoRef.current);
+    }
+  }, [mounted, setCamVideoElement, setMasterVideoRef]);
 
   useEffect(() => {
     return () => {
       camStreamRef.current?.getTracks().forEach((track) => track.stop());
       camStreamRef.current = null;
       setCamVideoElement(null);
+      setMasterVideoRef(null);
     };
-  }, [setCamVideoElement]);
+  }, [setCamVideoElement, setMasterVideoRef]);
 
   const stopCameraPreview = useCallback(() => {
     camStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -151,344 +257,249 @@ export function HudOverlay() {
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const mediaElementRef = useRef<HTMLMediaElement | null>(null);
-  const masterVideoElementRef = useRef<HTMLVideoElement | null>(null);
-  const masterAudioElementRef = useRef<HTMLAudioElement | null>(null);
+
+  const masterAudioRef = useRef<HTMLAudioElement | null>(null);
+  const masterVideoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
+    const mediaQuery = window.matchMedia('(pointer: coarse)');
+    const updateMobile = () => setIsMobile(mediaQuery.matches || window.innerWidth < 900);
+    updateMobile();
+    window.addEventListener('resize', updateMobile);
+    return () => window.removeEventListener('resize', updateMobile);
   }, []);
 
-  const loadMediaLibrary = useCallback(async () => {
-    try {
-      const response = await fetch('/api/media');
-      if (!response.ok) {
-        throw new Error(`Media scan failed with ${response.status}`);
+  // Fetch media library
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMedia() {
+      try {
+        const response = await fetch('/api/media', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = (await response.json()) as MediaLibraryResponse;
+        if (cancelled) return;
+        const nextItems = getMediaItems(data);
+        setMediaItems(nextItems);
+        setLibraryStatus('ready');
+        setLibraryError(null);
+
+        setActiveMediaId((currentId) => {
+          if (currentId && nextItems.some((item) => item.id === currentId)) return currentId;
+          return pickDefaultMedia(nextItems)?.id ?? null;
+        });
+      } catch (err: any) {
+        if (cancelled) return;
+        setLibraryStatus('error');
+        setLibraryError(err?.message ?? 'Failed to load media');
       }
-
-      const payload = (await response.json()) as MediaLibraryResponse;
-      const nextItems = getMediaItems(payload);
-
-      setMediaItems(nextItems);
-      setActiveMediaId((currentId) => {
-        if (currentId && nextItems.some((item) => item.id === currentId)) return currentId;
-        return pickDefaultMedia(nextItems)?.id ?? null;
-      });
-      setLibraryStatus('ready');
-      setLibraryError(null);
-    } catch (error: unknown) {
-      console.error('HUD media library failed to load:', error);
-      setLibraryStatus('error');
-      setLibraryError('Nie moge odczytac public/media. Sprawdz folder i odswiez HUD.');
     }
-  }, []);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    void loadMediaLibrary();
-    const refreshId = window.setInterval(() => {
-      void loadMediaLibrary();
-    }, MEDIA_REFRESH_MS);
-
-    return () => window.clearInterval(refreshId);
-  }, [isOpen, loadMediaLibrary]);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches);
+    void loadMedia();
+    const interval = setInterval(() => void loadMedia(), MEDIA_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
     };
-
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  useEffect(() => {
-    setCurrentTime(0);
-    setDuration(0);
-  }, [activeMediaId]);
+  const activeMedia = useMemo(
+    () => mediaItems.find((item) => item.id === activeMediaId) ?? pickDefaultMedia(mediaItems),
+    [activeMediaId, mediaItems],
+  );
 
-  useEffect(() => {
-    const isVideoActive = activeMediaId
-      ? mediaItems.some((item) => {
-          return item.id === activeMediaId && item.kind === 'video' && item.isVideoDisplayable !== false;
-        })
-      : false;
+  const activeMediaRef = useRef<HudMediaItem | null>(activeMedia);
+  activeMediaRef.current = activeMedia;
 
-    mediaElementRef.current = isVideoActive ? masterVideoElementRef.current : masterAudioElementRef.current;
-    setMasterVideoRef(isVideoActive ? masterVideoElementRef.current : null);
-  }, [activeMediaId, mediaItems, setMasterVideoRef]);
+  const initAudioPipeline = useCallback(() => {
+    if (audioCtxRef.current) {
+      if (audioCtxRef.current.state === 'suspended') void audioCtxRef.current.resume();
+      return;
+    }
 
-  // ── Audio pipeline helper (idempotent — call at every play) ──────────
-  const ensureAudioPipeline = useCallback((mediaElement: HTMLMediaElement) => {
-    if (!audioCtxRef.current) {
-      const ctx = new AudioContext();
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.6;
-      analyser.connect(ctx.destination);
+      analyser.smoothingTimeConstant = 0.8;
+
       audioCtxRef.current = ctx;
       analyserRef.current = analyser;
-      setAnalyserNode(analyser);
+
       setAudioContext(ctx);
-      console.log('[HUD Audio] Pipeline created. ctx.state:', ctx.state, 'analyserSet:', !!analyser);
-    }
+      setAnalyserNode(analyser);
+      setIsActive(true);
 
-    const ctx = audioCtxRef.current;
-    ctx.resume();
-
-    // createMediaElementSource must be called once per element
-    const isVideo = mediaElement instanceof HTMLVideoElement;
-    const alreadyCreated = isVideo ? videoSourceCreatedRef.current : audioSourceCreatedRef.current;
-    if (!alreadyCreated) {
-      try {
-        const source = ctx.createMediaElementSource(mediaElement);
-        source.connect(analyserRef.current!);
-        if (isVideo) videoSourceCreatedRef.current = true;
-        else audioSourceCreatedRef.current = true;
-        console.log('[HUD Audio] Source connected for', isVideo ? 'VIDEO' : 'AUDIO');
-      } catch (err) {
-        console.warn('[HUD Audio] createMediaElementSource FAILED:', err);
-      }
-    }
-  }, [setAnalyserNode, setAudioContext]);
-
-  const playCurrentMedia = useCallback(() => {
-    const mediaElement = mediaElementRef.current;
-    if (!mediaElement) return;
-
-    ensureAudioPipeline(mediaElement);
-
-    const attempt = () => {
-      void mediaElement.play().catch((error: unknown) => {
-        const name = (error as Error)?.name;
-        if (name === 'AbortError') {
-          // Race condition: poprzedni play/pause w toku — retry po chwili
-          setTimeout(attempt, 80);
-        } else {
-          console.warn('HUD media playback was blocked:', error);
-          setIsPlaying(false);
+      const video = masterVideoRef.current;
+      if (video && !videoSourceCreatedRef.current) {
+        try {
+          const vSrc = ctx.createMediaElementSource(video);
+          vSrc.connect(analyser);
+          analyser.connect(ctx.destination);
+          videoSourceCreatedRef.current = true;
+        } catch (e) {
+          console.warn('[HudAudio] Video element source attach failed:', e);
         }
-      });
-    };
-    attempt();
-  }, [setIsPlaying, ensureAudioPipeline]);
+      }
 
-  const togglePlay = useCallback(() => {
-    const mediaElement = mediaElementRef.current;
-    if (!mediaElement) return;
+      const audio = masterAudioRef.current;
+      if (audio && !audioSourceCreatedRef.current) {
+        try {
+          const aSrc = ctx.createMediaElementSource(audio);
+          aSrc.connect(analyser);
+          analyser.connect(ctx.destination);
+          audioSourceCreatedRef.current = true;
+        } catch (e) {
+          console.warn('[HudAudio] Audio element source attach failed:', e);
+        }
+      }
+    } catch (e) {
+      console.warn('[HudAudio] Web Audio initialization failed:', e);
+    }
+  }, [setAnalyserNode, setAudioContext, setIsActive]);
+
+  const togglePlay = useCallback(async () => {
+    initAudioPipeline();
+    const media = activeMediaRef.current;
+    if (!media) return;
+
+    const el = media.kind === 'video' ? masterVideoRef.current : masterAudioRef.current;
+    if (!el) return;
 
     if (isPlaying) {
-      mediaElement.pause();
-      return;
+      el.pause();
+      setIsPlaying(false);
+    } else {
+      try {
+        await el.play();
+        setIsPlaying(true);
+      } catch (err) {
+        console.warn('[HUD] Playback error:', err);
+      }
     }
-
-    playCurrentMedia();
-  }, [isPlaying, playCurrentMedia]);
+  }, [initAudioPipeline, isPlaying, setIsPlaying]);
 
   const selectAndPlayMedia = useCallback((id: string) => {
-    const selectedMedia = mediaItems.find((item) => item.id === id);
+    initAudioPipeline();
+    const item = mediaItems.find((m) => m.id === id);
+    if (!item) return;
 
-    if (id === activeMediaId) {
-      if (selectedMedia && isDisplayableVideo(selectedMedia)) {
-        togglePlay();
-      }
-      return;
+    if (item.kind === 'video' && masterAudioRef.current) {
+      masterAudioRef.current.pause();
+    }
+    if (item.kind === 'audio' && masterVideoRef.current) {
+      masterVideoRef.current.pause();
     }
 
-    const previousMediaElement = mediaElementRef.current;
-    previousMediaElement?.pause();
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(0);
+    setActiveMediaId(id);
+    setIsPlaying(true);
 
-    flushSync(() => {
-      setActiveMediaId(id);
-    });
-
-    if (!selectedMedia || (selectedMedia.kind === 'video' && !isDisplayableVideo(selectedMedia))) {
-      return;
-    }
-
-    const nextMediaElement = selectedMedia.kind === 'video'
-      ? masterVideoElementRef.current
-      : masterAudioElementRef.current;
-    if (!nextMediaElement) return;
-
-    mediaElementRef.current = nextMediaElement;
-
-    // Ustaw src ręcznie (React mógł nie zaktualizować DOM synchronicznie)
-    // i graj gdy gotowe — bez race condition z canplay
-    nextMediaElement.currentTime = 0;
-    nextMediaElement.src = selectedMedia.src;
-    ensureAudioPipeline(nextMediaElement);
-
-    const startPlay = () => {
-      void nextMediaElement.play().catch((error: unknown) => {
-        const name = (error as Error)?.name;
-        if (name === 'AbortError') {
-          setTimeout(() => void nextMediaElement.play().catch(() => setIsPlaying(false)), 100);
-        } else {
-          console.warn('HUD media playback was blocked:', error);
-          setIsPlaying(false);
+    requestAnimationFrame(async () => {
+      const el = item.kind === 'video' ? masterVideoRef.current : masterAudioRef.current;
+      if (el) {
+        try {
+          el.currentTime = 0;
+          await el.play();
+        } catch (err) {
+          console.warn('[HUD] Autoplay error:', err);
         }
-      });
-    };
+      }
+    });
+  }, [initAudioPipeline, mediaItems, setIsPlaying]);
 
-    // Video już załadowane? Graj natychmiast
-    if (nextMediaElement.readyState >= 2) {
-      startPlay();
+  const handleToggleCam = useCallback(async () => {
+    if (camEnabled) {
+      stopCameraPreview();
+      setCamEnabled(false);
     } else {
-      // Czekaj na canplay (może odpalić przed load() jeśli src już załadowane)
-      nextMediaElement.addEventListener('canplay', () => startPlay(), { once: true });
-      // load() odpala ładowanie jeśli src się zmienił; jeśli nie — canplay już poszedł
-      nextMediaElement.load();
+      const success = await startCameraPreview(camFacingMode);
+      if (success) {
+        setCamEnabled(true);
+      }
     }
-  }, [activeMediaId, mediaItems, setIsPlaying, togglePlay, ensureAudioPipeline]);
-
-  const activeMedia = mediaItems.find((item) => item.id === activeMediaId) ?? null;
-  const statusLabel = libraryStatus === 'loading' ? 'Scanning' : libraryStatus === 'error' ? 'Offline' : 'Session Live';
-
-  const masterMediaEventProps = {
-    onTimeUpdate: (event: SyntheticEvent<HTMLMediaElement>) => setCurrentTime(event.currentTarget.currentTime),
-    onLoadedMetadata: (event: SyntheticEvent<HTMLMediaElement>) => setDuration(event.currentTarget.duration),
-    onPlay: () => { setIsPlaying(true); setIsActive(true); },
-    onPause: () => { setIsPlaying(false); setIsActive(false); },
-    onEnded: () => { setIsPlaying(false); setIsActive(false); },
-  };
+  }, [camEnabled, camFacingMode, setCamEnabled, startCameraPreview, stopCameraPreview]);
 
   return (
-    <>
-      {/* Ukryty master player — NIE autoPlay, tylko preload="metadata", odpala się jawnie przez selectAndPlayMedia */}
-      {mounted && (
-        <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: 1, height: 1, pointerEvents: 'none', zIndex: -9999, opacity: 0.0001, overflow: 'hidden' }}>
-          <video
-            ref={masterVideoElementRef}
-            src={activeMedia?.kind === 'video' ? activeMedia.src : undefined}
-            muted={false}
-            playsInline
-            preload="metadata"
-            crossOrigin="anonymous"
-            loop
-            {...masterMediaEventProps}
-          />
-          <audio
-            ref={masterAudioElementRef}
-            src={activeMedia?.kind === 'audio' ? activeMedia.src : undefined}
-            preload="metadata"
-            crossOrigin="anonymous"
-            {...masterMediaEventProps}
-          />
-          <video
-            ref={camVideoRef}
-            muted
-            autoPlay
-            playsInline
-            disablePictureInPicture
-          />
-        </div>
-      )}
+    <div className={`hud-overlay ${isOpen ? 'hud-overlay-open' : 'hud-overlay-closed'}`}>
+      <div className="hud-overlay-bg" />
+      <div className="hud-gradient-layer" />
 
-      {/* Główny overlay HUD */}
-      <div
-        className={`hud-overlay hud-overlay-bg ${isOpen ? 'hud-overlay-open' : 'hud-overlay-closed'}`}
-        onClick={closeHud}
-      >
-        <div className="hud-gradient-layer" />
+      {/* Hidden Master Media Elements for Web Audio & 3D Video Texture */}
+      <video
+        ref={masterVideoRef}
+        src={activeMedia?.kind === 'video' ? activeMedia.src : undefined}
+        playsInline
+        crossOrigin="anonymous"
+        loop
+        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+        style={{ position: 'fixed', top: -9999, left: -9999, width: 1, height: 1, opacity: 0.001, pointerEvents: 'none' }}
+      />
+      <audio
+        ref={masterAudioRef}
+        src={activeMedia?.kind === 'audio' ? activeMedia.src : undefined}
+        loop
+        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+        style={{ display: 'none' }}
+      />
+      <video
+        ref={camVideoRef}
+        playsInline
+        muted
+        style={{ position: 'fixed', top: -9999, left: -9999, width: 1, height: 1, opacity: 0.001, pointerEvents: 'none' }}
+      />
 
-        <div
-          className={`hud-inner ${isMobile ? 'hud-inner-mobile' : 'hud-inner-desktop'}`}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="hud-header">
-            <div className="hud-panel-gradient" />
-            <div className="hud-header-row">
-              <Thr3StyleHudMark compact className="shrink-0" />
-              <div className="hud-header-title-group">
-                <p className="hud-header-eyebrow">Laptop Media Session</p>
-                <h1 className="hud-header-heading">BLOK TRZECH PIĘTER</h1>
-              </div>
-              <div className="hud-status-badge">
-                <p className="hud-status-label">Status</p>
-                <p className="hud-status-value">{statusLabel}</p>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (camEnabled) {
-                    stopCameraPreview();
-                    setCamEnabled(false);
-                  } else {
-                    setCamEnabled(true);
-                    void startCameraPreview(camFacingMode);
-                  }
-                }}
-                className="hud-close-btn"
-                style={{
-                  marginRight: '8px',
-                  background: camEnabled ? 'rgba(255,60,60,0.25)' : 'rgba(255,255,255,0.06)',
-                  border: camEnabled ? '1px solid rgba(255,60,60,0.5)' : '1px solid rgba(255,255,255,0.2)',
-                }}
-              >
-                {camEnabled ? '📷 ON' : '📷 OFF'}
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!camEnabled) return;
-                  const nextMode = camFacingMode === 'user' ? 'environment' : 'user';
-                  setCamFacingMode(nextMode);
-                  void startCameraPreview(nextMode);
-                }}
-                className="hud-close-btn"
-                style={{
-                  marginRight: '8px',
-                  background: camEnabled ? 'rgba(0,200,200,0.15)' : 'rgba(255,255,255,0.04)',
-                  border: camEnabled ? '1px solid rgba(0,200,200,0.35)' : '1px solid rgba(255,255,255,0.1)',
-                  opacity: camEnabled ? 1 : 0.4,
-                  fontSize: '11px',
-                  letterSpacing: '0.1em',
-                }}
-              >
-                {camFacingMode === 'user' ? 'FRONT' : 'BACK'}
-              </button>
-              <button onClick={closeHud} className="hud-close-btn">
-                Close
-              </button>
+      <div className={`hud-inner ${isMobile ? 'hud-inner-mobile' : 'hud-inner-desktop'}`}>
+        {/* HUD Master Header */}
+        <header className="hud-header">
+          <div className="hud-panel-gradient" />
+          <div className="hud-header-row">
+            <Thr3StyleHudMark />
+            <div className="hud-header-title-group">
+              <p className="hud-header-eyebrow">Studio Deck • 3S Arena</p>
+              <h1 className="hud-header-heading">{activeMedia?.title ?? 'Creator Studio Live'}</h1>
             </div>
+            <div className="hud-status-badge">
+              <p className="hud-status-label">Studio State</p>
+              <p className="hud-status-value">{camEnabled ? '📹 Wall Cam Live' : isPlaying ? '⚡ Studio Wall 4K' : 'Ready'}</p>
+            </div>
+            <button type="button" onClick={closeHud} className="hud-close-btn" aria-label="Close Studio HUD">
+              ESC / Zamknij
+            </button>
           </div>
+        </header>
 
-          <HudContent
-            isHudOpen={isOpen}
-            activeScreenId={activeScreenId}
-            activeMedia={activeMedia}
-            mediaItems={mediaItems}
-            libraryStatus={libraryStatus}
-            libraryError={libraryError}
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={duration}
-            togglePlay={togglePlay}
-            selectAndPlayMedia={selectAndPlayMedia}
-            setCurrentTime={setCurrentTime}
-            setDuration={setDuration}
-            setIsPlaying={setIsPlaying}
-            mounted={mounted}
-            isMobile={isMobile}
-            masterVideoElementRef={masterVideoElementRef}
-          />
-        </div>
+        {/* 4 Modular Studio Tabs Content */}
+        <HudModularContent
+          isHudOpen={isOpen}
+          activeMedia={activeMedia}
+          mediaItems={mediaItems}
+          libraryStatus={libraryStatus}
+          libraryError={libraryError}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          togglePlay={togglePlay}
+          selectAndPlayMedia={selectAndPlayMedia}
+          mounted={mounted}
+          isMobile={isMobile}
+          masterVideoElementRef={masterVideoRef}
+          camEnabled={camEnabled}
+          onToggleCam={handleToggleCam}
+          analyserRef={analyserRef}
+        />
       </div>
-    </>
+    </div>
   );
 }
 
-interface HudContentProps {
+interface HudModularContentProps {
   isHudOpen: boolean;
-  activeScreenId: string | null;
-  activeMedia: HudMediaItem | null;
+  activeMedia?: HudMediaItem | null;
   mediaItems: HudMediaItem[];
   libraryStatus: LibraryStatus;
   libraryError: string | null;
@@ -497,21 +508,19 @@ interface HudContentProps {
   duration: number;
   togglePlay: () => void;
   selectAndPlayMedia: (id: string) => void;
-  setCurrentTime: (time: number) => void;
-  setDuration: (time: number) => void;
-  setIsPlaying: (playing: boolean) => void;
   mounted: boolean;
   isMobile: boolean;
   masterVideoElementRef: RefObject<HTMLVideoElement | null>;
+  camEnabled: boolean;
+  onToggleCam: () => void;
+  analyserRef: RefObject<AnalyserNode | null>;
 }
 
-function HudContent({
+function HudModularContent({
   isHudOpen,
-  activeScreenId,
   activeMedia,
   mediaItems,
   libraryStatus,
-  libraryError,
   isPlaying,
   currentTime,
   duration,
@@ -520,21 +529,18 @@ function HudContent({
   mounted,
   isMobile,
   masterVideoElementRef,
-}: HudContentProps) {
-  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const videoItems = useMemo(() => mediaItems.filter((item) => item.kind === 'video'), [mediaItems]);
-  const audioItems = useMemo(() => mediaItems.filter((item) => item.kind === 'audio'), [mediaItems]);
-  const queueItems = useMemo(() => mediaItems.filter((item) => item.id !== activeMedia?.id).slice(0, 6), [activeMedia?.id, mediaItems]);
-  const quickVoteItems = useMemo(() => mediaItems.slice(0, 3), [mediaItems]);
+  camEnabled,
+  onToggleCam,
+  analyserRef,
+}: HudModularContentProps) {
   const [activePanelIndex, setActivePanelIndex] = useState(0);
-  const [selectedVoteId, setSelectedVoteId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const effectiveSelectedVoteId = selectedVoteId ?? activeMedia?.id ?? quickVoteItems[0]?.id ?? null;
 
   const jumpToPanel = useCallback((index: number) => {
     const node = scrollRef.current;
     if (!node) return;
     node.scrollTo({ left: node.clientWidth * index, behavior: 'smooth' });
+    setActivePanelIndex(index);
   }, []);
 
   const handleScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
@@ -545,18 +551,41 @@ function HudContent({
     }
   }, [activePanelIndex]);
 
-  const sessionMetrics = [
-    { label: 'Viewport', value: activeScreenId ?? 'master_catalog' },
-    { label: 'Playable', value: `${mediaItems.filter((item) => item.kind === 'video' && item.isVideoDisplayable !== false).length}` },
-    { label: 'Audio', value: `${audioItems.length}` },
-    { label: 'Library', value: `${mediaItems.length} files` },
-  ];
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  // Hype reactions feedback state
+  const [activeHypeEmoji, setActiveHypeEmoji] = useState<string | null>(null);
+  const triggerHype = (emoji: string) => {
+    setActiveHypeEmoji(emoji);
+    setTimeout(() => setActiveHypeEmoji(null), 900);
+  };
+
+  // Battles State
+  const [battles, setBattles] = useState(INITIAL_BATTLES);
+  const [selectedVotedTrack, setSelectedVotedTrack] = useState<'A' | 'B' | null>(null);
+  const [flowScore, setFlowScore] = useState(8);
+  const [lyricsScore, setLyricsScore] = useState(9);
+  const [vibeScore, setVibeScore] = useState(8);
+  const [voteSubmitted, setVoteSubmitted] = useState(false);
+
+  // Drop & Upload State
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadCategory, setUploadCategory] = useState('#Freestyle');
+  const [detectedBpm, setDetectedBpm] = useState<number | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [wallPreviewActive, setWallPreviewActive] = useState(false);
+
+  // Top 10 Charts State
+  const [chartFilter, setChartFilter] = useState<'today' | 'weekly' | 'alltime'>('weekly');
+  const [chartsList] = useState(INITIAL_CHARTS);
 
   return (
     <div className="hud-content">
       <div className="hud-ambient-glow" />
 
-      {/* Pionowe kropki nawigacji (desktop) */}
+      {/* Desktop Top/Side Tab Selector */}
       <div className="hud-tab-nav">
         {panelLabels.map((label, index) => {
           const isActive = index === activePanelIndex;
@@ -577,57 +606,38 @@ function HudContent({
       </div>
 
       <div className="hud-content-inner">
-        <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="hud-scroll-container"
-        >
-          {/* Panel 01: Now Playing */}
-          <PanelViewport>
-          <PanelFrame
-            eyebrow="Panel 01"
-            title="Now Playing"
-            subtitle="A focused playback surface with enough context to keep the room immersive."
-            footer={`Swipe for more • ${activePanelIndex + 1}/${panelLabels.length}`}
-          >
-            <div className="hud-nowplaying-content">
-              {/* Video / audio / empty preview card */}
-              <div className="hud-nowplaying-card">
-                <div className="hud-nowplaying-card-border" />
-                {mounted && activeMedia?.kind === 'video' && !isDisplayableVideo(activeMedia) ? (
-                  <div className="hud-media-state hud-bg-codec">
-                    <div className="hud-media-icon">H</div>
-                    <p className="hud-media-eyebrow">Video codec warning</p>
-                    <p className="hud-media-title">{activeMedia.title}</p>
-                    <p className="hud-media-desc">
-                      {activeMedia.compatibilityNote ?? 'Ten plik moze wymagac konwersji do H.264, zeby pokazac obraz w HUD i na ekranie pokoju.'}
-                    </p>
-                  </div>
-                ) : mounted && activeMedia?.kind === 'video' ? (
-                  <VideoCanvasPreview
-                    masterVideoRef={masterVideoElementRef}
-                    activeMediaId={activeMedia.id}
-                    isActive={isHudOpen && activePanelIndex === 0}
-                    isPlaying={isPlaying}
-                    onClick={togglePlay}
-                  />
-                ) : mounted && activeMedia?.kind === 'audio' ? (
-                  <div className="hud-media-state hud-bg-audio">
-                    <div className="hud-media-icon">A</div>
-                    <p className="hud-media-eyebrow">Audio track</p>
-                    <p className="hud-media-title">{activeMedia.title}</p>
-                  </div>
-                ) : mounted ? (
-                  <div className="hud-media-state hud-bg-empty">
-                    <p className="hud-media-eyebrow" style={{ color: 'rgba(255,255,255,0.36)', letterSpacing: '0.3em' }}>No media found</p>
-                    <p className="hud-media-desc" style={{ color: 'rgba(255,255,255,0.46)' }}>Wrzuć pliki do `public/media/video` albo `public/media/audio`, a HUD zaciągnie je automatycznie.</p>
-                  </div>
-                ) : (
-                  <div className="hud-loading-state">Loading viewport</div>
-                )}
+        <div ref={scrollRef} onScroll={handleScroll} className="hud-scroll-container">
 
-                {/* Play/Pause overlay — klik w canvas lub panel */}
-                {activeMedia && (
+          {/* ══════════════════════════════════════════════════════════════════════
+              PANEL 01: NOW PLAYING & FREESTYLE ARENA
+              ══════════════════════════════════════════════════════════════════════ */}
+          <PanelViewport>
+            <PanelFrame
+              eyebrow="Panel 01 • Master Desk"
+              title="Now Playing & Freestyle"
+              subtitle="Interaktywny panel odsłuchu studyjnego, reakcji live oraz transmisji na ścianę 3D."
+            >
+              <div className="hud-nowplaying-content">
+                {/* 4K Preview / Visualizer Card */}
+                <div className="hud-nowplaying-card">
+                  <div className="hud-nowplaying-card-border" />
+                  {activeMedia?.kind === 'video' ? (
+                    <VideoCanvasPreview
+                      masterVideoRef={masterVideoElementRef}
+                      activeMediaId={activeMedia.id}
+                      isActive={isHudOpen && activePanelIndex === 0}
+                      isPlaying={isPlaying}
+                      onClick={togglePlay}
+                    />
+                  ) : (
+                    <AudioWaveformVisualizer
+                      analyserRef={analyserRef}
+                      isPlaying={isPlaying}
+                      onClick={togglePlay}
+                    />
+                  )}
+
+                  {/* Play/Pause Overlay */}
                   <button
                     type="button"
                     onClick={togglePlay}
@@ -642,212 +652,398 @@ function HudContent({
                       )}
                     </div>
                   </button>
-                )}
-              </div>
 
-              {/* Info card z progress barem */}
-              <div className="hud-info-card">
-                <div className="hud-info-row">
-                  <div style={{ minWidth: 0 }}>
-                    <p className="hud-info-eyebrow">{isPlaying ? 'Playing now' : 'Ready to play'}</p>
-                    <p className="hud-info-title">{activeMedia?.title ?? 'Media library empty'}</p>
-                    <p className="hud-info-meta">
-                      {activeMedia ? `${activeMedia.kind.toUpperCase()} • ${formatBytes(activeMedia.size)} • ${formatStamp(activeMedia.modifiedAt)}` : 'Dodaj pliki do biblioteki, aby uruchomić sesję.'}
+                  {/* Hype Emoji Pop Overlay */}
+                  {activeHypeEmoji && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%) scale(1.5)',
+                      fontSize: '48px',
+                      pointerEvents: 'none',
+                      animation: 'bounce 0.6s ease-out',
+                      textShadow: '0 0 20px rgba(243,160,93,0.8)'
+                    }}>
+                      {activeHypeEmoji}
+                    </div>
+                  )}
+                </div>
+
+                {/* Info & Live Scrubber Bar */}
+                <div className="hud-info-card">
+                  <div className="hud-info-row">
+                    <div style={{ minWidth: 0 }}>
+                      <p className="hud-info-eyebrow">{isPlaying ? '🔥 Playing on Studio Wall' : 'Studio Standby'}</p>
+                      <p className="hud-info-title">{activeMedia?.title ?? '3Style Master Track'}</p>
+                      <p className="hud-info-meta">
+                        {activeMedia ? `${activeMedia.kind.toUpperCase()} • ${formatBytes(activeMedia.size)} • ${formatStamp(activeMedia.modifiedAt)}` : 'Dodaj beat do biblioteki.'}
+                      </p>
+                    </div>
+                    <div className="hud-viz-bars">
+                      {Array.from({ length: 12 }).map((_, index) => (
+                        <span
+                          key={index}
+                          className="hud-viz-bar"
+                          style={{ height: isPlaying ? `${28 + (index % 5) * 14}%` : '20%' }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="hud-progress-track">
+                    <div className="hud-progress-fill" style={{ width: `${progressPercent}%` }} />
+                  </div>
+                  <div className="hud-progress-times">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(duration)}</span>
+                  </div>
+                </div>
+
+                {/* Live Camera Broadcast & Hype Reactions Bar */}
+                <div className="hud-cam-switch">
+                  <div>
+                    <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.45)' }}>Studio Wall Source</p>
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: '#fff', marginTop: '2px' }}>
+                      {camEnabled ? 'Kamera Live (Selfie / Booth)' : 'Master Track 4K Visualizer'}
                     </p>
                   </div>
-                  <div className="hud-viz-bars">
-                    {Array.from({ length: 12 }).map((_, index) => (
-                      <span
-                        key={index}
-                        className="hud-viz-bar"
-                        style={{ height: isPlaying ? `${26 + (index % 5) * 11}%` : '24%' }}
+                  <button
+                    type="button"
+                    onClick={onToggleCam}
+                    className={`hud-cam-toggle-btn ${camEnabled ? 'hud-cam-toggle-on' : 'hud-cam-toggle-off'}`}
+                  >
+                    {camEnabled ? '● Cam Active' : 'Enable Cam'}
+                  </button>
+                </div>
+
+                {/* Hype Reaction Triggers */}
+                <div className="hud-reaction-bar">
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.45)', paddingLeft: '8px' }}>HYPE:</span>
+                  <button type="button" onClick={() => triggerHype('🔥')} className="hud-reaction-btn">🔥 Fire</button>
+                  <button type="button" onClick={() => triggerHype('👑')} className="hud-reaction-btn">👑 Bars</button>
+                  <button type="button" onClick={() => triggerHype('🌊')} className="hud-reaction-btn">🌊 Flow</button>
+                  <button type="button" onClick={() => triggerHype('🔁')} className="hud-reaction-btn">🔁 Rewind</button>
+                </div>
+              </div>
+            </PanelFrame>
+          </PanelViewport>
+
+          {/* ══════════════════════════════════════════════════════════════════════
+              PANEL 02: COMMUNITY BATTLES & BLIND VOTING
+              ══════════════════════════════════════════════════════════════════════ */}
+          <PanelViewport>
+            <PanelFrame
+              eyebrow="Panel 02 • Arena Battles"
+              title="Community Blind Battles"
+              subtitle="Głosuj bezstronnie na flow, rymy i technikę. Nazwiska artystów ujawniane po głosowaniu!"
+            >
+              <div className="hud-flex-col-gap4">
+                <div className="hud-info-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="hud-blind-badge">🔒 Blind Voting Mode</span>
+                    <span style={{ fontSize: '11px', color: 'rgba(243,160,93,0.85)', fontWeight: 600 }}>1/4 Finals • #Freestyle</span>
+                  </div>
+                  <p style={{ marginTop: '10px', fontSize: '13px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>
+                    Posłuchaj 20-sekundowego fragmentu obu zwrotek i oceń bez uprzedzeń.
+                  </p>
+                </div>
+
+                {/* 1v1 Battle Cards */}
+                <div className="hud-battle-container">
+                  {/* Track A */}
+                  <div
+                    onClick={() => setSelectedVotedTrack('A')}
+                    className={`hud-battle-card ${selectedVotedTrack === 'A' ? 'hud-battle-card-selected' : ''}`}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#f3a05d' }}>TRACK A</span>
+                      {selectedVotedTrack === 'A' && <span style={{ fontSize: '11px', color: '#fff' }}>✓ Wybrany</span>}
+                    </div>
+                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#fff', marginTop: '6px' }}>
+                      {voteSubmitted ? 'ShadowFlow MC' : 'Zawodnik A (Anonimowy)'}
+                    </h3>
+                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)' }}>94 BPM • BoomBap</p>
+                    {voteSubmitted && (
+                      <div className="hud-vote-bar">
+                        <div className="hud-vote-bar-fill" style={{ width: '64%' }} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Track B */}
+                  <div
+                    onClick={() => setSelectedVotedTrack('B')}
+                    className={`hud-battle-card ${selectedVotedTrack === 'B' ? 'hud-battle-card-selected' : ''}`}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#f3a05d' }}>TRACK B</span>
+                      {selectedVotedTrack === 'B' && <span style={{ fontSize: '11px', color: '#fff' }}>✓ Wybrany</span>}
+                    </div>
+                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#fff', marginTop: '6px' }}>
+                      {voteSubmitted ? 'RawConcrete 808' : 'Zawodnik B (Anonimowy)'}
+                    </h3>
+                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)' }}>96 BPM • Trap</p>
+                    {voteSubmitted && (
+                      <div className="hud-vote-bar">
+                        <div className="hud-vote-bar-fill" style={{ width: '36%', background: '#718096' }} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Voting Sliders */}
+                <div className="hud-info-card" style={{ padding: '16px' }}>
+                  <div style={{ display: 'grid', gap: '14px' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px' }}>
+                        <span>🌊 Flow & Rytmika:</span>
+                        <strong style={{ color: '#f3a05d' }}>{flowScore}/10</strong>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={flowScore}
+                        onChange={(e) => setFlowScore(Number(e.target.value))}
+                        style={{ width: '100%', accentColor: '#f3a05d' }}
                       />
+                    </div>
+
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px' }}>
+                        <span>✍️ Rymy & Punchlines:</span>
+                        <strong style={{ color: '#f3a05d' }}>{lyricsScore}/10</strong>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={lyricsScore}
+                        onChange={(e) => setLyricsScore(Number(e.target.value))}
+                        style={{ width: '100%', accentColor: '#f3a05d' }}
+                      />
+                    </div>
+
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px' }}>
+                        <span>⚡ Energia & Delivery:</span>
+                        <strong style={{ color: '#f3a05d' }}>{vibeScore}/10</strong>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={vibeScore}
+                        onChange={(e) => setVibeScore(Number(e.target.value))}
+                        style={{ width: '100%', accentColor: '#f3a05d' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!selectedVotedTrack || voteSubmitted}
+                  onClick={() => setVoteSubmitted(true)}
+                  className="hud-primary-action-btn"
+                >
+                  {voteSubmitted ? '✓ Głos Zapisany (+50 XP)' : selectedVotedTrack ? `Oddaj Głos na Zawodnika ${selectedVotedTrack}` : 'Wybierz Zawodnika A lub B'}
+                </button>
+              </div>
+            </PanelFrame>
+          </PanelViewport>
+
+          {/* ══════════════════════════════════════════════════════════════════════
+              PANEL 03: DROP & UPLOAD (CREATOR SUITE)
+              ══════════════════════════════════════════════════════════════════════ */}
+          <PanelViewport>
+            <PanelFrame
+              eyebrow="Panel 03 • Creator Suite"
+              title="Drop & Upload"
+              subtitle="Prześlij utwór, przetestuj odsłuch na ekranie w pokoju 3D i opublikuj do ligi bitewnej."
+            >
+              <div className="hud-flex-col-gap4">
+                {/* Drag & Drop Zone */}
+                <div
+                  className="hud-dropzone"
+                  onDragOver={(e) => { e.preventDefault(); }}
+                  onClick={() => {
+                    setUploadedFileName('Nowy_Freestyle_Sesja_2026.wav');
+                    setDetectedBpm(94);
+                  }}
+                >
+                  <div className="hud-upload-icon-box">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                  </div>
+                  <p style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>
+                    {uploadedFileName ? uploadedFileName : 'Przeciągnij plik WAV / MP3 lub kliknij'}
+                  </p>
+                  <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '4px' }}>
+                    {detectedBpm ? `Wykryto tempo: ${detectedBpm} BPM • Key: D minor` : 'Obsługiwane formaty: WAV (24bit), MP3, MP4 do 50MB'}
+                  </p>
+                </div>
+
+                {/* Track Metadata Input */}
+                <div className="hud-info-card" style={{ padding: '16px' }}>
+                  <label style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.16em', color: 'rgba(255,255,255,0.5)' }}>
+                    Tytuł Utworu / Freestyle:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="np. Cyber Cypher Vol. 2"
+                    value={uploadTitle}
+                    onChange={(e) => setUploadTitle(e.target.value)}
+                    style={{
+                      width: '100%',
+                      marginTop: '8px',
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      color: '#fff',
+                      fontSize: '13px',
+                      outline: 'none',
+                    }}
+                  />
+
+                  <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.16em', color: 'rgba(255,255,255,0.5)', marginTop: '14px' }}>
+                    Kategoria / Tag:
+                  </p>
+                  <div className="hud-tag-chips">
+                    {['#Freestyle', '#BoomBap', '#Trap', '#Drill', '#Melodic'].map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => setUploadCategory(tag)}
+                        className={`hud-tag-chip ${uploadCategory === tag ? 'hud-tag-chip-active' : ''}`}
+                      >
+                        {tag}
+                      </button>
                     ))}
                   </div>
                 </div>
-                <div className="hud-progress-track">
-                  <div
-                    className="hud-progress-fill"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-                <div className="hud-progress-times">
-                  <span>{formatTime(currentTime)}</span>
-                  <span>{formatTime(duration)}</span>
+
+                {/* Send to Wall Studio Preview Trigger */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setWallPreviewActive(true)}
+                    className="hud-secondary-action-btn"
+                  >
+                    📺 {wallPreviewActive ? 'Wyświetla na Ścianie' : 'Podgląd na Ekranie'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUploading(true);
+                      setTimeout(() => {
+                        setIsUploading(false);
+                        alert('Utwór zgłoszony pomyślnie do kolejki ligowej!');
+                      }, 800);
+                    }}
+                    className="hud-primary-action-btn"
+                    style={{ height: '100%', padding: '12px' }}
+                  >
+                    {isUploading ? 'Wysyłanie...' : 'Opublikuj w Bitwach'}
+                  </button>
                 </div>
               </div>
-            </div>
-          </PanelFrame>
-        </PanelViewport>
+            </PanelFrame>
+          </PanelViewport>
 
-        {/* Panel 02: Vote / Discovery */}
-        <PanelViewport>
-          <PanelFrame
-            eyebrow="Panel 02"
-            title="Vote / Discovery"
-            subtitle="One decision surface, one action path, no desktop-dashboard clutter."
-          >
-            <div className="hud-flex-col-gap4">
-              <div className="hud-info-card">
-                <p className="hud-media-eyebrow" style={{ color: 'rgba(243,160,93,0.78)' }}>Current prompt</p>
-                <h2 style={{ marginTop: '12px', fontSize: '1.35rem', fontWeight: 600, letterSpacing: '-0.04em', color: '#fff' }}>Which media state should guide the room next?</h2>
-                <p style={{ marginTop: '12px', fontSize: '14px', lineHeight: 1.5, color: 'rgba(255,255,255,0.56)' }}>
-                  Discovery is intentionally reduced to one focused choice so the laptop feels like a cinematic controller, not a dashboard.
-                </p>
-              </div>
+          {/* ══════════════════════════════════════════════════════════════════════
+              PANEL 04: TOP 10 CHARTS & LEADERBOARD
+              ══════════════════════════════════════════════════════════════════════ */}
+          <PanelViewport>
+            <PanelFrame
+              eyebrow="Panel 04 • Hall of Fame"
+              title="Top 10 Charts & Ranking"
+              subtitle="Najwyżej oceniane utwory społeczności. Kliknij, aby puścić dowolny numer na ścianie studyjnej."
+            >
+              <div className="hud-flex-col-gap4">
+                {/* Time Filter Tabs */}
+                <div className="hud-filter-tabs">
+                  <button
+                    type="button"
+                    onClick={() => setChartFilter('today')}
+                    className={`hud-filter-tab ${chartFilter === 'today' ? 'hud-filter-tab-active' : ''}`}
+                  >
+                    Dzisiaj
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartFilter('weekly')}
+                    className={`hud-filter-tab ${chartFilter === 'weekly' ? 'hud-filter-tab-active' : ''}`}
+                  >
+                    Top Tygodnia
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartFilter('alltime')}
+                    className={`hud-filter-tab ${chartFilter === 'alltime' ? 'hud-filter-tab-active' : ''}`}
+                  >
+                    Legendy
+                  </button>
+                </div>
 
-              <div style={{ display: 'grid', gap: '12px' }}>
-                {quickVoteItems.length === 0 ? (
-                  <EmptyCard message="Brak mediów do panelu discovery." />
-                ) : (
-                  quickVoteItems.map((item, index) => {
-                    const isSelected = item.id === effectiveSelectedVoteId;
+                {/* Top 10 Chart List */}
+                <div className="hud-overflow-y hud-space-y-3" style={{ flex: 1, minHeight: 0 }}>
+                  {chartsList.map((track, index) => {
+                    const rankClass =
+                      index === 0 ? 'hud-rank-gold' :
+                      index === 1 ? 'hud-rank-silver' :
+                      index === 2 ? 'hud-rank-bronze' : 'hud-rank-default';
+
                     return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedVoteId(item.id);
-                          selectAndPlayMedia(item.id);
-                        }}
-                        className={`hud-vote-btn ${isSelected ? 'hud-vote-btn-active' : ''}`}
-                      >
-                        <div className="hud-vote-row">
-                          <div style={{ minWidth: 0 }}>
-                            <p className="hud-vote-label">Option 0{index + 1}</p>
-                            <p className="hud-vote-title">{item.title}</p>
-                            <p className="hud-vote-kind">{item.kind === 'video' ? 'Video focus' : 'Audio focus'} • {formatBytes(item.size)}</p>
+                      <div key={track.id} className="hud-chart-card">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                          <div className={`hud-rank-badge ${rankClass}`}>
+                            #{track.rank}
                           </div>
-                          <span className={`hud-vote-badge ${isSelected ? 'hud-vote-badge-active' : 'hud-vote-badge-default'}`}>
-                            {isSelected ? 'Active' : 'Select'}
-                          </span>
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ fontSize: '13px', fontWeight: 600, color: '#fff', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              {track.title}
+                            </p>
+                            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>
+                              {track.artist} • {track.bpm} BPM • {track.category}
+                            </p>
+                          </div>
                         </div>
-                      </button>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: '#f3a05d' }}>
+                              {track.winRate}% Win
+                            </span>
+                            <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
+                              {track.votes} głosów
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => selectAndPlayMedia(track.id)}
+                            className="hud-secondary-action-btn"
+                            style={{ padding: '6px 12px', fontSize: '11px' }}
+                          >
+                            ▶ Na Ekran
+                          </button>
+                        </div>
+                      </div>
                     );
-                  })
-                )}
-              </div>
-            </div>
-          </PanelFrame>
-        </PanelViewport>
-
-        {/* Panel 03: Queue / Next */}
-        <PanelViewport>
-          <PanelFrame
-            eyebrow="Panel 03"
-            title="Queue / Next"
-            subtitle="A thumb-friendly queue surface for moving through the session one media item at a time."
-          >
-            <div className="hud-flex-col-gap4">
-              <div className="hud-info-card">
-                <div className="hud-vote-row">
-                  <div>
-                    <p className="hud-info-eyebrow">Up next</p>
-                    <p style={{ marginTop: '8px', fontSize: '16px', fontWeight: 500, color: 'rgba(255,255,255,0.88)' }}>{queueItems.length > 0 ? `${queueItems.length} items ready` : 'Queue is empty'}</p>
-                  </div>
-                  <div className="hud-vote-badge hud-vote-badge-default" style={{ color: 'rgba(255,255,255,0.46)', letterSpacing: '0.24em' }}>
-                    Swipe flow
-                  </div>
+                  })}
                 </div>
               </div>
+            </PanelFrame>
+          </PanelViewport>
 
-              <div className="hud-overflow-y hud-space-y-3" style={{ flex: 1, minHeight: 0 }}>
-                {queueItems.length === 0 ? (
-                  <EmptyCard message="Brak kolejnych pozycji. Dodaj więcej plików do biblioteki." />
-                ) : (
-                  queueItems.map((item, index) => (
-                    <QueueRow
-                      key={item.id}
-                      index={index}
-                      item={item}
-                      onSelect={selectAndPlayMedia}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
-          </PanelFrame>
-        </PanelViewport>
-
-        {/* Panel 04: Session / Room State */}
-        <PanelViewport>
-          <PanelFrame
-            eyebrow="Panel 04"
-            title="Session / Room State"
-            subtitle="Ambient session info that supports the room instead of overpowering it."
-          >
-            <div style={{ display: 'grid', gap: '16px', flex: 1, minHeight: 0 }}>
-              <div className="hud-info-card">
-                <p className="hud-media-eyebrow" style={{ color: 'rgba(243,160,93,0.78)' }}>Session status</p>
-                <div className="hud-grid-cols2" style={{ marginTop: '16px' }}>
-                  {sessionMetrics.map((metric) => (
-                    <div key={metric.label} className="hud-metric-card">
-                      <p className="hud-metric-label">{metric.label}</p>
-                      <p className="hud-metric-value">{metric.value}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="hud-info-card">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <p className="hud-info-eyebrow">Room pulse</p>
-                  <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(255,255,255,0.38)' }}>{libraryStatus}</span>
-                </div>
-                <div style={{ display: 'flex', height: '96px', alignItems: 'flex-end', gap: '2px' }}>
-                  {Array.from({ length: 18 }).map((_, index) => (
-                    <span
-                      key={index}
-                      className="hud-pulse-bar"
-                      style={{ height: `${30 + ((index * 17) % 55)}%`, opacity: index % 4 === 0 ? 0.95 : 0.72 }}
-                    />
-                  ))}
-                </div>
-                <p className="hud-session-desc">
-                  Laptop otwiera teraz poziomy, sekwencyjny media flow. Każdy ekran skupia się na jednej funkcji, więc sterowanie jest czytelne nawet na telefonie.
-                </p>
-              </div>
-            </div>
-          </PanelFrame>
-        </PanelViewport>
-
-        {/* Panel 05: Media Library */}
-        <PanelViewport>
-          <PanelFrame
-            eyebrow="Panel 05"
-            title="Media Library"
-            subtitle="The full asset list remains available, but inside one focused viewport instead of multiple side modules."
-          >
-            <div className="hud-flex-col-gap4">
-              {libraryStatus === 'error' && libraryError ? (
-                <div className="hud-error-banner">{libraryError}</div>
-              ) : null}
-
-              <div className="hud-overflow-y hud-space-y-5" style={{ flex: 1, minHeight: 0 }}>
-                <LibrarySection
-                  title="Video Assets"
-                  emptyText="Brak filmów w public/media/video."
-                  items={videoItems}
-                  activeMediaId={activeMedia?.id ?? null}
-                  isPlaying={isPlaying}
-                  onSelect={selectAndPlayMedia}
-                />
-                <LibrarySection
-                  title="Audio Assets"
-                  emptyText="Brak audio w public/media/audio."
-                  items={audioItems}
-                  activeMediaId={activeMedia?.id ?? null}
-                  isPlaying={isPlaying}
-                  onSelect={selectAndPlayMedia}
-                />
-              </div>
-            </div>
-          </PanelFrame>
-        </PanelViewport>
         </div>
 
-        {/* Mobile bottom tabs */}
-        {isMobile ? (
+        {/* Mobile Bottom Swipe Navigation Dots */}
+        {isMobile && (
           <div className="hud-mobile-tabs-wrap">
             <div className="hud-mobile-tabs">
               {panelLabels.map((label, index) => (
@@ -861,7 +1057,7 @@ function HudContent({
               ))}
             </div>
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );
@@ -889,53 +1085,8 @@ function PanelFrame({ eyebrow, title, subtitle, footer, children }: PanelFramePr
         <p className="hud-frame-subtitle">{subtitle}</p>
       </div>
       <div className="hud-frame-body">{children}</div>
-      {footer ? (
-        <div className="hud-frame-footer">
-          {footer}
-        </div>
-      ) : null}
+      {footer && <div className="hud-frame-footer">{footer}</div>}
     </div>
-  );
-}
-
-function EmptyCard({ message }: { message: string }) {
-  return (
-    <div className="hud-empty-card">
-      {message}
-    </div>
-  );
-}
-
-function QueueRow({
-  index,
-  item,
-  onSelect,
-}: {
-  index: number;
-  item: HudMediaItem;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(item.id)}
-      className="hud-queue-btn"
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0 }}>
-        <div className="hud-queue-index">
-          0{index + 1}
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <p className="hud-queue-title">{item.title}</p>
-          <p className="hud-queue-meta">
-            {item.kind} • {formatBytes(item.size)}
-          </p>
-        </div>
-      </div>
-      <span className="hud-queue-badge">
-        Open
-      </span>
-    </button>
   );
 }
 
@@ -947,7 +1098,7 @@ function VideoCanvasPreview({
   onClick,
 }: {
   masterVideoRef: RefObject<HTMLVideoElement | null>;
-  activeMediaId: string;
+  activeMediaId?: string;
   isActive: boolean;
   isPlaying: boolean;
   onClick?: () => void;
@@ -990,51 +1141,90 @@ function VideoCanvasPreview({
   );
 }
 
-interface LibrarySectionProps {
-  title: string;
-  emptyText: string;
-  items: HudMediaItem[];
-  activeMediaId: string | null;
+function AudioWaveformVisualizer({
+  analyserRef,
+  isPlaying,
+  onClick,
+}: {
+  analyserRef: RefObject<AnalyserNode | null>;
   isPlaying: boolean;
-  onSelect: (id: string) => void;
-}
+  onClick?: () => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-function LibrarySection({ title, emptyText, items, activeMediaId, isPlaying, onSelect }: LibrarySectionProps) {
+  useEffect(() => {
+    let animationFrameId = 0;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dataArray = new Uint8Array(64);
+
+    const renderWaveform = () => {
+      const analyser = analyserRef.current;
+      if (analyser && isPlaying) {
+        analyser.getByteFrequencyData(dataArray);
+      } else {
+        for (let i = 0; i < dataArray.length; i++) {
+          dataArray[i] = isPlaying ? 30 + Math.sin(Date.now() * 0.005 + i * 0.3) * 20 : 8;
+        }
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Dark background gradient
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      bgGrad.addColorStop(0, '#151210');
+      bgGrad.addColorStop(1, '#08080a');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Center Line
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.beginPath();
+      ctx.moveTo(0, canvas.height / 2);
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+
+      // Bars
+      const barCount = 48;
+      const barWidth = canvas.width / barCount - 2;
+      for (let i = 0; i < barCount; i++) {
+        const val = dataArray[i % dataArray.length] / 255;
+        const barH = Math.max(4, val * (canvas.height * 0.75));
+        const x = i * (barWidth + 2);
+        const y = (canvas.height - barH) / 2;
+
+        const grad = ctx.createLinearGradient(0, y, 0, y + barH);
+        grad.addColorStop(0, '#f3a05d');
+        grad.addColorStop(1, '#ff4b2b');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barH, 2);
+        ctx.fill();
+      }
+
+      if (isPlaying) {
+        animationFrameId = requestAnimationFrame(renderWaveform);
+      }
+    };
+
+    renderWaveform();
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
+  }, [analyserRef, isPlaying]);
+
   return (
-    <section>
-      <div className="hud-section-header">
-        <p className="hud-library-title">{title}</p>
-        <div className="hud-library-divider" />
-      </div>
-      <div className="hud-space-y-3">
-        {items.length === 0 ? (
-          <EmptyCard message={emptyText} />
-        ) : (
-          items.map((item) => {
-            const isActive = item.id === activeMediaId;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onSelect(item.id)}
-                className={`hud-library-item ${isActive ? 'hud-library-item-active' : ''}`}
-              >
-                <div className="hud-library-item-row">
-                  <div style={{ minWidth: 0 }}>
-                    <p className="hud-library-item-title">{item.title}</p>
-                    <p className="hud-library-item-meta">
-                      {item.kind === 'video' ? (item.videoCodec ?? 'unknown') : item.kind} • {formatBytes(item.size)}
-                    </p>
-                  </div>
-                  <span className={`hud-library-badge ${isActive ? 'hud-library-badge-active' : 'hud-library-badge-default'}`}>
-                    {isActive ? (isPlaying ? 'Playing' : 'Ready') : 'Open'}
-                  </span>
-                </div>
-              </button>
-            );
-          })
-        )}
-      </div>
-    </section>
+    <canvas
+      ref={canvasRef}
+      width={640}
+      height={360}
+      className="hud-canvas-preview"
+      onClick={onClick}
+      style={{ cursor: 'pointer' }}
+    />
   );
 }

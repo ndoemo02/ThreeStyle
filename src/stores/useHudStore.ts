@@ -30,6 +30,6 @@ export const useHudStore = create<HudState>((set) => ({
   setIsPlaying: (playing) => set({ isPlaying: playing }),
   setCamEnabled: (enabled) => set({ camEnabled: enabled }),
   setCamFacingMode: (mode) => set({ camFacingMode: mode }),
-  setCamVideoElement: (el) => set({ camVideoElement: el }),
-  setMasterVideoRef: (ref) => set({ masterVideoRef: ref }),
+  setCamVideoElement: (el) => set((s) => s.camVideoElement === el ? s : { camVideoElement: el }),
+  setMasterVideoRef: (ref) => set((s) => s.masterVideoRef === ref ? s : { masterVideoRef: ref }),
 }));

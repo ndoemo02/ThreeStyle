@@ -34,8 +34,8 @@
     "@gltf-transform/functions": "^4.3.0",
     "@tailwindcss/cli": "^4.2.4",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
+    "@types/node": "20.19.43",
+    "@types/react": "19.2.18",
     "@types/react-dom": "^19",
     "draco3dgltf": "^1.5.7",
     "eslint": "^9",
@@ -44,6 +44,6 @@
     "meshopt-decoder": "^1.0.2",
     "sharp": "^0.34.5",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "5.9.3"
   }
 }

@@ -4,10 +4,11 @@ import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import dynamic from 'next/dynamic';
 import { Canvas, useThree } from '@react-three/fiber';
-import { EffectComposer, SelectiveBloom, SMAA } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, SMAA } from '@react-three/postprocessing';
 import { CreatorRoomMVP } from '../../3d/world/rooms/CreatorRoomMVP';
 import { BaseNavigationControls } from '../../3d/systems/BaseNavigationControls';
 import { HudOverlay } from '../../components/HudOverlay';
+import { useHudStore } from '../../stores/useHudStore';
 import { NativeMobileJoystick } from '../../components/ui/NativeMobileJoystick';
 import { PerformanceCounter } from '../../components/PerformanceCounter';
 import { useTransitionStore } from '../../store/useTransitionStore';
@@ -89,9 +90,9 @@ export default function B3PPage() {
   const [bloomLight, setBloomLight] = useState<THREE.PointLight | null>(null);
   const [roomShellReady, setRoomShellReady] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.75, 1] : [1.25, 1.5], [isMobile]);
+  const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.75, 1] : [1, 1], [isMobile]);
   const glConfig = useMemo(
-    () => ({ antialias: !isMobile, powerPreference: 'high-performance' as const, alpha: false, stencil: false }),
+    () => ({ antialias: false, powerPreference: 'high-performance' as const, alpha: false, stencil: false }),
     [isMobile],
   );
   const isEventRoomZone = activeZone === EVENT_ROOM_ZONE;
@@ -149,18 +150,34 @@ export default function B3PPage() {
         </div>
       </div>
 
-      <button
-        onClick={() => {
-          if (document.documentElement.requestFullscreen) {
-            document.documentElement.requestFullscreen().catch(err => {
-              console.error("Fullscreen err:", err);
-            });
-          }
-        }}
-        className="absolute top-4 right-4 z-50 bg-black/60 text-white/50 text-[10px] font-mono border border-white/10 px-3 py-1.5 rounded hover:bg-white/10 hover:text-white transition-all tracking-widest"
-      >
-        [⛶ FULLSCREEN]
-      </button>
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+        <button
+          onClick={() => {
+            const isOpen = useHudStore.getState().isOpen;
+            if (isOpen) {
+              useHudStore.getState().closeHud();
+            } else {
+              useHudStore.getState().openHud('master_catalog');
+            }
+          }}
+          className="bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 hover:text-white text-[10px] font-mono border border-orange-500/30 px-3 py-1.5 rounded transition-all tracking-widest cursor-pointer shadow-lg shadow-orange-950/40"
+        >
+          [🎛️ STUDIO HUD]
+        </button>
+
+        <button
+          onClick={() => {
+            if (document.documentElement.requestFullscreen) {
+              document.documentElement.requestFullscreen().catch(err => {
+                console.error("Fullscreen err:", err);
+              });
+            }
+          }}
+          className="bg-black/60 text-white/50 text-[10px] font-mono border border-white/10 px-3 py-1.5 rounded hover:bg-white/10 hover:text-white transition-all tracking-widest cursor-pointer"
+        >
+          [⛶ FULLSCREEN]
+        </button>
+      </div>
 
 
 
@@ -213,24 +230,19 @@ export default function B3PPage() {
         {/* Mgła wyłączona */}
         <color attach="background" args={['#1a1a1a']} />
 
-        {/* ── Postprocessing ── */}
+        {/* ── Postprocessing (optimized: single-pass Bloom + SMAA) ── */}
         {usesCreatorRoomPipeline ? <BloomLight onReady={setBloomLight} /> : null}
-        {isMobile && !isEventRoomZone && (
+        {!isEventRoomZone && (
           <EffectComposer multisampling={0}>
             <SMAA />
-          </EffectComposer>
-        )}
-        {bloomLight && !isMobile && usesCreatorRoomPipeline && (
-          <EffectComposer multisampling={0}>
-            <SMAA />
-            <SelectiveBloom
-              lights={[bloomLight]}
-              selectionLayer={1}
-              intensity={1.8}
-              luminanceThreshold={0.25}
-              luminanceSmoothing={0.35}
-              mipmapBlur
-            />
+            {!isMobile && usesCreatorRoomPipeline && (
+              <Bloom
+                intensity={0.9}
+                luminanceThreshold={0.85}
+                luminanceSmoothing={0.2}
+                mipmapBlur
+              />
+            )}
           </EffectComposer>
         )}
         {!isMobile && usesCreatorRoomPipeline ? <AudioVisualizer /> : null}
