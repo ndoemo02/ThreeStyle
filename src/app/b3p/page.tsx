@@ -232,17 +232,20 @@ export default function B3PPage() {
 
         {/* ── Postprocessing (optimized: single-pass Bloom + SMAA) ── */}
         {usesCreatorRoomPipeline ? <BloomLight onReady={setBloomLight} /> : null}
-        {!isEventRoomZone && (
+        {!isEventRoomZone && !isMobile && usesCreatorRoomPipeline && (
           <EffectComposer multisampling={0}>
             <SMAA />
-            {!isMobile && usesCreatorRoomPipeline && (
-              <Bloom
-                intensity={0.9}
-                luminanceThreshold={0.85}
-                luminanceSmoothing={0.2}
-                mipmapBlur
-              />
-            )}
+            <Bloom
+              intensity={0.9}
+              luminanceThreshold={0.85}
+              luminanceSmoothing={0.2}
+              mipmapBlur
+            />
+          </EffectComposer>
+        )}
+        {!isEventRoomZone && (isMobile || !usesCreatorRoomPipeline) && (
+          <EffectComposer multisampling={0}>
+            <SMAA />
           </EffectComposer>
         )}
         {!isMobile && usesCreatorRoomPipeline ? <AudioVisualizer /> : null}
