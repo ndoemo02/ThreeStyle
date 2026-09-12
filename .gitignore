@@ -50,3 +50,15 @@ next-env.d.ts
 
 # Raw downloaded/source assets stay local; commit only processed runtime assets.
 /_assets-src/
+
+# AI agent working files (session artifacts, not project docs)
+/findings.md
+/progress.md
+/task_plan.md
+/logi.md
+
+# Test/debug output artifacts
+/output/
+
+# One-off diagnostic scripts
+/scripts/alibaba_api_diagnose.py
