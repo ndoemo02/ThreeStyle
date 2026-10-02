@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
+import * as THREE from 'three';
+import { useSceneInteraction } from '../../systems/useSceneInteraction';
+import { isInteractionTap } from '../../systems/sceneInteractionPolicy';
 import { Html } from '@react-three/drei';
 
 interface RoomDoorProps {
@@ -28,34 +31,41 @@ export function RoomDoor({
   onEnter,
   renderGeometry = true,
 }: RoomDoorProps) {
+  const hitRef = useRef<THREE.Mesh>(null);
+  const touchStart = useRef<{ pointerId: number; clientX: number; clientY: number } | null>(null);
   const [hovered, setHovered] = useState(false);
   const isActive = status === 'active';
   const statusColor = STATUS_COLORS[status];
-
-  useEffect(() => {
-    const handleKey = (event: KeyboardEvent) => {
-      if (hovered && isActive && !event.repeat && (event.code === 'KeyE' || event.key === 'e')) {
-        event.preventDefault();
-        onEnter();
-      }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [hovered, isActive, onEnter]);
+  const interaction = useSceneInteraction({
+    object: hitRef,
+    maxDistance: 4.5,
+    canInteract: () => isActive,
+    activate: () => { if (!isActive) return false; onEnter(); return true; },
+  });
 
   return (
     <group
       position={position}
       rotation={rotation}
-      onPointerOver={(event) => {
-        event.stopPropagation();
-        setHovered(true);
-      }}
+      onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
-      onClick={(event) => {
-        if (!isActive) return;
+      onPointerDown={(event) => {
+        if (event.pointerType === 'touch') {
+          touchStart.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY };
+        }
+      }}
+      onPointerUp={(event) => {
+        if (event.pointerType !== 'touch') return;
+        const start = touchStart.current;
+        touchStart.current = null;
+        if (!isInteractionTap(start, event)) return;
         event.stopPropagation();
-        onEnter();
+        interaction.activate(event.clientX, event.clientY);
+      }}
+      onPointerCancel={() => { touchStart.current = null; }}
+      onClick={(event) => {
+        event.stopPropagation();
+        interaction.activate(event.clientX, event.clientY);
       }}
     >
       {renderGeometry ? (
@@ -71,12 +81,12 @@ export function RoomDoor({
         </group>
       ) : null}
 
-      <mesh position={[0, 2.1, 0.28]}>
+      <mesh ref={hitRef} position={[0, 2.1, 0.28]}>
         <planeGeometry args={[2.5, 4.2]} />
         <meshBasicMaterial transparent opacity={0.001} depthWrite={false} />
       </mesh>
 
-      {hovered ? <Html transform occlude position={[0, 2.15, 0.38]} distanceFactor={3.2} pointerEvents="none">
+      {(interaction.isTargeted || (!isActive && hovered)) ? <Html transform occlude position={[0, 2.15, 0.38]} distanceFactor={3.2} pointerEvents="none">
         <div
           style={{
             width: '178px',

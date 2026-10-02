@@ -5,6 +5,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import type { PointerLockControls as PointerLockControlsImpl } from 'three-stdlib';
+import { useSceneInteractionController } from './useSceneInteraction';
 import { useHudStore } from '../../stores/useHudStore';
 import { useTransitionStore } from '../../store/useTransitionStore';
 import { EVENT_ROOM_ZONE, ROOM_ZONE } from '../navigation/navigationConfig';
@@ -64,6 +65,7 @@ function constrainCameraToZone(
 }
 
 export function BaseNavigationControls() {
+  useSceneInteractionController();
   const controlsRef = useRef<PointerLockControlsImpl | null>(null);
   const direction = useRef(new THREE.Vector3());
   const moveState = useRef({ forward: false, backward: false, left: false, right: false });
@@ -82,9 +84,9 @@ export function BaseNavigationControls() {
 
   // When HUD opens, exit pointer lock so user can interact with the overlay
   useEffect(() => {
-    if (isHudOpen && document.pointerLockElement) {
+    if (isHudOpen) {
       startPointerLockCooldown();
-      document.exitPointerLock();
+      if (document.pointerLockElement) document.exitPointerLock();
     }
   }, [isHudOpen]);
 
@@ -109,7 +111,9 @@ export function BaseNavigationControls() {
     };
 
     const swallowImmediateRelock = (event: MouseEvent) => {
-      if (Date.now() >= pointerLockCooldownUntil.current) return;
+      if (useHudStore.getState().isOpen || !(event.target instanceof Element)
+        || !event.target.closest('.b3p-canvas-wrap')
+        || Date.now() >= pointerLockCooldownUntil.current) return;
       event.stopImmediatePropagation();
       event.preventDefault();
     };
@@ -245,12 +249,6 @@ export function BaseNavigationControls() {
   useEffect(() => {
     if (isMobile) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      // INTERACTION MODE: exit pointer lock to interact with UI when pressing 'E'
-      if (document.pointerLockElement && (e.code === 'KeyE' || e.key === 'e')) {
-        startPointerLockCooldown();
-        document.exitPointerLock();
-      }
-
       switch(e.code) {
         case 'KeyW': moveState.current.forward = true; break;
         case 'KeyA': moveState.current.left = true; break;

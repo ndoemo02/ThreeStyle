@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Html } from '@react-three/drei';
 import { useTransitionStore } from '../../../store/useTransitionStore';
+import { useSceneInteraction } from '../../systems/useSceneInteraction';
 import {
   ELEVATOR_LOBBY_EXIT_LOOK_AT,
   ELEVATOR_LOBBY_EXIT_POSITION,
@@ -151,12 +152,13 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
   const triggerElevator = useCallback(() => {
     const now = performance.now();
     if (elevatorState !== 'idle' || now < cooldownUntilRef.current || !isCameraInInteractionZone()) {
-      return;
+      return false;
     }
 
     const target = activeZone === ROOM_ZONE ? HUB_ZONE : ROOM_ZONE;
     enterElevator('A', target);
     cooldownUntilRef.current = now + 5000;
+    return true;
   }, [activeZone, elevatorState, enterElevator, isCameraInInteractionZone]);
 
   useEffect(() => {
@@ -171,42 +173,14 @@ export function ElevatorA({ visible = true }: { visible?: boolean }) {
     }
   }, [camera, elevatorState, isActiveForUs, targetPos]);
 
-  useEffect(() => {
-    const raycaster = new THREE.Raycaster();
-    const forward = new THREE.Vector3(0, 0, -1);
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code !== 'KeyE' || e.repeat || !visible || elevatorState !== 'idle') return;
-
-      if (isCameraInInteractionZone()) {
-        e.preventDefault();
-        e.stopPropagation();
-        triggerElevator();
-        return;
-      }
-
-      if (panelHitRef.current) {
-        forward.set(0, 0, -1).applyQuaternion(camera.quaternion);
-        raycaster.set(camera.position, forward);
-        const hits = raycaster.intersectObject(panelHitRef.current);
-        if (hits.length > 0) {
-          e.preventDefault();
-          e.stopPropagation();
-          triggerElevator();
-          return;
-        }
-      }
-
-      if (panelHovered) {
-        e.preventDefault();
-        e.stopPropagation();
-        triggerElevator();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [camera, elevatorState, isCameraInInteractionZone, panelHovered, triggerElevator, visible]);
+  useSceneInteraction({
+    object: panelHitRef,
+    maxDistance: 4.5,
+    triggerZone: isCameraInInteractionZone,
+    canInteract: () => visible && elevatorState === 'idle'
+      && performance.now() >= cooldownUntilRef.current && isCameraInInteractionZone(),
+    activate: triggerElevator,
+  });
 
   useFrame((state, delta) => {
     const syncLobbyDoors = () => {

@@ -12,6 +12,7 @@ import { useAudioStore } from '../../../stores/useAudioStore';
 import { ParticleWaveFloor } from '../../modules/fx/ParticleWaveFloor';
 import { PortalEffect } from '../../modules/fx/PortalEffect';
 import { RoomDoor } from '../../modules/doors/RoomDoor';
+import { useSceneInteraction } from '../../systems/useSceneInteraction';
 
 // ══════════════════════════════════════════════════════════════════════════
 // 0. Runtime loading diagnostics
@@ -868,9 +869,8 @@ export function CreatorRoomMVP({
   const closeHud = useHudStore((s) => s.closeHud);
   const isOpen = useHudStore((s) => s.isOpen);
   const masterVideoRef = useHudStore((s) => s.masterVideoRef);
-  const [deviceScreenHovered, setDeviceScreenHovered] = useState(false);
-  const deviceScreenPlaneRef = useRef<THREE.Mesh>(null);
-  const { camera } = useThree();
+  const plaqueRef = useRef<THREE.Group>(null);
+  const deviceRef = useRef<THREE.Group>(null);
   const hudCooldownRef = useRef(0);
 
   // Blokuj re-open HUD przez 2s po zamknięciu (niezależnie czy przez E, klik, czy guzik Close)
@@ -883,49 +883,26 @@ export function CreatorRoomMVP({
 
   function toggleHud() {
     const now = performance.now();
-    if (!isOpen && now < hudCooldownRef.current) return;
+    if (!isOpen && now < hudCooldownRef.current) return false;
     if (isOpen) {
       closeHud();
       hudCooldownRef.current = performance.now() + 2000;
     } else {
       openHud('master_catalog');
     }
+    return true;
   }
 
-  // E key opens HUD when crosshair is on the desk device display
-  useEffect(() => {
-    const raycaster = new THREE.Raycaster();
-    const forward = new THREE.Vector3(0, 0, -1);
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code !== 'KeyE' || e.repeat) return;
-
-      // Always check if looking at the desk device display (works with or without pointer lock)
-      if (deviceScreenPlaneRef.current) {
-        forward.set(0, 0, -1).applyQuaternion(camera.quaternion);
-        raycaster.set(camera.position, forward);
-        const hits = raycaster.intersectObject(deviceScreenPlaneRef.current);
-        if (hits.length > 0) {
-          e.preventDefault();
-          e.stopPropagation();
-          if (document.pointerLockElement) {
-            document.exitPointerLock();
-          }
-          requestAnimationFrame(() => toggleHud());
-          return;
-        }
-      }
-
-      // Fallback: mouse hovering over the device display (not pointer-locked)
-      if (deviceScreenHovered) {
-        e.preventDefault();
-        requestAnimationFrame(() => toggleHud());
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [deviceScreenHovered, isOpen, camera]);
+  const canOpenHud = () => !useHudStore.getState().isOpen && performance.now() >= hudCooldownRef.current;
+  const plaqueInteraction = useSceneInteraction({
+    object: plaqueRef, maxDistance: 3, canInteract: canOpenHud,
+    activate: toggleHud, releasePointer: true,
+  });
+  const deviceInteraction = useSceneInteraction({
+    object: deviceRef, maxDistance: 3, canInteract: canOpenHud,
+    activate: toggleHud, releasePointer: true,
+  });
+  const deviceScreenHovered = plaqueInteraction.isTargeted || deviceInteraction.isTargeted;
 
   // diagnostic: confirm re-renders happen when masterVideoRef changes
   // console.log('[MVP] render – masterVideoRef:', !!masterVideoRef);
@@ -1293,18 +1270,13 @@ export function CreatorRoomMVP({
 
         {/* Golden play plaque marks the HUD interaction target. Clicks are left for pointer-lock; [E] opens HUD. */}
         <group
+          ref={plaqueRef}
           position={[decorControls.buttonPosX, decorControls.buttonPosY, decorControls.buttonPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.buttonRotY), 0]}
           scale={decorControls.buttonScale}
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            setDeviceScreenHovered(true);
-          }}
-          onPointerOut={() => setDeviceScreenHovered(false)}
         >
           <GoldenPlayButton />
           <mesh
-            ref={deviceScreenPlaneRef}
             position={[0, 0, 0.12]}
             renderOrder={1002}
           >
@@ -1352,14 +1324,10 @@ export function CreatorRoomMVP({
 
         {/* iPad Pro on the desk */}
         <group
+          ref={deviceRef}
           position={[decorControls.laptopPosX, decorControls.laptopPosY, decorControls.laptopPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.laptopRotY), 0]}
           scale={decorControls.laptopScale}
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            setDeviceScreenHovered(true);
-          }}
-          onPointerOut={() => setDeviceScreenHovered(false)}
         >
           <AutoCenteredModel url="/models/optimized/ipad_pro_2024.glb" />
         </group>
@@ -1454,8 +1422,6 @@ export function CreatorRoomMVP({
           <mesh
             position={[0, 0.035, 0.012]}
             rotation={[-Math.PI / 2, 0, 0]}
-            onPointerOver={() => setDeviceScreenHovered(true)}
-            onPointerOut={() => setDeviceScreenHovered(false)}
           >
             <planeGeometry args={[0.16, 0.11]} />
             <meshBasicMaterial transparent opacity={0.001} depthWrite={false} side={THREE.DoubleSide} />
