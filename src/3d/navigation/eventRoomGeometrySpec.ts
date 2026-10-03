@@ -5,17 +5,12 @@
  * `docs/architecture/adr-004-event-room-arena.md` (variant B). Pure maths: no
  * React, no WebGL context, testable without a renderer.
  *
- * Stage 1 boundary — read before editing:
- * - Nothing in this module is wired into rendering yet. The renderers still read
- *   the legacy constants re-exported by `eventRoomLayout.ts` (lounge tops 0.18 /
- *   0.42, straight banks). The arena values here (lounge tops 0.24 / 0.58,
- *   elliptical runs) are consumed from stage 3 onwards.
- * - `isEventRoomPositionBlocked` intentionally still evaluates the *legacy*
- *   collider set, byte-for-byte as before, so movement is unchanged. Stage 7
- *   replaces it with footprints derived from `getEventRoomSurfaces()` plus
- *   `EVENT_ROOM_CAMERA_RADIUS`.
- * - `surfaceTopY` values below come from the approved plan tables (§4/§5).
- *   Stage 7 recomputes them from the final geometry instead.
+ * Package 2A boundary — geometry only:
+ * - Arena renderers consume these dimensions and lounge outlines.
+ * - Raised lounge and stair geometry remain blocked. Package 2C owns
+ *   multi-level navigation after the proportions are approved.
+ * - `isEventRoomPositionBlocked` still evaluates the legacy collider set.
+ *   Stage 7 / Package 2B separately repairs movement on the main floor.
  *
  * Dependency direction is fixed: `eventRoomLayout.ts` imports this module, never
  * the other way round.
@@ -60,8 +55,8 @@ const ACTIVE_SURFACE_IDS = [
 
 /**
  * Stable ids reserved for the future "Walkable Lounge" stage. They exist in the
- * type only — no geometry, no footprint, and deliberately no entry in
- * `getEventRoomSurfaces()` until their geometry exists.
+ * type only — deliberately no entry in `getEventRoomSurfaces()`. Package 2A
+ * renders outer stairs without activating their navigation surfaces.
  */
 const RESERVED_SURFACE_IDS = [
   'end-pad',
@@ -102,8 +97,16 @@ export type EventRoomActiveNavSurface = EventRoomNavSurface & { id: EventRoomAct
 
 /** Ellipse centre in XZ; also the centre of the runway. */
 export const ARENA_CENTER: EventRoomPoint2D = [0, 1.1];
-export const ARENA_RX = 12.6;
+export const ARENA_RX = 13.0;
 export const ARENA_RZ = 11.3;
+/** Floor slab keeps the existing 0.9 m overhang on each side of the shell. */
+export const ARENA_FLOOR_WIDTH = 2 * ARENA_RX + 1.8;
+/** Package 2A: mirrored translation shared by lounge rendering and footprints. */
+export const LOUNGE_SIDE_OFFSET_X = 0.52;
+
+export function loungeSideOffsetX(side: EventRoomSide): number {
+  return side * LOUNGE_SIDE_OFFSET_X;
+}
 /** Half-angle of the opening towards the stage, in degrees (shell spans 294°). */
 export const ARENA_OPEN_HALF_DEG = 33;
 export const ARENA_CEILING_Y = 7;
@@ -231,7 +234,7 @@ export function mirrorPolygonAcrossX(points: readonly EventRoomPoint2D[]): Event
   return points.map(([x, z]) => [-x, z] as EventRoomPoint2D);
 }
 
-// ── Lounge terraces (arena spec — not yet rendered) ───────────────────────────
+// ── Lounge terraces (shared geometry) ───────────────────────────
 
 type LoungeTierSpec = {
   /** Centre-line factor of the platform. */
@@ -239,6 +242,7 @@ type LoungeTierSpec = {
   /** Platform width in metres, exact at θ = 90° (the widest point of each run). */
   platformWidth: number;
   surfaceTopY: number;
+  platformThickness: number;
   platformThetaFromDeg: number;
   platformThetaToDeg: number;
   /** Usable sofa run, inset from the platform so the ends read as arm caps. */
@@ -251,19 +255,21 @@ const LOUNGE_TIERS: Record<EventRoomLoungeTier, LoungeTierSpec> = {
     factor: 0.42,
     platformWidth: 2.25,
     surfaceTopY: 0.24,
+    platformThickness: 0.24,
     platformThetaFromDeg: 43,
     platformThetaToDeg: 137,
     sofaThetaFromDeg: 45.5,
     sofaThetaToDeg: 134.5,
   },
   outer: {
-    factor: 0.67,
-    platformWidth: 2.55,
-    surfaceTopY: 0.58,
-    platformThetaFromDeg: 62,
-    platformThetaToDeg: 118,
-    sofaThetaFromDeg: 65,
-    sofaThetaToDeg: 115,
+    factor: 0.75,
+    platformWidth: 2.80,
+    surfaceTopY: 1.45,
+    platformThickness: 0.18,
+    platformThetaFromDeg: 60,
+    platformThetaToDeg: 120,
+    sofaThetaFromDeg: 68,
+    sofaThetaToDeg: 112,
   },
 };
 
@@ -275,6 +281,16 @@ export const LOUNGE_TIER_FACTOR: Record<EventRoomLoungeTier, number> = {
 export const LOUNGE_SURFACE_TOP_Y: Record<EventRoomLoungeTier, number> = {
   inner: LOUNGE_TIERS.inner.surfaceTopY,
   outer: LOUNGE_TIERS.outer.surfaceTopY,
+};
+
+/** Shared platform dimensions; furniture cross-sections stay unchanged. */
+export const LOUNGE_PLATFORM_WIDTH: Record<EventRoomLoungeTier, number> = {
+  inner: LOUNGE_TIERS.inner.platformWidth,
+  outer: LOUNGE_TIERS.outer.platformWidth,
+};
+export const LOUNGE_PLATFORM_BOTTOM_Y: Record<EventRoomLoungeTier, number> = {
+  inner: LOUNGE_TIERS.inner.surfaceTopY - LOUNGE_TIERS.inner.platformThickness,
+  outer: LOUNGE_TIERS.outer.surfaceTopY - LOUNGE_TIERS.outer.platformThickness,
 };
 
 export const EVENT_ROOM_MIN_SEAT_WIDTH = 0.8;
@@ -336,9 +352,117 @@ export function loungePlatformBand(tier: EventRoomLoungeTier) {
   return { factorInner: spec.factor - halfFactor, factorOuter: spec.factor + halfFactor };
 }
 
+/** Render-only access geometry. Package 2C will own walkable stairs and tiers. */
+export const LOUNGE_STAIR_WIDTH = 1.20;
+export const LOUNGE_STAIR_CENTER_ABS_X = 8.90;
+export const LOUNGE_STAIR_COUNT = 8;
+export const LOUNGE_STAIR_TREAD_DEPTH = 0.30;
+export const LOUNGE_STAIR_LANDING_DEPTH = 1.20;
+const LOUNGE_STAIR_JOIN_CLEARANCE = 0.04;
+
+function outerLoungeRearEdgeZ(x: number): number {
+  const theta = loungeRun('outer', 1).platformThetaTo;
+  const factor = (x - loungeSideOffsetX(1)) / (ARENA_RX * Math.sin(theta));
+  return arenaPoint(factor, theta)[1];
+}
+
+export function getLoungeStairGeometry(side: EventRoomSide) {
+  const minAbsX = LOUNGE_STAIR_CENTER_ABS_X - LOUNGE_STAIR_WIDTH / 2;
+  const maxAbsX = LOUNGE_STAIR_CENTER_ABS_X + LOUNGE_STAIR_WIDTH / 2;
+  // A square landing extends the angled end cap so every tread joins at the
+  // same Z, without overlapping coplanar faces or uneven final risers.
+  const landingRearZ = outerLoungeRearEdgeZ(maxAbsX) + LOUNGE_STAIR_JOIN_CLEARANCE;
+  const landingFrontZ = landingRearZ - LOUNGE_STAIR_LANDING_DEPTH;
+  const topY = LOUNGE_SURFACE_TOP_Y.outer;
+  const minX = side === 1 ? minAbsX : -maxAbsX;
+  const maxX = side === 1 ? maxAbsX : -minAbsX;
+  return {
+    side,
+    access: 'blocked' as const,
+    landing: { kind: 'aabb' as const, minX, maxX, minZ: landingFrontZ, maxZ: landingRearZ },
+    steps: Array.from({ length: LOUNGE_STAIR_COUNT }, (_, index) => {
+      const stepTopY = topY * (index + 1) / LOUNGE_STAIR_COUNT;
+      const minZ = landingRearZ + (LOUNGE_STAIR_COUNT - index - 1) * LOUNGE_STAIR_TREAD_DEPTH;
+      return {
+        footprint: { kind: 'aabb' as const, minX, maxX, minZ, maxZ: minZ + LOUNGE_STAIR_TREAD_DEPTH },
+        bottomY: EVENT_ROOM_FLOOR_Y,
+        surfaceTopY: stepTopY,
+      };
+    }),
+  };
+}
+
+/** Deck and its landing share one outline in rendering and published geometry. */
+export function loungePlatformPolygon(tier: EventRoomLoungeTier, side: EventRoomSide, steps = 24): EventRoomPoint2D[] {
+  const run = loungeRun(tier, tier === 'outer' ? 1 : side);
+  const band = loungePlatformBand(tier);
+  const points = arenaSectorPolygon(band.factorInner, band.factorOuter,
+    run.platformThetaFrom, run.platformThetaTo, steps)
+    .map(([x, z]) => [x + loungeSideOffsetX(tier === 'outer' ? 1 : side), z] as EventRoomPoint2D);
+  if (tier === 'inner') return points;
+  const landing = getLoungeStairGeometry(1).landing;
+  const capExtension: EventRoomPoint2D[] = [
+    [landing.maxX, outerLoungeRearEdgeZ(landing.maxX)],
+    [landing.maxX, landing.maxZ],
+    [landing.minX, landing.maxZ],
+    [landing.minX, outerLoungeRearEdgeZ(landing.minX)],
+  ];
+  const segments = Math.max(1, Math.floor(steps));
+  points.splice(segments + 1, 0, ...capExtension);
+  return side === 1 ? points : mirrorPolygonAcrossX(points).reverse();
+}
+
+/** Render-only solid base: recessed beneath the shared deck and landing outline. */
+export const LOUNGE_UPPER_BASE_SETBACK = 0.06;
+
+export function loungeUpperBasePolygon(side: EventRoomSide, steps = 24): EventRoomPoint2D[] {
+  const points = loungePlatformPolygon('outer', side, steps);
+  const signedArea = points.reduce((area, [x, z], index) => {
+    const next = points[(index + 1) % points.length];
+    return area + x * next[1] - next[0] * z;
+  }, 0);
+  const orientation = Math.sign(signedArea);
+  const normals = points.map(([x, z], index) => {
+    const next = points[(index + 1) % points.length];
+    const dx = next[0] - x;
+    const dz = next[1] - z;
+    const length = Math.hypot(dx, dz);
+    return [-orientation * dz / length, orientation * dx / length] as EventRoomPoint2D;
+  });
+  // Intersect adjacent offset edges, including the landing's concave corners.
+  return points.map(([x, z], index) => {
+    const a = normals[(index + normals.length - 1) % normals.length];
+    const b = normals[index];
+    const determinant = a[0] * b[1] - a[1] * b[0];
+    if (Math.abs(determinant) < 1e-9) {
+      return [x + b[0] * LOUNGE_UPPER_BASE_SETBACK, z + b[1] * LOUNGE_UPPER_BASE_SETBACK];
+    }
+    return [
+      x + LOUNGE_UPPER_BASE_SETBACK * (b[1] - a[1]) / determinant,
+      z + LOUNGE_UPPER_BASE_SETBACK * (a[0] - b[0]) / determinant,
+    ];
+  });
+}
+
+/** Four floor tables remain unchanged; four upper tables sit on the deck ends. */
+export function loungeTablePlacements(tier: EventRoomLoungeTier, side: EventRoomSide) {
+  const run = loungeRun(tier, side);
+  const band = loungePlatformBand(tier);
+  const thetaInset = THREE.MathUtils.degToRad(tier === 'inner' ? 7 : 4);
+  const angles = tier === 'inner'
+    ? [run.thetaFrom + thetaInset, run.thetaTo - thetaInset]
+    : [run.platformThetaFrom + thetaInset, run.platformThetaTo - thetaInset];
+  const factor = tier === 'inner' ? band.factorInner - 1.05 / ARENA_RX : band.factorOuter - 0.55 / ARENA_RX;
+  return angles.map(theta => {
+    const [x, z] = arenaPoint(factor, theta);
+    return { point: [x + loungeSideOffsetX(side), z] as EventRoomPoint2D,
+      baseY: tier === 'outer' ? LOUNGE_SURFACE_TOP_Y.outer : EVENT_ROOM_FLOOR_Y };
+  });
+}
+
 const LOUNGE_FOOTPRINT_STEPS = 24;
 
-// ── Stage, runway (arena spec — not yet rendered) ─────────────────────────────
+// ── Stage, runway (shared geometry) ─────────────────────────────
 
 export const STAGE_CENTER: EventRoomPoint2D = [0, -7];
 export const STAGE_RADIUS_X = 5.46;
@@ -379,19 +503,11 @@ const LOUNGE_SURFACE_ID: Record<EventRoomLoungeTier, Record<'left' | 'right', Ev
 };
 
 function loungeSurface(tier: EventRoomLoungeTier, side: EventRoomSide): EventRoomActiveNavSurface {
-  const run = loungeRun(tier, side);
-  const band = loungePlatformBand(tier);
   return {
     id: LOUNGE_SURFACE_ID[tier][side === 1 ? 'right' : 'left'],
     footprint: {
       kind: 'polygon',
-      points: arenaSectorPolygon(
-        band.factorInner,
-        band.factorOuter,
-        run.platformThetaFrom,
-        run.platformThetaTo,
-        LOUNGE_FOOTPRINT_STEPS,
-      ),
+      points: loungePlatformPolygon(tier, side, LOUNGE_FOOTPRINT_STEPS),
     },
     surfaceTopY: LOUNGE_TIERS[tier].surfaceTopY,
     access: 'blocked',

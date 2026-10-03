@@ -7,14 +7,24 @@ import {
   ARENA_RX,
   arenaCurve,
   arenaPoint,
+  arenaSectorPolygon,
   arenaTangentYaw,
   loungePlatformBand,
+  loungePlatformPolygon,
+  loungeUpperBasePolygon,
+  loungeTablePlacements,
+  LOUNGE_PLATFORM_WIDTH,
+  LOUNGE_PLATFORM_BOTTOM_Y,
   loungeRun,
+  loungeSideOffsetX,
   LOUNGE_SURFACE_TOP_Y,
   LOUNGE_TIER_FACTOR,
   type EventRoomLoungeTier,
   type EventRoomSide,
+  type EventRoomPoint2D,
 } from '../../navigation/eventRoomGeometrySpec';
+import { EventRoomLoungeStairs } from './EventRoomLoungeStairs';
+import { EventRoomUpperLoungeEdge } from './EventRoomUpperLoungeEdge';
 import type { EventRoomMaterials } from './EventRoomMaterials';
 import {
   EventRoomInstancedBoxes,
@@ -44,9 +54,6 @@ import type { EventRoomQualityTier } from './EventRoomTypes';
 const SIDES: readonly EventRoomSide[] = [-1, 1];
 const TIERS: readonly EventRoomLoungeTier[] = ['inner', 'outer'];
 
-/** Full platform width per tier (metres) — matches the approved plan table (§4/§5). */
-const PLATFORM_WIDTH: Record<EventRoomLoungeTier, number> = { inner: 2.25, outer: 2.55 };
-
 const PLINTH_WIDTH = 1.05;
 const PLINTH_HEIGHT = 0.28;
 const PLINTH_OUTWARD_INSET = 0.525;
@@ -65,12 +72,9 @@ const BACK_OUTWARD_INSET = 0.11;
 const FASCIA_RADIUS = 0.026;
 const FASCIA_CLEARANCE = 0.012;
 const FASCIA_HEIGHT_FACTOR = 0.58;
+const UPPER_EDGE_LIGHT_RADIUS = 0.014;
 
 const ARMREST_HEIGHT = 0.5;
-
-const TABLE_THETA_INSET_DEG = 7;
-const INNER_TABLE_RADIAL_INSET = 1.05;
-const OUTER_TABLE_RADIAL_OFFSET = 1.0;
 
 /** Metres → arena-ellipse factor, same conversion `loungePlatformBand` uses. */
 function factorOffset(meters: number) {
@@ -84,20 +88,27 @@ function factorOffset(meters: number) {
  * plinths/cushions step in from there.
  */
 function outwardOffsetFactor(tier: EventRoomLoungeTier, insetMeters: number) {
-  return LOUNGE_TIER_FACTOR[tier] + factorOffset(PLATFORM_WIDTH[tier] / 2 - insetMeters);
+  return LOUNGE_TIER_FACTOR[tier] + factorOffset(LOUNGE_PLATFORM_WIDTH[tier] / 2 - insetMeters);
 }
 
-/** Shape-space point: local Y is `-z` (see `EventRoomCeiling.tsx`'s `ellipseShapePoint`). */
-function bandShapePoint(factor: number, theta: number): [number, number] {
-  const [x, z] = arenaPoint(factor, theta);
-  return [x, -z];
+/** Shared XZ outline extruded vertically; upper deck remains a thin slab. */
+function buildLoungePrismGeometry(
+  points: readonly EventRoomPoint2D[],
+  yBottom: number,
+  height: number,
+): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  points.forEach(([x, z], index) => {
+    if (index === 0) shape.moveTo(x, -z);
+    else shape.lineTo(x, -z);
+  });
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, curveSegments: 1 });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(0, yBottom, 0);
+  return geometry;
 }
 
-/**
- * One annular-sector prism: the swept cross-section (radial width × vertical
- * height) of a single lounge layer over one run. `steps` is the arc
- * tessellation — the only axis that differs between desktop and mobile (§8).
- */
+/** Annular-sector prism for the unchanged furniture profiles. */
 function buildLoungeBandGeometry(
   factorInner: number,
   factorOuter: number,
@@ -106,29 +117,23 @@ function buildLoungeBandGeometry(
   yBottom: number,
   height: number,
   steps: number,
+  side: EventRoomSide,
 ): THREE.BufferGeometry {
-  const shape = new THREE.Shape();
-  const span = thetaTo - thetaFrom;
-  for (let index = 0; index <= steps; index += 1) {
-    const theta = thetaFrom + (span * index) / steps;
-    const [x, y] = bandShapePoint(factorOuter, theta);
-    if (index === 0) shape.moveTo(x, y);
-    else shape.lineTo(x, y);
-  }
-  for (let index = steps; index >= 0; index -= 1) {
-    const theta = thetaFrom + (span * index) / steps;
-    const [x, y] = bandShapePoint(factorInner, theta);
-    shape.lineTo(x, y);
-  }
-  const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, curveSegments: 1 });
-  geometry.rotateX(-Math.PI / 2);
-  geometry.translate(0, yBottom, 0);
-  return geometry;
+  const points = arenaSectorPolygon(factorInner, factorOuter, thetaFrom, thetaTo, steps)
+    .map(([x, z]): EventRoomPoint2D => [x + loungeSideOffsetX(side), z]);
+  return buildLoungePrismGeometry(points, yBottom, height);
 }
 
-function mergeRuns(builders: Array<() => THREE.BufferGeometry>): THREE.BufferGeometry {
+function mergeRuns(builders: Array<() => THREE.BufferGeometry>, splitMaterialAt?: number): THREE.BufferGeometry {
   const geometries = builders.map(build => build());
   const merged = mergeGeometries(geometries);
+  if (merged && splitMaterialAt !== undefined) {
+    const count = (geometry: THREE.BufferGeometry) => geometry.index?.count ?? geometry.getAttribute('position').count;
+    const split = geometries.slice(0, splitMaterialAt).reduce((sum, geometry) => sum + count(geometry), 0);
+    merged.clearGroups();
+    merged.addGroup(0, split, 0);
+    merged.addGroup(split, count(merged) - split, 1);
+  }
   geometries.forEach(geometry => geometry.dispose());
   if (!merged) throw new Error('EventRoomLoungeBanks: mergeGeometries zwróciło null.');
   merged.computeVertexNormals();
@@ -174,7 +179,7 @@ function armrestTransforms(runs: readonly LoungeRunSpec[]): EventRoomInstanceTra
       const [x, z] = arenaPoint(centerFactor, theta);
       const yaw = arenaTangentYaw(centerFactor, theta, run.side);
       transforms.push({
-        position: [x, run.surfaceTopY + CUSHION_BOTTOM_OFFSET + ARMREST_HEIGHT / 2, z],
+        position: [x + loungeSideOffsetX(run.side), run.surfaceTopY + CUSHION_BOTTOM_OFFSET + ARMREST_HEIGHT / 2, z],
         rotation: [0, yaw, 0],
       });
     }
@@ -182,22 +187,19 @@ function armrestTransforms(runs: readonly LoungeRunSpec[]): EventRoomInstanceTra
   return transforms;
 }
 
-/** 8 side tables (2 per run) in the open floor next to each armrest, never on a terrace footprint. */
+/** Inner tables stay on the floor; outer tables and lamps share the upper deck placement. */
 function tableTransforms(runs: readonly LoungeRunSpec[]) {
   const bases: EventRoomInstanceTransform[] = [];
   const tops: EventRoomInstanceTransform[] = [];
   const lamps: EventRoomInstanceTransform[] = [];
-  const thetaInset = THREE.MathUtils.degToRad(TABLE_THETA_INSET_DEG);
-
   for (const run of runs) {
-    const radialFactor = run.tier === 'inner'
-      ? run.platformFactorInner - factorOffset(INNER_TABLE_RADIAL_INSET)
-      : run.platformFactorOuter + factorOffset(OUTER_TABLE_RADIAL_OFFSET);
-    for (const theta of [run.sofaThetaFrom + thetaInset, run.sofaThetaTo - thetaInset]) {
-      const [x, z] = arenaPoint(radialFactor, theta);
-      bases.push({ position: [x, 0.29, z] });
-      tops.push({ position: [x, 0.635, z] });
-      lamps.push({ position: [x, 0.8075, z] });
+    for (const { point: [x, z], baseY } of loungeTablePlacements(run.tier, run.side)) {
+      bases.push({ position: [x, baseY + 0.29, z] });
+      // Upper contacts: base top 0.58; tabletop 0.09; lamp 0.25.
+      // Keep the existing lower-tier transforms unchanged.
+      const isUpper = run.tier === 'outer';
+      tops.push({ position: [x, baseY + (isUpper ? 0.58 + 0.09 / 2 : 0.635), z] });
+      lamps.push({ position: [x, baseY + (isUpper ? 0.58 + 0.09 + 0.25 / 2 : 0.8075), z] });
     }
   }
   return { bases, tops, lamps };
@@ -218,16 +220,25 @@ export function EventRoomLoungeBanks({
   const cylinderSegments = isDesktop ? 20 : 12;
 
   const runs = useMemo(() => loungeRunSpecs(), []);
+  const upperDeckMaterial = useMemo(() => {
+    const material = materials.woodDark.clone();
+    material.color.lerp(materials.wood.color, 0.55);
+    material.roughness = 0.72;
+    return material;
+  }, [materials]);
+  useEffect(() => () => upperDeckMaterial.dispose(), [upperDeckMaterial]);
 
-  const platformsGeometry = useMemo(() => mergeRuns(runs.map(run => () => buildLoungeBandGeometry(
-    run.platformFactorInner,
-    run.platformFactorOuter,
-    run.platformThetaFrom,
-    run.platformThetaTo,
+  const platformsGeometry = useMemo(() => mergeRuns(runs.map(run => () => buildLoungePrismGeometry(
+    loungePlatformPolygon(run.tier, run.side, sweepSteps),
+    LOUNGE_PLATFORM_BOTTOM_Y[run.tier],
+    run.surfaceTopY - LOUNGE_PLATFORM_BOTTOM_Y[run.tier],
+  )), 2), [runs, sweepSteps]);
+
+  const upperBaseGeometry = useMemo(() => mergeRuns(([-1, 1] as const).map(side => () => buildLoungePrismGeometry(
+    loungeUpperBasePolygon(side, sweepSteps),
     0,
-    run.surfaceTopY,
-    sweepSteps,
-  ))), [runs, sweepSteps]);
+    LOUNGE_PLATFORM_BOTTOM_Y.outer,
+  ))), [sweepSteps]);
 
   const plinthsGeometry = useMemo(() => mergeRuns(runs.map((run) => {
     const centerFactor = outwardOffsetFactor(run.tier, PLINTH_OUTWARD_INSET);
@@ -240,6 +251,7 @@ export function EventRoomLoungeBanks({
       run.surfaceTopY,
       PLINTH_HEIGHT,
       sweepSteps,
+      run.side,
     );
   })), [runs, sweepSteps]);
 
@@ -254,6 +266,7 @@ export function EventRoomLoungeBanks({
       run.surfaceTopY + CUSHION_BOTTOM_OFFSET,
       CUSHION_HEIGHT,
       sweepSteps,
+      run.side,
     );
   })), [runs, sweepSteps]);
 
@@ -268,6 +281,7 @@ export function EventRoomLoungeBanks({
       run.surfaceTopY + BACK_BOTTOM_OFFSET,
       BACK_HEIGHT,
       sweepSteps,
+      run.side,
     );
   })), [runs, sweepSteps]);
 
@@ -276,9 +290,14 @@ export function EventRoomLoungeBanks({
   // so it never shares a plane with the platform surface (no coplanar overlap).
   const fasciaGeometry = useMemo(() => {
     const tubes = runs.map((run) => {
-      const factor = run.platformFactorInner - factorOffset(FASCIA_RADIUS + FASCIA_CLEARANCE);
-      const curve = arenaCurve(factor, run.platformThetaFrom, run.platformThetaTo, run.surfaceTopY * FASCIA_HEIGHT_FACTOR);
-      return new THREE.TubeGeometry(curve, fasciaTubularSteps, FASCIA_RADIUS, fasciaRadialSegments, false);
+      const isUpper = run.tier === 'outer';
+      const radius = isUpper ? UPPER_EDGE_LIGHT_RADIUS : FASCIA_RADIUS;
+      const factor = run.platformFactorInner - factorOffset(radius + FASCIA_CLEARANCE);
+      const bottomY = LOUNGE_PLATFORM_BOTTOM_Y[run.tier];
+      const fasciaY = isUpper ? bottomY - radius : bottomY + (run.surfaceTopY - bottomY) * FASCIA_HEIGHT_FACTOR;
+      const curve = arenaCurve(factor, run.platformThetaFrom, run.platformThetaTo, fasciaY);
+      return new THREE.TubeGeometry(curve, fasciaTubularSteps, radius, fasciaRadialSegments, false)
+        .translate(loungeSideOffsetX(run.side), 0, 0);
     });
     const merged = mergeGeometries(tubes);
     tubes.forEach(tube => tube.dispose());
@@ -290,6 +309,7 @@ export function EventRoomLoungeBanks({
   const tables = useMemo(() => tableTransforms(runs), [runs]);
 
   useEffect(() => () => platformsGeometry.dispose(), [platformsGeometry]);
+  useEffect(() => () => upperBaseGeometry.dispose(), [upperBaseGeometry]);
   useEffect(() => () => plinthsGeometry.dispose(), [plinthsGeometry]);
   useEffect(() => () => cushionsGeometry.dispose(), [cushionsGeometry]);
   useEffect(() => () => backsGeometry.dispose(), [backsGeometry]);
@@ -297,7 +317,10 @@ export function EventRoomLoungeBanks({
 
   return (
     <group name="event-room-lounge-banks">
-      <mesh name="lounge-platforms" geometry={platformsGeometry} material={materials.woodDark} />
+      <EventRoomLoungeStairs materials={materials} treadMaterial={upperDeckMaterial} />
+      <EventRoomUpperLoungeEdge materials={materials} qualityTier={qualityTier} />
+      <mesh name="upper-lounge-base" geometry={upperBaseGeometry} material={materials.woodDark} />
+      <mesh name="lounge-platforms" geometry={platformsGeometry} material={[materials.woodDark, upperDeckMaterial]} />
       <mesh name="lounge-plinths" geometry={plinthsGeometry} material={materials.wood} />
       <mesh name="lounge-cushions" geometry={cushionsGeometry} material={materials.seat} />
       <mesh name="lounge-backs" geometry={backsGeometry} material={materials.seat} />

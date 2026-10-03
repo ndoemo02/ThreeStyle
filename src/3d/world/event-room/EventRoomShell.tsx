@@ -11,6 +11,7 @@ import { EventRoomPodium } from './EventRoomPodium';
 import type { EventRoomQualityTier } from './EventRoomTypes';
 import {
   ARENA_RX,
+  ARENA_FLOOR_WIDTH,
   ARENA_RZ,
   ARENA_SHELL_THETA_FROM,
   ARENA_SHELL_THETA_TO,
@@ -186,7 +187,7 @@ export function EventRoomShell({
 
   return (
     <group>
-      <Box position={[0, -0.06, 0.75]} size={[27, 0.12, 25.4]} material={materials.floor} />
+      <Box position={[0, -0.06, 0.75]} size={[ARENA_FLOOR_WIDTH, 0.12, 25.4]} material={materials.floor} />
       <Box position={[0, 3.3, -10.55]} size={[26.5, 6.6, 0.3]} material={materials.stone} />
       <Box
         position={arenaReturnPanels[0].position}
