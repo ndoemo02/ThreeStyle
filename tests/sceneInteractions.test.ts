@@ -5,10 +5,28 @@ import { resolveInteraction, performInteraction, isInteractionKey, isInteraction
 const input = { repeat: false, editing: false, hudOpen: false };
 const door = { id: 'door', enabled: true, distance: 4, maxDistance: 4.5, priority: 0 };
 
-test('E without a target does not release pointer lock', () => {
+test('default E without a target preserves pointer lock outside the Creator Room', () => {
   let releases = 0;
   assert.equal(performInteraction(resolveInteraction(input, []), () => releases++), false);
   assert.equal(releases, 0);
+});
+test('Creator Room E releases the cursor without a target', () => {
+  let releases = 0;
+  assert.equal(performInteraction(null, () => releases++, true), true);
+  assert.equal(releases, 1);
+});
+test('Creator Room cursor fallback preserves an accepted elevator interaction', () => {
+  let releases = 0, rides = 0;
+  const elevator = { ...door, priority: 10, activate: () => { rides++; return true; }, releasePointer: false };
+  assert.equal(performInteraction(elevator, () => releases++, true), true);
+  assert.equal(rides, 1);
+  assert.equal(releases, 0);
+});
+test('Creator Room E can release the cursor during a rejected device cooldown', () => {
+  let releases = 0;
+  const device = { ...door, activate: () => false, releasePointer: true };
+  assert.equal(performInteraction(device, () => releases++, true), true);
+  assert.equal(releases, 1);
 });
 test('crosshair and cursor hits obey the same range and active-state policy', () => {
   assert.equal(resolveInteraction(input, [door])?.id, 'door');

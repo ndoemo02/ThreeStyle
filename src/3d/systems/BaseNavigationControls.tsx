@@ -65,7 +65,6 @@ function constrainCameraToZone(
 }
 
 export function BaseNavigationControls() {
-  useSceneInteractionController();
   const controlsRef = useRef<PointerLockControlsImpl | null>(null);
   const direction = useRef(new THREE.Vector3());
   const moveState = useRef({ forward: false, backward: false, left: false, right: false });
@@ -73,10 +72,32 @@ export function BaseNavigationControls() {
   const isJumping = useRef(false);
   const pointerLockCooldownUntil = useRef(0);
   const [isMobile, setIsMobile] = useState(false);
-  const { camera } = useThree();
+  const { camera, get, setEvents } = useThree();
   const isHudOpen = useHudStore(s => s.isOpen);
   const elevatorState = useTransitionStore(s => s.elevatorState);
   const activeZone = useTransitionStore(s => s.activeZone);
+  useSceneInteractionController(activeZone === ROOM_ZONE);
+
+  useEffect(() => {
+    if (activeZone !== ROOM_ZONE || isMobile || isHudOpen) return;
+    // Drei centers scene events even while unlocked. In the Creator Room the
+    // visible cursor must hit the device at its actual screen coordinates.
+    const previousCompute = get().events.compute;
+    const compute: NonNullable<typeof previousCompute> = (event, state) => {
+      const canvas = state.gl.domElement;
+      const locked = document.pointerLockElement === canvas || document.pointerLockElement?.contains(canvas) === true;
+      const rect = canvas.getBoundingClientRect();
+      state.pointer.set(
+        locked ? 0 : ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        locked ? 0 : -((event.clientY - rect.top) / rect.height) * 2 + 1,
+      );
+      state.raycaster.setFromCamera(state.pointer, state.camera);
+    };
+    setEvents({ compute });
+    return () => {
+      if (get().events.compute === compute) setEvents({ compute: previousCompute });
+    };
+  }, [activeZone, isMobile, isHudOpen, get, setEvents]);
 
   const startPointerLockCooldown = () => {
     pointerLockCooldownUntil.current = Date.now() + 450;

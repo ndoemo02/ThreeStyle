@@ -29,8 +29,13 @@ export function resolveInteraction<T extends InteractionCandidate>(
 export function performInteraction(
   target: (InteractionCandidate & { activate: () => boolean; releasePointer: boolean }) | null,
   releasePointer: () => void,
+  releaseWithoutTarget = false,
 ) {
-  if (!target || !target.activate()) return false;
+  if (!target || !target.activate()) {
+    if (!releaseWithoutTarget) return false;
+    releasePointer();
+    return true;
+  }
   if (target.releasePointer) releasePointer();
   return true;
 }

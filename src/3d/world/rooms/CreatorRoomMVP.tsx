@@ -2,17 +2,20 @@
 
 import { useState, useRef, Suspense, useEffect, useMemo, useCallback } from 'react';
 import { Html, useTexture, useGLTF, useAnimations } from '@react-three/drei';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { EditingTable } from '../../modules/furniture/EditingTable';
 import { DistanceCulledModel } from '../../systems/DistanceCulledModel';
 import { VocalBooth } from './VocalBooth';
 import { useHudStore } from '../../../stores/useHudStore';
 import { useAudioStore } from '../../../stores/useAudioStore';
+import { useCreatorScreenTexture } from './useCreatorScreenTexture';
+import { CreatorMediaSurface } from './CreatorMediaSurface';
 import { ParticleWaveFloor } from '../../modules/fx/ParticleWaveFloor';
 import { PortalEffect } from '../../modules/fx/PortalEffect';
 import { RoomDoor } from '../../modules/doors/RoomDoor';
 import { useSceneInteraction } from '../../systems/useSceneInteraction';
+import { isInteractionTap } from '../../systems/sceneInteractionPolicy';
 
 // ══════════════════════════════════════════════════════════════════════════
 // 0. Runtime loading diagnostics
@@ -115,6 +118,7 @@ function StageReadySignal({ onReady }: { onReady?: () => void }) {
 
 // 1. Oświetlenie obwodowe LED — listwy przysufitowe audio-reaktywne
 function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
+  const mood = useHudStore(s => s.roomMood);
   const hudAnalyser = useAudioStore(s => s.analyserNode);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
   const lightRef = useRef<THREE.PointLight>(null);
@@ -140,6 +144,9 @@ function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
     const mat = materialRef.current;
     const light = lightRef.current;
     if (!mat || !light) return;
+    const tint = mood === 'focus' ? '#b2d4e0' : mood === 'night' ? '#c49878' : '#ff9f45';
+    mat.emissive.set(tint);
+    light.color.set(tint);
 
     if (!hudAnalyser) {
       mat.emissiveIntensity = 0.42;
@@ -613,7 +620,7 @@ function StudioDisplayWall({
   videoTexture,
   fallbackVisible,
 }: {
-  videoTexture: THREE.VideoTexture | null;
+  videoTexture: THREE.Texture | null;
   fallbackVisible: boolean;
 }) {
   const screenWidth = 3.2;
@@ -683,16 +690,7 @@ function StudioDisplayWall({
 
       {/* 5. The Video Display Surface. Skip the empty video plane so fallback branding stays visible. */}
       {videoTexture && (
-        <mesh position={[0, 0, 0.011]} renderOrder={20}>
-          <planeGeometry args={[screenWidth, screenHeight]} />
-          <meshBasicMaterial
-            key={videoTexture.uuid}
-            map={videoTexture}
-            color="#ffffff"
-            side={THREE.DoubleSide}
-            toneMapped={false}
-          />
-        </mesh>
+        <CreatorMediaSurface texture={videoTexture} width={screenWidth} height={screenHeight} />
       )}
 
       {/* 6. Fallback Branding Layer */}
@@ -782,7 +780,7 @@ function AutoCenteredModel({ url, ...props }: { url: string } & SceneObjectProps
 
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleInteract = useCallback((e: any) => {
+  const handleInteract = useCallback((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     if (actions) {
       setIsOpen(prev => {
@@ -855,6 +853,7 @@ export function CreatorRoomMVP({
   onShellReady?: () => void,
 }) {
   const [isMobile, setIsMobile] = useState(false);
+  const mood = useHudStore(s => s.roomMood);
 
   useEffect(() => {
     const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900);
@@ -868,9 +867,10 @@ export function CreatorRoomMVP({
   const openHud = useHudStore((s) => s.openHud);
   const closeHud = useHudStore((s) => s.closeHud);
   const isOpen = useHudStore((s) => s.isOpen);
-  const masterVideoRef = useHudStore((s) => s.masterVideoRef);
+
   const plaqueRef = useRef<THREE.Group>(null);
   const deviceRef = useRef<THREE.Group>(null);
+  const devicePointerStart = useRef<{ pointerId: number; clientX: number; clientY: number } | null>(null);
   const hudCooldownRef = useRef(0);
 
   // Blokuj re-open HUD przez 2s po zamknięciu (niezależnie czy przez E, klik, czy guzik Close)
@@ -899,189 +899,12 @@ export function CreatorRoomMVP({
     activate: toggleHud, releasePointer: true,
   });
   const deviceInteraction = useSceneInteraction({
-    object: deviceRef, maxDistance: 3, canInteract: canOpenHud,
+    object: deviceRef, maxDistance: 3, pointerMaxDistance: 20, canInteract: canOpenHud,
     activate: toggleHud, releasePointer: true,
   });
   const deviceScreenHovered = plaqueInteraction.isTargeted || deviceInteraction.isTargeted;
 
-  // diagnostic: confirm re-renders happen when masterVideoRef changes
-  // console.log('[MVP] render – masterVideoRef:', !!masterVideoRef);
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // 5. Native Video Texture Pipeline + Selfie Camera Override
-  // ══════════════════════════════════════════════════════════════════════════
-  const [videoTex, setVideoTex] = useState<THREE.VideoTexture | null>(null);
-  const hudMediaPlaying = useHudStore(s => s.isPlaying);
-  const camEnabled = useHudStore(s => s.camEnabled);
-  const camFacingMode = useHudStore(s => s.camFacingMode);
-  const camVideoElement = useHudStore(s => s.camVideoElement);
-  const [camTex, setCamTex] = useState<THREE.VideoTexture | null>(null);
-  const camStreamRef = useRef<MediaStream | null>(null);
-
-  // Selfie camera toggle — prefers persistent camVideoElement, falls back to DOM-attached el
-  useEffect(() => {
-    if (!camEnabled) {
-      camStreamRef.current?.getTracks().forEach(t => t.stop());
-      camStreamRef.current = null;
-      if (camVideoElement) {
-        camVideoElement.pause();
-        camVideoElement.srcObject = null;
-      }
-      if (camTex) { camTex.dispose(); setCamTex(null); }
-      return;
-    }
-
-    let cancelled = false;
-    let fallbackEl: HTMLVideoElement | null = null;
-
-    const videoEl: HTMLVideoElement | null = camVideoElement ?? (() => {
-      console.log('[SelfieCam] camVideoElement is null, creating fallback DOM element');
-      const el = document.createElement('video');
-      el.muted = true;
-      el.playsInline = true;
-      el.setAttribute('playsinline', '');
-      el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0.001;pointer-events:none';
-      document.body.appendChild(el);
-      fallbackEl = el;
-      return el;
-    })();
-
-    if (!videoEl) {
-      useHudStore.getState().setCamEnabled(false);
-      return;
-    }
-
-    const createCameraTexture = () => {
-      if (cancelled) return;
-      const tex = new THREE.VideoTexture(videoEl);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.generateMipmaps = false;
-      tex.minFilter = THREE.LinearFilter;
-      tex.magFilter = THREE.LinearFilter;
-      tex.format = THREE.RGBAFormat;
-      setCamTex(tex);
-    };
-
-    if (videoEl.srcObject instanceof MediaStream) {
-      console.log('[SelfieCam] Using existing HUD camera stream for room texture');
-      void videoEl.play().catch(() => {});
-      createCameraTexture();
-      return () => {
-        cancelled = true;
-        if (fallbackEl && fallbackEl.parentNode) {
-          fallbackEl.parentNode.removeChild(fallbackEl);
-        }
-        setCamTex(prev => {
-          if (prev) prev.dispose();
-          return null;
-        });
-      };
-    }
-
-    console.log('[SelfieCam] Starting getUserMedia, facing:', camFacingMode, 'videoEl:', videoEl === camVideoElement ? 'store' : 'fallback');
-
-    if (!navigator.mediaDevices) {
-      console.error('[SelfieCam] navigator.mediaDevices is not available — need HTTPS');
-      return;
-    }
-
-    navigator.mediaDevices.getUserMedia({
-      video: { facingMode: camFacingMode },
-      audio: false,
-    }).then(stream => {
-      if (cancelled) {
-        stream.getTracks().forEach(t => t.stop());
-        return;
-      }
-      console.log('[SelfieCam] Got stream, tracks:', stream.getTracks().length);
-      camStreamRef.current = stream;
-      videoEl.srcObject = stream;
-      videoEl.muted = true;
-      videoEl.playsInline = true;
-      void videoEl.play().catch(() => {});
-
-      // Twórz VideoTexture od razu - zaktualizuje się gdy video będzie gotowe
-      console.log('[SelfieCam] Creating VideoTexture immediately after play()');
-      createCameraTexture();
-    }).catch(err => {
-      if (cancelled) return;
-      console.warn('[SelfieCam] getUserMedia failed:', err.message);
-    });
-
-    return () => {
-      cancelled = true;
-      camStreamRef.current?.getTracks().forEach(t => t.stop());
-      camStreamRef.current = null;
-      if (fallbackEl && fallbackEl.parentNode) {
-        fallbackEl.parentNode.removeChild(fallbackEl);
-      }
-      setCamTex(prev => {
-        if (prev) prev.dispose();
-        return null;
-      });
-    };
-  }, [camEnabled, camFacingMode, camVideoElement]);
-
-  const screenTex = camEnabled ? (camTex || null) : (hudMediaPlaying ? videoTex : null);
-
-  useEffect(() => {
-    const video: HTMLVideoElement | null = masterVideoRef;
-    if (!video) {
-      setVideoTex(null);
-      return;
-    }
-
-    // Norrow to non-null for closure
-    const vid = video;
-    let cancelled = false;
-
-    function createTex() {
-      if (cancelled) return;
-      // Video musi mieć załadowane metadane — inaczej dimensions 0x0 = black screen
-      if (vid.videoWidth === 0 || vid.videoHeight === 0) {
-        const onMeta = () => {
-          vid.removeEventListener('loadedmetadata', onMeta);
-          createTex();
-        };
-        vid.addEventListener('loadedmetadata', onMeta, { once: true });
-        // Spróbuj też load() jeśli src już jest ale meta niezaładowane
-        if (vid.src && vid.readyState < 2) vid.load();
-        return;
-      }
-
-      const tex = new THREE.VideoTexture(vid);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.generateMipmaps = false;
-      tex.minFilter = THREE.LinearFilter;
-      tex.magFilter = THREE.LinearFilter;
-      tex.format = THREE.RGBAFormat;
-      setVideoTex(tex);
-    }
-
-    createTex();
-
-    return () => {
-      cancelled = true;
-      setVideoTex(prev => {
-        if (prev) prev.dispose();
-        return null;
-      });
-    };
-  }, [masterVideoRef]);
-
-  useFrame(({ invalidate }) => {
-    const activeTex = screenTex;
-    if (activeTex) {
-      // Zawsze invalidate gdy mamy aktywną teksturę — video/cam wymaga ciągłego odświeżania
-      invalidate();
-      // Upewnij się że tekstura czyta aktualny frame z video elementu
-      if (!activeTex.image) return;
-      const vid = activeTex.image as HTMLVideoElement;
-      if (vid && vid.readyState >= 2) {
-        activeTex.needsUpdate = true;
-      }
-    }
-  });
+  const screenTex = useCreatorScreenTexture();
 
   const roomBackZ = -6;
   const roomFrontZ = 7;
@@ -1096,8 +919,8 @@ export function CreatorRoomMVP({
 
   return (
     <group position={new THREE.Vector3(...position)} rotation={new THREE.Euler(...rotation)}>
-      <ambientLight intensity={0.35} color="#ffe4c7" />
-      <hemisphereLight args={['#ffe8cf', '#392b24', 1.05]} />
+      <ambientLight intensity={mood === 'night' ? 0.12 : mood === 'focus' ? 0.52 : 0.35} color={mood === 'focus' ? '#e2edff' : '#ffe4c7'} />
+      <hemisphereLight args={[mood === 'focus' ? '#e2edff' : '#ffe8cf', '#392b24', mood === 'night' ? 0.45 : 1.05]} />
 
       {/* Górny sufit — 2 słabsze pointLight zamiast przepalającego directionala */}
       <pointLight position={[0, 4.9, 0]} intensity={0.58} color="#ffad66" distance={9} decay={1.8} />
@@ -1306,7 +1129,7 @@ export function CreatorRoomMVP({
                 whiteSpace: 'nowrap',
               }}
             >
-              {isOpen ? '[E] CLOSE STUDIO HUD' : '[E] OPEN STUDIO HUD'}
+              {isOpen ? '[E] CLOSE STUDIO HUD' : 'KLIKNIJ TABLET · [E] Z BLISKA'}
             </Html>
           )}
         </group>
@@ -1325,6 +1148,24 @@ export function CreatorRoomMVP({
         {/* iPad Pro on the desk */}
         <group
           ref={deviceRef}
+          onPointerDown={(event) => {
+            devicePointerStart.current = {
+              pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY,
+            };
+          }}
+          onPointerUp={(event) => {
+            const start = devicePointerStart.current;
+            devicePointerStart.current = null;
+            if (isInteractionTap(start, event)) {
+              event.stopPropagation();
+              deviceInteraction.activate(event.clientX, event.clientY);
+            }
+          }}
+          onClick={(event) => {
+            // Do not let the same click immediately relock the cursor behind the deck.
+            event.stopPropagation();
+            event.nativeEvent.stopImmediatePropagation();
+          }}
           position={[decorControls.laptopPosX, decorControls.laptopPosY, decorControls.laptopPosZ]}
           rotation={[0, THREE.MathUtils.degToRad(decorControls.laptopRotY), 0]}
           scale={decorControls.laptopScale}

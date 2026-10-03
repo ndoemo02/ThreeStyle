@@ -145,12 +145,12 @@ export default function B3PPage() {
         <div className="mt-2 text-teal-400">
           ● Click canvas to lock cursor.<br/>
           ● WASD to move.<br/>
-          ● Press [E] on screens to interact.<br/>
+          {isCreatorRoomZone ? '● E: interact nearby or show cursor. Click tablet to open HUD.' : '● Press [E] on screens to interact.'}<br/>
           ● Look at Doors + [E] to Enter.<br/>
         </div>
       </div>
 
-      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+      <div style={{ position: 'absolute', top: 'max(12px, env(safe-area-inset-top))', right: 'max(12px, env(safe-area-inset-right))', zIndex: 50, display: 'flex', gap: 8 }}>
         <button
           onClick={() => {
             const isOpen = useHudStore.getState().isOpen;
@@ -161,8 +161,9 @@ export default function B3PPage() {
             }
           }}
           className="bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 hover:text-white text-[10px] font-mono border border-orange-500/30 px-3 py-1.5 rounded transition-all tracking-widest cursor-pointer shadow-lg shadow-orange-950/40"
+          style={{ minHeight: 44, padding: '8px 14px', border: '1px solid #f3a05d66', borderRadius: 12, color: '#f3a05d', background: '#151310e6', cursor: 'pointer', fontSize: 12 }}
         >
-          [🎛️ STUDIO HUD]
+          Media deck
         </button>
 
         <button
@@ -174,6 +175,7 @@ export default function B3PPage() {
             }
           }}
           className="bg-black/60 text-white/50 text-[10px] font-mono border border-white/10 px-3 py-1.5 rounded hover:bg-white/10 hover:text-white transition-all tracking-widest cursor-pointer"
+          style={{ minHeight: 44, padding: '8px 12px', border: '1px solid #ffffff30', borderRadius: 12, color: '#ededed', background: '#151310e6', cursor: 'pointer', fontSize: 12 }}
         >
           [⛶ FULLSCREEN]
         </button>

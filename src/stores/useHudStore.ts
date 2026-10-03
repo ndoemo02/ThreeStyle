@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { CreatorMediaItem, PlaybackStatus } from '../lib/creatorMedia';
 
 interface HudState {
   isOpen: boolean;
@@ -8,6 +9,11 @@ interface HudState {
   camFacingMode: 'user' | 'environment';
   camVideoElement: HTMLVideoElement | null;
   masterVideoRef: HTMLVideoElement | null;
+  activeMedia: CreatorMediaItem | null;
+  playbackStatus: PlaybackStatus;
+  roomMood: 'warm' | 'focus' | 'night';
+  setRoomMood: (mood: 'warm' | 'focus' | 'night') => void;
+  setMediaState: (media: CreatorMediaItem | null, status: PlaybackStatus) => void;
   openHud: (screenId: string) => void;
   closeHud: () => void;
   setIsPlaying: (playing: boolean) => void;
@@ -25,6 +31,11 @@ export const useHudStore = create<HudState>((set) => ({
   camFacingMode: 'user',
   camVideoElement: null,
   masterVideoRef: null,
+  activeMedia: null,
+  playbackStatus: 'idle',
+  roomMood: 'warm',
+  setRoomMood: (roomMood) => set({ roomMood }),
+  setMediaState: (activeMedia, playbackStatus) => set({ activeMedia, playbackStatus, isPlaying: playbackStatus === 'playing' }),
   openHud: (screenId) => set({ isOpen: true, activeScreenId: screenId }),
   closeHud: () => set({ isOpen: false, activeScreenId: null }),
   setIsPlaying: (playing) => set({ isPlaying: playing }),

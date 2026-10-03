@@ -9,6 +9,7 @@ import { isInteractionKey, performInteraction, resolveInteraction, type Interact
 type Target = {
   object?: RefObject<THREE.Object3D | null>;
   maxDistance: number;
+  pointerMaxDistance?: number;
   canInteract: () => boolean;
   activate: () => boolean;
   releasePointer?: boolean;
@@ -63,9 +64,9 @@ class SceneInteractions {
       if (this.focused === target.id) this.setFocus(null);
     };
   }
-  pick(camera: THREE.Camera, scene: THREE.Scene, canvas: HTMLCanvasElement): Candidate | null {
+  pick(camera: THREE.Camera, scene: THREE.Scene, canvas: HTMLCanvasElement, input: 'keyboard' | 'pointer' = 'keyboard'): Candidate | null {
     if (useHudStore.getState().isOpen) return null;
-    const locked = document.pointerLockElement === canvas;
+    const locked = document.pointerLockElement === canvas || document.pointerLockElement?.contains(canvas) === true;
     camera.updateWorldMatrix(true, false);
     this.raycaster.setFromCamera(locked ? new THREE.Vector2(0, 0) : this.pointer, camera);
     const candidates: Candidate[] = [];
@@ -80,7 +81,7 @@ class SceneInteractions {
       const hit = object ? this.raycaster.intersectObject(object, true).find(h => isVisible(h.object)) : undefined;
       if (!inZone && !hit) continue;
       candidates.push({ id, enabled: true, distance: inZone ? 0 : hit!.distance,
-        maxDistance: target.maxDistance, priority: inZone ? 10 : 0,
+        maxDistance: input === 'pointer' ? (target.pointerMaxDistance ?? target.maxDistance) : target.maxDistance, priority: inZone ? 10 : 0,
         activate: target.activate, releasePointer: target.releasePointer === true });
     }
     const candidate = resolveInteraction({ repeat: false, editing: false, hudOpen: false }, candidates);
@@ -122,7 +123,7 @@ export function useSceneInteraction(options: Target) {
     activate: (clientX: number, clientY: number) => {
       // A tap need not be preceded by pointermove. Resolve its own coordinates.
       manager.updatePointer(clientX, clientY, gl.domElement);
-      const picked = manager.pick(camera, scene, gl.domElement);
+      const picked = manager.pick(camera, scene, gl.domElement, 'pointer');
       return picked?.id === id && performInteraction(picked, () => {
         if (document.pointerLockElement) document.exitPointerLock();
       });
@@ -130,7 +131,7 @@ export function useSceneInteraction(options: Target) {
   };
 }
 
-export function useSceneInteractionController() {
+export function useSceneInteractionController(releaseWithoutTarget = false) {
   const { scene, camera, gl } = useThree();
   const manager = interactionsFor(scene);
   useLayoutEffect(() => {
@@ -150,7 +151,7 @@ export function useSceneInteractionController() {
       const picked = manager.pick(camera, scene, canvas);
       if (performInteraction(picked, () => {
         if (document.pointerLockElement) document.exitPointerLock();
-      })) event.preventDefault();
+      }, releaseWithoutTarget && !!document.pointerLockElement)) event.preventDefault();
     };
     const keyUp = (event: KeyboardEvent) => { if (isInteractionKey(event)) held = false; };
     const blur = () => { held = false; leave(); };
@@ -168,6 +169,9 @@ export function useSceneInteractionController() {
       manager.pointerInside = false;
       manager.setFocus(null);
     };
-  }, [manager, scene, camera, gl]);
-  useFrame(() => { manager.setFocus(manager.pick(camera, scene, gl.domElement)?.id ?? null); });
+  }, [manager, scene, camera, gl, releaseWithoutTarget]);
+  useFrame(() => {
+    const input = document.pointerLockElement ? 'keyboard' : 'pointer';
+    manager.setFocus(manager.pick(camera, scene, gl.domElement, input)?.id ?? null);
+  });
 }

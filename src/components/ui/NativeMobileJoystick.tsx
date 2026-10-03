@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useHudStore } from '../../stores/useHudStore';
-import { shouldUseMobileRoomProfileInBrowser } from '../../lib/deviceProfile';
 
 export function NativeMobileJoystick() {
   const [active, setActive] = useState(false);
@@ -14,16 +13,16 @@ export function NativeMobileJoystick() {
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(shouldUseMobileRoomProfileInBrowser());
+      setIsMobile(window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0);
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const emitVector = (x: number, y: number) => {
+  const emitVector = useCallback((x: number, y: number) => {
     (window as unknown as { joystickVector: { x: number; y: number } }).joystickVector = { x, y };
-  };
+  }, []);
 
   const computeAndEmit = useCallback((clientX: number, clientY: number) => {
     if (!baseRef.current) return;
@@ -44,7 +43,7 @@ export function NativeMobileJoystick() {
 
     setPosition({ x: dx, y: dy });
     emitVector(dx / radius, -dy / radius);
-  }, []);
+  }, [emitVector]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (isOpen) return;
@@ -77,6 +76,12 @@ export function NativeMobileJoystick() {
   const handlePointerCancel = useCallback((e: React.PointerEvent) => {
     if (e.pointerId !== capturedPointerId.current) return;
     releaseJoystick();
+  }, [releaseJoystick]);
+
+  useEffect(() => {
+    const unsubscribe = useHudStore.subscribe(state => { if (state.isOpen) releaseJoystick(); });
+    window.addEventListener('blur', releaseJoystick);
+    return () => { unsubscribe(); window.removeEventListener('blur', releaseJoystick); };
   }, [releaseJoystick]);
 
   if (!isMobile) return null;
