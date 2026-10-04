@@ -3,7 +3,7 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import * as THREE from 'three';
-import { createLobbyBoxGeometry, type LobbySurface } from './lobbyGeometry';
+import { createLobbyBoxGeometry, createLobbyFloorGeometry, type LobbySurface } from './lobbyGeometry';
 
 export type LobbyBoxSpec = {
   position: [number, number, number];
@@ -17,18 +17,45 @@ export type LobbyInstanceTransform = {
   scale?: [number, number, number];
 };
 
+export type LobbyPlaneSpec = {
+  position: [number, number, number];
+  size: [number, number];
+  rotation?: [number, number, number];
+};
+
+export function MergedLobbyGlow({ planes, material }: { planes: LobbyPlaneSpec[]; material: THREE.Material }) {
+  const geometry = useMemo(() => {
+    const parts = planes.map(plane => {
+      const part = new THREE.PlaneGeometry(...plane.size);
+      const rotation = plane.rotation ?? [0, 0, 0];
+      part.rotateX(rotation[0]); part.rotateY(rotation[1]); part.rotateZ(rotation[2]);
+      part.translate(...plane.position);
+      return part;
+    });
+    const merged = mergeGeometries(parts, false);
+    parts.forEach(part => part.dispose());
+    merged.computeBoundingSphere();
+    return merged;
+  }, [planes]);
+  return <mesh geometry={geometry} material={material} raycast={() => {}} />;
+}
+
 export function MergedLobbyBoxes({
   boxes,
   surface,
   material,
+  decorative = false,
 }: {
   boxes: LobbyBoxSpec[];
   surface: LobbySurface;
   material: THREE.Material;
+  decorative?: boolean;
 }) {
   const geometry = useMemo(() => {
     const parts = boxes.map(box => {
-      const part = createLobbyBoxGeometry(box.size, surface);
+      const part = surface === 'stone' && box.size[1] < 0.15
+        ? createLobbyFloorGeometry(box.size)
+        : createLobbyBoxGeometry(box.size, surface);
       const rotation = box.rotation ?? [0, 0, 0];
       part.rotateX(rotation[0]);
       part.rotateY(rotation[1]);
@@ -43,7 +70,7 @@ export function MergedLobbyBoxes({
     return merged;
   }, [boxes, surface]);
 
-  return <mesh geometry={geometry} material={material} frustumCulled />;
+  return <mesh geometry={geometry} material={material} frustumCulled raycast={decorative ? () => {} : undefined} />;
 }
 
 export function InstancedLobbyBoxes({

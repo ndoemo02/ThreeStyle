@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { shouldUseMobileRoomProfileInBrowser } from '../../../lib/deviceProfile';
 import { LeftWingCorridor } from '../corridors/LeftWingCorridor';
 import { HubShell } from './HubShell';
-import { getInitialLobbyQuality, type LobbyQualityProfile } from './lobbyConfig';
+import { getInitialLobbyQuality, getLobbyAreaLights, type LobbyQualityProfile } from './lobbyConfig';
 import { useLobbyMaterials } from './LobbyMaterials';
 import { LobbyPerformanceGovernor } from './LobbyPerformanceGovernor';
 
@@ -37,21 +37,17 @@ function LobbyScene({
     return Math.min(window.devicePixelRatio, isMobile ? 1 : 1.5);
   }, [isMobile]);
 
-  const lights = [
-    { position: [0, 4.35, 0] as [number, number, number], width: 12, height: 7, intensity: 3.8 },
-    { position: [-18, 4.35, -5] as [number, number, number], width: 10, height: 5, intensity: 3.4 },
-    { position: [-32, 4.35, -5] as [number, number, number], width: 10, height: 5, intensity: 3.2 },
-  ];
+  const lights = getLobbyAreaLights(quality.lightCount);
 
   return (
     <group>
       <LobbyPerformanceGovernor quality={quality} restoreDpr={restoreDpr} onDegrade={onQualityChange} />
-      <hemisphereLight args={['#ffe8cf', '#2b211b', isMobile ? 1.05 : 0.92]} />
-      <ambientLight color="#ffd9b5" intensity={isMobile ? 0.34 : 0.28} />
-      {lights.slice(0, quality.lightCount).map(light => (
+      <hemisphereLight args={['#f1ede5', '#242321', isMobile ? 0.95 : 0.85]} />
+      <ambientLight color="#ece5d9" intensity={isMobile ? 0.3 : 0.24} />
+      {lights.map(light => (
         <rectAreaLight
           key={light.position.join(':')}
-          color="#ffd2a4"
+          color="#ffe4c4"
           intensity={light.intensity}
           width={light.width}
           height={light.height}

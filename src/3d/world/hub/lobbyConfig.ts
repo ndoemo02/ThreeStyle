@@ -81,3 +81,61 @@ export function shouldDegradeLobbyQuality(
   const fpsFloor = profile.id === 'mobile' ? 25 : 50;
   return averageFps < fpsFloor;
 }
+
+export type LobbyPerformanceSample = {
+  warmupSeconds: number;
+  elapsedSeconds: number;
+  frames: number;
+  belowThresholdMs: number;
+};
+
+export function createLobbyPerformanceSample(): LobbyPerformanceSample {
+  return { warmupSeconds: 0, elapsedSeconds: 0, frames: 0, belowThresholdMs: 0 };
+}
+
+/** Background gaps and asset warm-up do not represent sustainable rendering speed. */
+export function sampleLobbyPerformance(
+  profile: LobbyQualityProfile,
+  sample: LobbyPerformanceSample,
+  delta: number,
+  hidden: boolean,
+): { sample: LobbyPerformanceSample; degrade: boolean } {
+  if (hidden || !Number.isFinite(delta) || delta <= 0 || delta > 1) {
+    return { sample: createLobbyPerformanceSample(), degrade: false };
+  }
+  if (profile.id.endsWith('-low')) return { sample, degrade: false };
+  const next = { ...sample, warmupSeconds: sample.warmupSeconds + delta };
+  if (next.warmupSeconds < 6) return { sample: next, degrade: false };
+  next.elapsedSeconds += delta;
+  next.frames += 1;
+  if (next.elapsedSeconds < 0.5) return { sample: next, degrade: false };
+  const fps = next.frames / next.elapsedSeconds;
+  const floor = profile.id === 'mobile' ? 25 : 50;
+  next.belowThresholdMs = fps < floor ? next.belowThresholdMs + next.elapsedSeconds * 1000 : 0;
+  const degrade = shouldDegradeLobbyQuality(profile, fps, next.belowThresholdMs);
+  next.elapsedSeconds = next.frames = 0;
+  return { sample: next, degrade };
+}
+
+export type LobbyAreaLight = {
+  position: [number, number, number];
+  width: number;
+  height: number;
+  intensity: number;
+};
+
+/** Every quality tier illuminates the entire route, including the end of the corridor. */
+export function getLobbyAreaLights(count: number): LobbyAreaLight[] {
+  if (count <= 1) {
+    return [{ position: [-13, 4.3, -2], width: 54, height: 18, intensity: 1.8 }];
+  }
+  const lobby: LobbyAreaLight = { position: [0, 4.3, 0], width: 20, height: 16, intensity: 2.8 };
+  if (count === 2) {
+    return [lobby, { position: [-25, 4.3, -5], width: 29, height: 7, intensity: 2.6 }];
+  }
+  return [
+    lobby,
+    { position: [-18, 4.3, -5], width: 15, height: 7, intensity: 2.8 },
+    { position: [-32, 4.3, -5], width: 15, height: 7, intensity: 2.6 },
+  ];
+}

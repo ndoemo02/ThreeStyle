@@ -24,12 +24,15 @@ export function useCreatorMedia(videoRef: RefObject<HTMLVideoElement | null>, au
   const [cameraPending, setCameraPending] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0.8);
+  const volume = useHudStore(s => s.volume);
+  const setVolume = useHudStore(s => s.setVolume);
   const activeMedia = useHudStore(s => s.activeMedia);
   const status = useHudStore(s => s.playbackStatus);
   const camEnabled = useHudStore(s => s.camEnabled);
   const facing = useHudStore(s => s.camFacingMode);
   const zone = useTransitionStore(s => s.activeZone);
+
+  useEffect(() => { useHudStore.getState().restorePreferences(); }, []);
 
   const publish = useCallback((next: PlaybackStatus) => {
     useHudStore.getState().setMediaState(selected.current, next);

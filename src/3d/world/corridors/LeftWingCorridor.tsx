@@ -1,15 +1,11 @@
 "use client";
 
-import { useRef, useState } from 'react';
-import { Html } from '@react-three/drei';
-import { useFrame, useThree } from '@react-three/fiber';
-import * as THREE from 'three';
 import { RoomDoor } from '../../modules/doors/RoomDoor';
 import { EVENT_ROOM_ZONE } from '../../navigation/navigationConfig';
 import { LOBBY_DOORS } from '../hub/lobbyConfig';
-import { InstancedLobbyBoxes, MergedLobbyBoxes, type LobbyBoxSpec, type LobbyInstanceTransform } from '../hub/LobbyMeshes';
+import { InstancedLobbyBoxes, MergedLobbyBoxes, MergedLobbyGlow, type LobbyBoxSpec, type LobbyInstanceTransform, type LobbyPlaneSpec } from '../hub/LobbyMeshes';
 import type { LobbyMaterials } from '../hub/LobbyMaterials';
-import { shouldShowLobbyWorldLabel } from '../hub/lobbyVisibility';
+import { LobbySignage, type LobbySign } from '../hub/LobbySignage';
 
 const CORRIDOR_STONE: LobbyBoxSpec[] = [
   { position: [-25, -0.045, -5], size: [30, 0.09, 8] },
@@ -42,6 +38,11 @@ const CORRIDOR_LED: LobbyBoxSpec[] = [
   { position: [-25, 4.64, -2.12], size: [27.5, 0.035, 0.045] },
   { position: [-25, 4.64, -7.88], size: [27.5, 0.035, 0.045] },
   { position: [-39.55, 4.35, -5], size: [0.035, 0.04, 3.72] },
+];
+
+const CORRIDOR_GLOW: LobbyPlaneSpec[] = [
+  { position: [-25, 4.61, -2.12], size: [27.5, 0.65], rotation: [Math.PI / 2, 0, 0] },
+  { position: [-25, 4.61, -7.88], size: [27.5, 0.65], rotation: [Math.PI / 2, 0, 0] },
 ];
 
 const CEILING_BAFFLES: LobbyInstanceTransform[] = Array.from({ length: 37 }, (_, index) => ({
@@ -92,54 +93,25 @@ const DOOR_HANDLES: LobbyInstanceTransform[] = LOBBY_DOORS.map(door => ({
   rotation: [0, door.rotationY, 0],
 }));
 
+const CORRIDOR_SIGNS: LobbySign[] = [
+  ...LOBBY_DOORS.map((door, index) => ({
+    tile: index + 4,
+    position: localOffset(door.position, door.rotationY, [0, 3.3, 0.36]),
+    size: [1.6, 0.8] as [number, number],
+    rotationY: door.rotationY,
+  })),
+  { tile: 2, position: [-39.42, 3.15, -5], size: [2.3, 1.15], rotationY: Math.PI / 2 },
+  { tile: 3, position: [-24, 4.16, -1.23], size: [2.1, 1.05], rotationY: Math.PI },
+];
+
 function LobbyDoorGeometry({ materials }: { materials: LobbyMaterials }) {
   return (
     <>
       <InstancedLobbyBoxes size={[2.52, 4.22, 0.34]} surface="dark" material={materials.dark} transforms={DOOR_FRAMES} />
-      <InstancedLobbyBoxes size={[1.96, 3.84, 0.1]} surface="dark" material={materials.dark} transforms={DOOR_PANELS} />
+      <InstancedLobbyBoxes size={[1.96, 3.84, 0.1]} surface="dark" material={materials.door} transforms={DOOR_PANELS} />
       <InstancedLobbyBoxes size={[0.08, 3.76, 0.06]} surface="wood" material={materials.wood} transforms={DOOR_TRIMS} />
       <InstancedLobbyBoxes size={[0.045, 0.34, 0.08]} surface="wood" material={materials.brass} transforms={DOOR_HANDLES} />
     </>
-  );
-}
-
-function EventRoomLabel() {
-  const camera = useThree(state => state.camera);
-  const [visible, setVisible] = useState(false);
-  const elapsedRef = useRef(0);
-  const forwardRef = useRef(new THREE.Vector3());
-
-  useFrame((_, delta) => {
-    elapsedRef.current += delta;
-    if (elapsedRef.current < 0.25) return;
-    elapsedRef.current = 0;
-    camera.getWorldDirection(forwardRef.current);
-    const nextVisible = shouldShowLobbyWorldLabel(
-      camera.position.toArray(),
-      forwardRef.current.toArray(),
-      [-39.45, 4.32, -5],
-      12,
-    );
-    setVisible(current => current === nextVisible ? current : nextVisible);
-  });
-
-  if (!visible) return null;
-  return (
-    <Html transform occlude position={[-39.45, 4.32, -5]} rotation={[0, Math.PI / 2, 0]} distanceFactor={3.2} pointerEvents="none">
-      <div style={{
-        border: '1px solid rgba(213,160,107,.48)',
-        background: 'rgba(12,10,9,.9)',
-        color: '#e9ded2',
-        padding: '8px 18px',
-        fontFamily: 'monospace',
-        fontSize: '10px',
-        fontWeight: 700,
-        letterSpacing: '.24em',
-        whiteSpace: 'nowrap',
-      }}>
-        EVENT ROOM
-      </div>
-    </Html>
   );
 }
 
@@ -157,6 +129,8 @@ export function LeftWingCorridor({
       <MergedLobbyBoxes boxes={CORRIDOR_PLASTER} surface="plaster" material={materials.plaster} />
       <MergedLobbyBoxes boxes={CORRIDOR_WOOD} surface="wood" material={materials.wood} />
       <MergedLobbyBoxes boxes={CORRIDOR_LED} surface="wood" material={materials.led} />
+      <MergedLobbyGlow planes={CORRIDOR_GLOW} material={materials.glow} />
+      <LobbySignage signs={CORRIDOR_SIGNS} materials={materials} />
 
       <InstancedLobbyBoxes
         size={[0.12, 0.12, 7.5]}
@@ -195,7 +169,6 @@ export function LeftWingCorridor({
         renderGeometry={false}
       />
 
-      <EventRoomLabel />
     </group>
   );
 }

@@ -232,7 +232,7 @@ export default function B3PPage() {
         {!isEventRoomZone && (isMobile || !usesCreatorRoomPipeline) && (
           <EffectComposer multisampling={0}>
             <SMAA />
-            <CreatorComposerResolution enabled={usesCreatorRoomPipeline && isMobile} />
+            <CreatorComposerResolution enabled={(usesCreatorRoomPipeline && isMobile) || activeZone === HUB_ZONE} />
           </EffectComposer>
         )}
         {!isMobile && usesCreatorRoomPipeline ? <AudioVisualizer /> : null}

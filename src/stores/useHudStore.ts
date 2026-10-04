@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { CreatorMediaItem, PlaybackStatus } from '../lib/creatorMedia';
 import { CREATOR_LIGHTING_PRESETS, patchCreatorLighting, type CreatorLightingSettings } from '../lib/creatorLighting';
+import { readCreatorPreferences, writeCreatorPreferences } from '../lib/creatorPreferences';
 
 interface HudState {
   isOpen: boolean;
@@ -14,6 +15,10 @@ interface HudState {
   playbackStatus: PlaybackStatus;
   roomMood: 'warm' | 'focus' | 'night';
   lighting: CreatorLightingSettings;
+  volume: number;
+  preferencesReady: boolean;
+  restorePreferences: () => void;
+  setVolume: (volume: number) => void;
   setLighting: (patch: Partial<CreatorLightingSettings>) => void;
   resetLighting: () => void;
   setRoomMood: (mood: 'warm' | 'focus' | 'night') => void;
@@ -27,7 +32,7 @@ interface HudState {
   setMasterVideoRef: (ref: HTMLVideoElement | null) => void;
 }
 
-export const useHudStore = create<HudState>((set) => ({
+export const useHudStore = create<HudState>((set, get) => ({
   isOpen: false,
   activeScreenId: null,
   isPlaying: false,
@@ -39,9 +44,28 @@ export const useHudStore = create<HudState>((set) => ({
   playbackStatus: 'idle',
   roomMood: 'warm',
   lighting: { ...CREATOR_LIGHTING_PRESETS.warm },
-  setRoomMood: (roomMood) => set({ roomMood, lighting: { ...CREATOR_LIGHTING_PRESETS[roomMood] } }),
-  setLighting: (patch) => set(state => ({ lighting: patchCreatorLighting(state.lighting, patch) })),
-  resetLighting: () => set({ roomMood: 'warm', lighting: { ...CREATOR_LIGHTING_PRESETS.warm } }),
+  volume: 0.8,
+  preferencesReady: false,
+  restorePreferences: () => {
+    if (!get().preferencesReady) set({ ...readCreatorPreferences(), preferencesReady: true });
+  },
+  setVolume: (volume) => {
+    if (!Number.isFinite(volume)) return;
+    set({ volume: Math.max(0, Math.min(1, volume)) });
+    writeCreatorPreferences(get());
+  },
+  setRoomMood: (roomMood) => {
+    set({ roomMood, lighting: { ...CREATOR_LIGHTING_PRESETS[roomMood] } });
+    writeCreatorPreferences(get());
+  },
+  setLighting: (patch) => {
+    set(state => ({ lighting: patchCreatorLighting(state.lighting, patch) }));
+    writeCreatorPreferences(get());
+  },
+  resetLighting: () => {
+    set({ roomMood: 'warm', lighting: { ...CREATOR_LIGHTING_PRESETS.warm } });
+    writeCreatorPreferences(get());
+  },
   setMediaState: (activeMedia, playbackStatus) => set({ activeMedia, playbackStatus, isPlaying: playbackStatus === 'playing' }),
   openHud: (screenId) => set({ isOpen: true, activeScreenId: screenId }),
   closeHud: () => set({ isOpen: false, activeScreenId: null }),

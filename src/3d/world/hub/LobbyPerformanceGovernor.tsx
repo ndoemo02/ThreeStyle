@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {
   getDegradedLobbyQuality,
-  shouldDegradeLobbyQuality,
+  createLobbyPerformanceSample,
+  sampleLobbyPerformance,
   type LobbyQualityProfile,
 } from './lobbyConfig';
 
@@ -18,34 +19,27 @@ export function LobbyPerformanceGovernor({
   onDegrade: (quality: LobbyQualityProfile) => void;
 }) {
   const setDpr = useThree(state => state.setDpr);
-  const sampleElapsedRef = useRef(0);
-  const frameCountRef = useRef(0);
-  const belowThresholdMsRef = useRef(0);
-  const degradedRef = useRef(quality.id.endsWith('-low'));
+  const actualDpr = useThree(state => state.viewport.dpr);
+  const sampleRef = useRef(createLobbyPerformanceSample());
+  const degradedRef = useRef(false);
+
+  // Canvas re-applies its DPR range on resize; keep the selected lobby tier after rotation.
+  useLayoutEffect(() => {
+    if (actualDpr !== quality.dpr) setDpr(quality.dpr);
+  }, [quality.dpr, actualDpr, setDpr]);
 
   useEffect(() => {
-    setDpr(quality.dpr);
-  }, [quality.dpr, setDpr]);
+    sampleRef.current = createLobbyPerformanceSample();
+    degradedRef.current = quality.id.endsWith('-low');
+  }, [quality.id]);
 
   useEffect(() => () => setDpr(restoreDpr), [restoreDpr, setDpr]);
 
   useFrame((_, delta) => {
     if (degradedRef.current) return;
-    sampleElapsedRef.current += delta;
-    frameCountRef.current += 1;
-    if (sampleElapsedRef.current < 0.5) return;
-
-    const elapsedSeconds = sampleElapsedRef.current;
-    const averageFps = frameCountRef.current / elapsedSeconds;
-    const sampleMs = elapsedSeconds * 1_000;
-    const floor = quality.id === 'mobile' ? 25 : 50;
-    belowThresholdMsRef.current = averageFps < floor
-      ? belowThresholdMsRef.current + sampleMs
-      : 0;
-    sampleElapsedRef.current = 0;
-    frameCountRef.current = 0;
-
-    if (shouldDegradeLobbyQuality(quality, averageFps, belowThresholdMsRef.current)) {
+    const result = sampleLobbyPerformance(quality, sampleRef.current, delta, document.hidden);
+    sampleRef.current = result.sample;
+    if (result.degrade) {
       degradedRef.current = true;
       onDegrade(getDegradedLobbyQuality(quality));
     }

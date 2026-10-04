@@ -13,7 +13,6 @@ const sources = {
   woodColor: path.join(textures, 'oak_veneer_01_diff_2k.jpg'),
   woodNormal: path.join(textures, 'oak_veneer_01_nor_gl_2k.jpg'),
   woodRoughness: path.join(textures, 'oak_veneer_01_rough_2k.jpg'),
-  plasterColor: path.join(root, 'assets', 'lobby', 'plaster.jpg'),
 };
 
 async function resized(file, size, options = {}) {
@@ -32,6 +31,17 @@ function solid(size, color) {
   return sharp({ create: { width: size, height: size, channels: 3, background: color } })
     .png()
     .toBuffer();
+}
+
+function quietPlaster(size) {
+  const pixels = Buffer.alloc(size * size * 3);
+  for (let index = 0; index < size * size; index++) {
+    const grain = ((index * 16807) % 7) - 3;
+    pixels[index * 3] = 218 + grain;
+    pixels[index * 3 + 1] = 215 + grain;
+    pixels[index * 3 + 2] = 207 + grain;
+  }
+  return sharp(pixels, { raw: { width: size, height: size, channels: 3 } }).png().toBuffer();
 }
 
 async function ormTile(roughness, size, metalness = 0) {
@@ -55,10 +65,10 @@ async function writeAtlas(size, variant) {
 
   const neutralNormal = await solid(tile, { r: 128, g: 128, b: 255 });
   const albedoTiles = await Promise.all([
-    resized(sources.stoneColor, tile, { brightness: 0.72, saturation: 0.65 }),
-    resized(sources.woodColor, tile, { brightness: 0.78, saturation: 0.82 }),
-    resized(sources.plasterColor, tile, { brightness: 2.05, saturation: 0.24, tint: '#c7ae94' }),
-    solid(tile, { r: 20, g: 18, b: 17 }),
+    resized(sources.stoneColor, tile, { brightness: 1.05, saturation: 0.18 }),
+    resized(sources.woodColor, tile, { brightness: 0.92, saturation: 0.62 }),
+    quietPlaster(tile),
+    solid(tile, { r: 43, g: 47, b: 49 }),
   ]);
   const normalTiles = await Promise.all([
     resized(sources.stoneNormal, tile),
@@ -67,10 +77,10 @@ async function writeAtlas(size, variant) {
     neutralNormal,
   ]);
   const ormTiles = await Promise.all([
-    ormTile(sources.stoneRoughness, tile, 12),
-    ormTile(sources.woodRoughness, tile, 4),
+    ormTile(sources.stoneRoughness, tile, 0),
+    ormTile(sources.woodRoughness, tile, 0),
     ormTile(null, tile, 0),
-    ormTile(null, tile, 24),
+    ormTile(null, tile, 0),
   ]);
 
   const positions = [
@@ -95,3 +105,4 @@ async function writeAtlas(size, variant) {
 }
 
 await Promise.all([writeAtlas(1024, 'mobile'), writeAtlas(2048, 'desktop')]);
+await import('./build-lobby-signage.mjs');

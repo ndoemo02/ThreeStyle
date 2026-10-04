@@ -2,8 +2,9 @@
 
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { InstancedLobbyBoxes, MergedLobbyBoxes, type LobbyBoxSpec, type LobbyInstanceTransform } from './LobbyMeshes';
+import { InstancedLobbyBoxes, MergedLobbyBoxes, MergedLobbyGlow, type LobbyBoxSpec, type LobbyInstanceTransform, type LobbyPlaneSpec } from './LobbyMeshes';
 import type { LobbyMaterials } from './LobbyMaterials';
+import { LobbySignage, type LobbySign } from './LobbySignage';
 
 const HUB_STONE: LobbyBoxSpec[] = [
   { position: [0, -0.045, 0], size: [30, 0.09, 20] },
@@ -37,6 +38,18 @@ const HUB_LED: LobbyBoxSpec[] = [
   { position: [8.8, 4.66, 0], size: [0.045, 0.035, 13.8] },
 ];
 
+const HUB_GLOW: LobbyPlaneSpec[] = [
+  { position: [0, 4.63, -7.2], size: [25.5, 0.65], rotation: [Math.PI / 2, 0, 0] },
+  { position: [0, 4.63, 7.2], size: [25.5, 0.65], rotation: [Math.PI / 2, 0, 0] },
+  { position: [-8.8, 4.63, 0], size: [13.8, 0.65], rotation: [Math.PI / 2, Math.PI / 2, 0] },
+  { position: [8.8, 4.63, 0], size: [13.8, 0.65], rotation: [Math.PI / 2, Math.PI / 2, 0] },
+];
+
+const HUB_SIGNS: LobbySign[] = [
+  { tile: 0, position: [0, 2.65, -9.48], size: [6.8, 3.4] },
+  { tile: 1, position: [-7.15, 3.45, -9.48], size: [2.3, 1.15] },
+];
+
 const WALL_SLATS: LobbyInstanceTransform[] = Array.from({ length: 45 }, (_, index) => ({
   position: [-12.1 + index * 0.55, 2.45, -9.77],
 }));
@@ -68,7 +81,7 @@ function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMa
 
       helper.position.set(x + (index % 2 ? 0.08 : -0.06), 1.72, z);
       helper.rotation.set(0, index * 0.8, 0);
-      helper.scale.set(0.85, 1.35, 0.85);
+      helper.scale.set(0.95, 1.18, 0.9);
       helper.updateMatrix();
       foliageRef.current?.setMatrixAt(index, helper.matrix);
 
@@ -103,7 +116,7 @@ function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMa
         <cylinderGeometry args={[0.055, 0.085, 1.15, 7]} />
       </instancedMesh>
       <instancedMesh ref={foliageRef} args={[undefined, undefined, count]} material={materials.foliage} frustumCulled>
-        <icosahedronGeometry args={[0.58, 1]} />
+        <icosahedronGeometry args={[0.66, 1]} />
       </instancedMesh>
       <instancedMesh ref={shadowRef} args={[undefined, undefined, count]} material={materials.shadow} frustumCulled renderOrder={-1}>
         <circleGeometry args={[0.72, 20]} />
@@ -126,6 +139,8 @@ export function HubShell({
       <MergedLobbyBoxes boxes={HUB_DARK} surface="dark" material={materials.dark} />
       <MergedLobbyBoxes boxes={HUB_WOOD} surface="wood" material={materials.wood} />
       <MergedLobbyBoxes boxes={HUB_LED} surface="wood" material={materials.led} />
+      <MergedLobbyGlow planes={HUB_GLOW} material={materials.glow} />
+      <LobbySignage signs={HUB_SIGNS} materials={materials} />
 
       <InstancedLobbyBoxes
         size={[0.13, 4.35, 0.11]}

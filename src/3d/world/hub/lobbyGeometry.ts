@@ -46,3 +46,34 @@ export function createLobbyPlaneGeometry(
 ): THREE.PlaneGeometry {
   return applyLobbyAtlasUv(new THREE.PlaneGeometry(...size), surface);
 }
+
+/** Tile only the visible floor surface; walls, door anchors and navigation stay untouched. */
+export function createLobbyFloorGeometry(size: [number, number, number], tileSize = 1.5): THREE.BufferGeometry {
+  const [width, height, depth] = size;
+  const columns = Math.ceil(width / tileSize);
+  const rows = Math.ceil(depth / tileSize);
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const uvs: number[] = [];
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      const x0 = -width / 2 + column * tileSize;
+      const z0 = -depth / 2 + row * tileSize;
+      const x1 = Math.min(x0 + tileSize, width / 2);
+      const z1 = Math.min(z0 + tileSize, depth / 2);
+      const u = (x1 - x0) / tileSize;
+      const v = (z1 - z0) / tileSize;
+      positions.push(x0, height / 2, z0, x0, height / 2, z1, x1, height / 2, z0,
+        x1, height / 2, z0, x0, height / 2, z1, x1, height / 2, z1);
+      uvs.push(0, 0, 0, v, u, 0, u, 0, 0, v, u, v);
+      for (let vertex = 0; vertex < 6; vertex++) normals.push(0, 1, 0);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setAttribute('uv', new THREE.BufferAttribute(remapLobbyUv(uvs, 'stone'), 2));
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  return geometry;
+}

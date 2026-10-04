@@ -8,7 +8,8 @@
     "assets:event-room": "node scripts/build-event-room-preview-textures.mjs",
     "start": "next start",
     "lint": "eslint",
-    "assets:creator-room": "node scripts/build-creator-room-mobile-assets.mjs"
+    "assets:creator-room": "node scripts/build-creator-room-mobile-assets.mjs",
+    "assets:lobby": "node scripts/build-lobby-atlases.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
