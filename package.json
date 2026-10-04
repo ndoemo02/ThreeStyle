@@ -7,7 +7,8 @@
     "build": "next build",
     "assets:event-room": "node scripts/build-event-room-preview-textures.mjs",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "assets:creator-room": "node scripts/build-creator-room-mobile-assets.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -44,6 +45,7 @@
     "meshopt-decoder": "^1.0.2",
     "sharp": "^0.34.5",
     "tailwindcss": "^4",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "meshoptimizer": "^1.0.1"
   }
 }

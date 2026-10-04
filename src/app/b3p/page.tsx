@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import dynamic from 'next/dynamic';
 import { Canvas, useThree } from '@react-three/fiber';
@@ -15,6 +15,7 @@ import { useTransitionStore } from '../../store/useTransitionStore';
 import { ElevatorA } from '../../3d/world/elevators/ElevatorA';
 import { getCameraPreset, HUB_ZONE, ROOM_ZONE, EVENT_ROOM_ZONE } from '../../3d/navigation/navigationConfig';
 import { shouldUseMobileRoomProfileInBrowser } from '../../lib/deviceProfile';
+import { CreatorMobileQuality } from '../../3d/world/rooms/CreatorMobileQuality';
 
 const loadGroundedHub = () => import('../../3d/world/hub/GroundedHub');
 const GroundedHub = dynamic(
@@ -30,17 +31,6 @@ const AudioVisualizer = dynamic(
   () => import('../../3d/modules/fx/AudioVisualizer'),
   { ssr: false, loading: () => null },
 );
-
-function BloomLight({ onReady }: { onReady: (light: THREE.PointLight) => void }) {
-  const ref = useRef<THREE.PointLight>(null);
-  useEffect(() => {
-    if (ref.current) {
-      ref.current.layers.enable(1);
-      onReady(ref.current);
-    }
-  }, [onReady]);
-  return <pointLight ref={ref} position={[0, 4.9, 0]} intensity={0.01} color="#000000" />;
-}
 
 // Studio Face — wewnątrz kabiny VocalBooth, przy mikrofonie
 // VocalBooth group: position=[-7.06, 0, -2.5], rotation=[0, PI/2, 0]
@@ -87,19 +77,19 @@ export default function B3PPage() {
   const setActiveZone = useTransitionStore(s => s.setActiveZone);
   const releaseElevator = useTransitionStore(s => s.releaseElevator);
   const elevatorState = useTransitionStore(s => s.elevatorState);
-  const [bloomLight, setBloomLight] = useState<THREE.PointLight | null>(null);
   const [roomShellReady, setRoomShellReady] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [profileReady, setProfileReady] = useState(false);
   const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.75, 1] : [1, 1], [isMobile]);
   const glConfig = useMemo(
     () => ({ antialias: false, powerPreference: 'high-performance' as const, alpha: false, stencil: false }),
-    [isMobile],
+    [],
   );
   const isEventRoomZone = activeZone === EVENT_ROOM_ZONE;
   const isCreatorRoomZone = activeZone !== HUB_ZONE && activeZone !== EVENT_ROOM_ZONE;
   const usesCreatorRoomPipeline = isCreatorRoomZone;
   useEffect(() => {
-    const check = () => setIsMobile(shouldUseMobileRoomProfileInBrowser());
+    const check = () => { setIsMobile(shouldUseMobileRoomProfileInBrowser()); setProfileReady(true); };
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -221,19 +211,12 @@ export default function B3PPage() {
 >
  <ZoneController activeZone={activeZone} />
         
-        {/* Ambient — bazowe oświetlenie (zwiększone na mobile bez Environment) */}
-        {usesCreatorRoomPipeline ? (
-          <>
-            <ambientLight intensity={0.65} color="#ffe8d2" />
-            <directionalLight position={[5, 10, 5]} intensity={0.5} color="#fff1df" />
-          </>
-        ) : null}
+        {usesCreatorRoomPipeline && isMobile && profileReady ? <CreatorMobileQuality ready={roomShellReady} /> : null}
 
         {/* Mgła wyłączona */}
         <color attach="background" args={['#1a1a1a']} />
 
         {/* ── Postprocessing (optimized: single-pass Bloom + SMAA) ── */}
-        {usesCreatorRoomPipeline ? <BloomLight onReady={setBloomLight} /> : null}
         {!isEventRoomZone && !isMobile && usesCreatorRoomPipeline && (
           <EffectComposer multisampling={0}>
             <SMAA />
@@ -264,8 +247,9 @@ export default function B3PPage() {
 
         {activeZone === HUB_ZONE && <GroundedHub onEnterRoom={(id) => setActiveZone(id)} />}
         {isEventRoomZone && <EventRoomScene onExit={(zone) => setActiveZone(zone)} />}
-        {isCreatorRoomZone && (
+        {isCreatorRoomZone && profileReady && (
           <CreatorRoomMVP
+            mobile={isMobile}
             onExit={() => setActiveZone(HUB_ZONE)}
             onShellReady={() => setRoomShellReady(true)}
           />

@@ -2,18 +2,18 @@
 
 import { useState, useRef, Suspense, useEffect, useMemo, useCallback } from 'react';
 import { Html, useTexture, useGLTF, useAnimations } from '@react-three/drei';
-import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
+import { useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { EditingTable } from '../../modules/furniture/EditingTable';
 import { DistanceCulledModel } from '../../systems/DistanceCulledModel';
 import { VocalBooth } from './VocalBooth';
 import { useHudStore } from '../../../stores/useHudStore';
-import { useAudioStore } from '../../../stores/useAudioStore';
+import { CreatorRoomProfileContext, creatorModelUrl, creatorParameterMap, useCreatorRoomMobile } from './CreatorRoomProfile';
+import { CreatorLightingProvider, CreatorRoomLightingRig, CreatorLight } from './CreatorLighting';
+import { CreatorPerimeterLights } from './CreatorPerimeterLights';
+import { prepareCreatorRoomMaterial, disposeCreatorRoomMaterials } from './creatorRoomMaterials';
 import { useCreatorScreenTexture } from './useCreatorScreenTexture';
 import { CreatorMediaSurface } from './CreatorMediaSurface';
-import { ParticleWaveFloor } from '../../modules/fx/ParticleWaveFloor';
-import { PortalEffect } from '../../modules/fx/PortalEffect';
-import { RoomDoor } from '../../modules/doors/RoomDoor';
 import { useSceneInteraction } from '../../systems/useSceneInteraction';
 import { isInteractionTap } from '../../systems/sceneInteractionPolicy';
 
@@ -116,124 +116,24 @@ function StageReadySignal({ onReady }: { onReady?: () => void }) {
   return null;
 }
 
-// 1. Oświetlenie obwodowe LED — listwy przysufitowe audio-reaktywne
-function RoomPerimeterNeon({ y = 4.95 }: { y?: number }) {
-  const mood = useHudStore(s => s.roomMood);
-  const hudAnalyser = useAudioStore(s => s.analyserNode);
-  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
-  const lightRef = useRef<THREE.PointLight>(null);
-  const frequencyDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
-
-  // Stabilny materiał tworzony raz
-  const ledMaterial = useMemo(() => {
-    const mat = new THREE.MeshStandardMaterial({
-      color: '#ffd2a0',
-      emissive: '#ff9f45',
-      emissiveIntensity: 0.46,
-      toneMapped: false,
-      depthWrite: false,
-    });
-    return mat;
-  }, []);
-
-  useEffect(() => {
-    materialRef.current = ledMaterial;
-  }, [ledMaterial]);
-
-  useFrame(() => {
-    const mat = materialRef.current;
-    const light = lightRef.current;
-    if (!mat || !light) return;
-    const tint = mood === 'focus' ? '#b2d4e0' : mood === 'night' ? '#c49878' : '#ff9f45';
-    mat.emissive.set(tint);
-    light.color.set(tint);
-
-    if (!hudAnalyser) {
-      mat.emissiveIntensity = 0.42;
-      light.intensity = 0.1;
-      return;
-    }
-
-    let data = frequencyDataRef.current;
-    if (!data || data.length !== hudAnalyser.frequencyBinCount) {
-      data = new Uint8Array(hudAnalyser.frequencyBinCount);
-      frequencyDataRef.current = data;
-    }
-    hudAnalyser.getByteFrequencyData(data);
-
-    let sum = 0;
-    for (let i = 0; i < 16; i++) sum += data[i];
-    const avg = sum / 16 / 255;
-
-    const intensity = 0.42 + avg * 1.2;
-    mat.emissiveIntensity = intensity;
-    light.intensity = intensity * 0.16;
-  });
-
-  // Wymiary pokoju
-  const roomW = 14.0;
-  const roomD = 14.6;
-  const halfW = roomW / 2;
-  const halfD = roomD / 2;
-  const centerZ = -0.3;
-  // Profil listwy: 0.12 szeroka, 0.025 wysoka (płaska taśma LED)
-  const stripW = 0.12;
-  const stripH = 0.025;
-
-  return (
-    <group position={[0, y, centerZ]}>
-      {/* Front — listwa LED przy suficie, przednia ściana */}
-      <mesh position={[0, 0, halfD]} material={ledMaterial}>
-        <boxGeometry args={[roomW, stripH, stripW]} />
-      </mesh>
-      {/* Back — tylna ściana */}
-      <mesh position={[0, 0, -halfD]} material={ledMaterial}>
-        <boxGeometry args={[roomW, stripH, stripW]} />
-      </mesh>
-      {/* Left — lewa ściana */}
-      <mesh position={[-halfW, 0, 0]} rotation={[0, Math.PI / 2, 0]} material={ledMaterial}>
-        <boxGeometry args={[roomD, stripH, stripW]} />
-      </mesh>
-      {/* Right — prawa ściana */}
-      <mesh position={[halfW, 0, 0]} rotation={[0, Math.PI / 2, 0]} material={ledMaterial}>
-        <boxGeometry args={[roomD, stripH, stripW]} />
-      </mesh>
-
-      {/* Centralny pointLight — audio-reaktywny glow */}
-      <pointLight
-        ref={lightRef}
-        position={[0, -0.15, 0]}
-        color="#ff9f45"
-        distance={14}
-        intensity={0.1}
-        decay={1.5}
-      />
-    </group>
-  );
-}
-
-// 2. Global shared material dla TechnicalTrim (Optymalizacja)
-const globalTrimMaterial = new THREE.MeshStandardMaterial({ color: "#060504", roughness: 0.96, metalness: 0.02 });
+const globalTrimMaterial = new THREE.MeshStandardMaterial({ color: '#060504', roughness: 0.96, metalness: 0.02 });
 const roomFallbackWallMaterial = new THREE.MeshStandardMaterial({ color: '#4b2f1f', roughness: 0.92 });
 const roomFallbackSideMaterial = new THREE.MeshStandardMaterial({ color: '#12100e', roughness: 0.95 });
 const roomFallbackFloorMaterial = new THREE.MeshStandardMaterial({ color: '#332820', roughness: 0.9 });
 
 function TechnicalTrim({ args, position, rotation = [0, 0, 0] }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number] }) {
-  return (
-    <mesh position={position} rotation={rotation} castShadow receiveShadow material={globalTrimMaterial}>
-      <boxGeometry args={args} />
-    </mesh>
-  );
+  return <mesh position={position} rotation={rotation} castShadow receiveShadow material={globalTrimMaterial}><boxGeometry args={args} /></mesh>;
 }
 
 function BrickWall({ args, position }: { args: [number, number, number], position: [number, number, number] }) {
+  const mobile = useCreatorRoomMobile();
   const { gl } = useThree();
   const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl]);
   const textures = useTexture([
     '/textures/runtime/bricks/color.webp',
-    '/textures/runtime/bricks/ao.webp',
+    creatorParameterMap('bricks', 'ao', mobile),
     '/textures/runtime/bricks/normal.webp',
-    '/textures/runtime/bricks/roughness.webp',
+    creatorParameterMap('bricks', 'roughness', mobile),
   ]);
 
   const maps = useMemo(() => {
@@ -272,13 +172,14 @@ function BrickWall({ args, position }: { args: [number, number, number], positio
 }
 
 export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat, textureOffset = [0, 0] }: { args: [number, number, number], position: [number, number, number], rotation?: [number, number, number], repeat?: [number, number], textureOffset?: [number, number] }) {
+  const mobile = useCreatorRoomMobile();
   const { gl } = useThree();
   const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl]);
   const textures = useTexture([
     '/textures/runtime/acoustic/color.webp',
     '/textures/runtime/acoustic/normal.webp',
-    '/textures/runtime/acoustic/roughness.webp',
-    '/textures/runtime/acoustic/metalness.webp',
+    creatorParameterMap('acoustic', 'roughness', mobile),
+    creatorParameterMap('acoustic', 'metalness', mobile),
   ]);
 
   const maps = useMemo(() => {
@@ -320,13 +221,14 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat,
 }
 
 function DiamondPlateFloor({ args, position }: { args: [number, number], position: [number, number, number] }) {
+  const mobile = useCreatorRoomMobile();
   const { gl } = useThree();
   const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl]);
   const textures = useTexture([
     '/textures/runtime/diamond/color.webp',
     '/textures/runtime/diamond/normal.webp',
-    '/textures/runtime/diamond/roughness.webp',
-    '/textures/runtime/diamond/metalness.webp',
+    creatorParameterMap('diamond', 'roughness', mobile),
+    creatorParameterMap('diamond', 'metalness', mobile),
     '/textures/runtime/diamond/ao.webp',
   ]);
 
@@ -362,21 +264,6 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
         metalness={0.08}
       />
     </mesh>
-  );
-}
-
-function StudioReferenceCoveLight() {
-  return (
-    <group>
-      <rectAreaLight
-        color="#ffad63"
-        intensity={2.15}
-        width={8.5}
-        height={2.2}
-        position={[1.05, 3.25, -5.35]}
-        rotation={[0.18, 0, 0]}
-      />
-    </group>
   );
 }
 
@@ -739,24 +626,15 @@ function prepareImportedRoomModel(root: THREE.Group) {
     if (!node.material) return;
 
     const materials = Array.isArray(node.material) ? node.material : [node.material];
-    const preparedMaterials = materials.map((material) => {
-      const cloned = material.clone();
-      if (!cloned.transparent || cloned.opacity >= 0.999) {
-        cloned.side = THREE.FrontSide;
-        cloned.transparent = false;
-        cloned.opacity = 1;
-      }
-      cloned.visible = true;
-      cloned.needsUpdate = true;
-      return cloned;
-    });
+    const preparedMaterials = materials.map(prepareCreatorRoomMaterial);
 
     node.material = Array.isArray(node.material) ? preparedMaterials : preparedMaterials[0];
   });
 }
 
 function AutoCenteredModel({ url, ...props }: { url: string } & SceneObjectProps) {
-  const { scene, animations } = useGLTF(url) as { scene: THREE.Group, animations: THREE.AnimationClip[] };
+  const mobile = useCreatorRoomMobile();
+  const { scene, animations } = useGLTF(creatorModelUrl(url, mobile)) as { scene: THREE.Group, animations: THREE.AnimationClip[] };
   const groupRef = useRef<THREE.Group>(null);
   const { actions } = useAnimations(animations, groupRef);
 
@@ -776,9 +654,11 @@ function AutoCenteredModel({ url, ...props }: { url: string } & SceneObjectProps
 
     clone.updateMatrixWorld(true);
     return clone;
-  }, [scene, url]);
+  }, [scene]);
 
-  const [isOpen, setIsOpen] = useState(false);
+  useEffect(() => () => disposeCreatorRoomMaterials(processed), [processed]);
+
+  const [, setIsOpen] = useState(false);
 
   const handleInteract = useCallback((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -838,31 +718,23 @@ function SofaRaw() {
     return clone;
   }, [scene]);
 
+  useEffect(() => () => disposeCreatorRoomMaterials(processed), [processed]);
+
   return <primitive object={processed} />;
 }
 
 export function CreatorRoomMVP({
   position = [0, 0, 0],
   rotation = [0, 0, 0],
-  onExit,
   onShellReady,
+  mobile = false,
 }: {
   position?: [number, number, number],
   rotation?: [number, number, number],
   onExit?: () => void,
   onShellReady?: () => void,
+  mobile?: boolean,
 }) {
-  const [isMobile, setIsMobile] = useState(false);
-  const mood = useHudStore(s => s.roomMood);
-
-  useEffect(() => {
-    const check = () => setIsMobile(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
-
-  const spotLightTarget = useMemo(() => new THREE.Object3D(), []);
 
   const openHud = useHudStore((s) => s.openHud);
   const closeHud = useHudStore((s) => s.closeHud);
@@ -870,6 +742,7 @@ export function CreatorRoomMVP({
 
   const plaqueRef = useRef<THREE.Group>(null);
   const deviceRef = useRef<THREE.Group>(null);
+  const screenRef = useRef<THREE.Group>(null);
   const devicePointerStart = useRef<{ pointerId: number; clientX: number; clientY: number } | null>(null);
   const hudCooldownRef = useRef(0);
 
@@ -904,7 +777,7 @@ export function CreatorRoomMVP({
   });
   const deviceScreenHovered = plaqueInteraction.isTargeted || deviceInteraction.isTargeted;
 
-  const screenTex = useCreatorScreenTexture();
+  const screenTex = useCreatorScreenTexture(screenRef, mobile);
 
   const roomBackZ = -6;
   const roomFrontZ = 7;
@@ -918,43 +791,10 @@ export function CreatorRoomMVP({
   const boothFrontSegmentLength = roomFrontZ - boothWindowFrontZ;
 
   return (
+    <CreatorRoomProfileContext.Provider value={mobile}>
+    <CreatorLightingProvider>
     <group position={new THREE.Vector3(...position)} rotation={new THREE.Euler(...rotation)}>
-      <ambientLight intensity={mood === 'night' ? 0.12 : mood === 'focus' ? 0.52 : 0.35} color={mood === 'focus' ? '#e2edff' : '#ffe4c7'} />
-      <hemisphereLight args={[mood === 'focus' ? '#e2edff' : '#ffe8cf', '#392b24', mood === 'night' ? 0.45 : 1.05]} />
-
-      {/* Górny sufit — 2 słabsze pointLight zamiast przepalającego directionala */}
-      <pointLight position={[0, 4.9, 0]} intensity={0.58} color="#ffad66" distance={9} decay={1.8} />
-      <pointLight position={[-4, 4.9, -4]} intensity={0.38} color="#ffad66" distance={7} decay={1.9} />
-
-      {/* Desk SpotLight (Soft & Focused) */}
-      <spotLight
-        position={[3.5, 4.5, -3.4]}
-        intensity={26}
-        angle={0.8}
-        penumbra={0.8}
-        decay={1.5}
-        color="#ffecd6"
-        distance={9}
-        shadow-mapSize={[512, 512]}
-      >
-        <object3D position={[3.5, 0, -3.4]} attach="target" />
-      </spotLight>
-
-      {/* RTV Cabinet SpotLight (Soft) */}
-      <spotLight
-        position={[-5.0, 4.0, 3.2]}
-        intensity={22}
-        angle={0.9}
-        penumbra={1}
-        decay={1.5}
-        color="#ffe4c4"
-        distance={8}
-      >
-        <object3D position={[-6.0, 0.6, 3.2]} attach="target" />
-      </spotLight>
-
-      {/* Soft fill z frontu */}
-      <directionalLight position={[0, 3, 5]} intensity={0.12} color="#ffe8d0" />
+      <CreatorRoomLightingRig />
 
       {/* STAGE 1: Static Architecture (Fastest Load) */}
       <Suspense fallback={<RoomArchitectureFallback />}>
@@ -986,18 +826,13 @@ export function CreatorRoomMVP({
           {/* {!isMobile && (
             <PortalEffect position={[0, 2.5, 0.3]} radius={1.2} active={true} />
           )} */}
-          <pointLight position={[0, 2.5, -2]} intensity={1.45} color="#ff9f52" distance={5} decay={2} />
         </group>
 
-        {/* Back wall — ciepły akcent */}
-        <pointLight position={[1.9, 3.0, -4.8]} intensity={1.25} color="#ffd39a" distance={4.7} decay={2} />
-        {/* Cool rim fill — przełamuje pomarańczową paletę */}
-        <pointLight position={[-6.5, 4.0, -4.5]} intensity={0.32} color="#8a93ac" distance={8} decay={2} />
         <mesh position={[0, 2.5, -6]} castShadow receiveShadow>
           <boxGeometry args={[14, 5, 0.5]} />
           <meshStandardMaterial color="#4a2d1d" roughness={0.86} metalness={0.02} />
         </mesh>
-        <StudioReferenceCoveLight />
+
 
         <TechnicalTrim position={[-6.72, 2.5, -5.74]} args={[0.06, 5.0, 0.04]} />
         <TechnicalTrim position={[6.72, 2.5, -5.74]} args={[0.06, 5.0, 0.04]} />
@@ -1062,14 +897,11 @@ export function CreatorRoomMVP({
         </group>
 
         {/* RTV Cabinet — heavy 4K model, distance-culled */}
-        <DistanceCulledModel maxDistance={16}>
-          <AutoCenteredModel
-            url="/models/optimized/modern_wooden_cabinet.glb"
-            position={[decorControls.rtvPosX, decorControls.rtvPosY, decorControls.rtvPosZ]}
-            rotation={[0, THREE.MathUtils.degToRad(decorControls.rtvRotY), 0]}
-            scale={decorControls.rtvScale}
-          />
-        </DistanceCulledModel>
+        <group position={[decorControls.rtvPosX, decorControls.rtvPosY, decorControls.rtvPosZ]} rotation={[0, THREE.MathUtils.degToRad(decorControls.rtvRotY), 0]} scale={decorControls.rtvScale}>
+          <DistanceCulledModel maxDistance={16}>
+            <AutoCenteredModel url="/models/optimized/modern_wooden_cabinet.glb" />
+          </DistanceCulledModel>
+        </group>
       </Suspense>
 
       {/* STAGE 3: Props & Interactive Elements (Heaviest/Lowest Priority) */}
@@ -1174,16 +1006,14 @@ export function CreatorRoomMVP({
         </group>
 
         {/* Sofa in the room — heavy model, distance-culled */}
-        <DistanceCulledModel maxDistance={16}>
           <group
             position={[decorControls.sofaPosX, decorControls.sofaPosY, decorControls.sofaPosZ]}
             rotation={[0, THREE.MathUtils.degToRad(decorControls.sofaRotY), 0]}
             scale={decorControls.sofaScale}
           >
             {/* SofaRaw self-centers via bbox; scale is on the GROUP, not on primitive */}
-            <SofaRaw />
+            <DistanceCulledModel maxDistance={16}><SofaRaw /></DistanceCulledModel>
           </group>
-        </DistanceCulledModel>
 
         {/* Horizontal vocal booth window integrated into the left acoustic wall. */}
         <group
@@ -1234,6 +1064,7 @@ export function CreatorRoomMVP({
 
         {/* Focal screen: always rendered, texture swapped imperatively. */}
         <group
+           ref={screenRef}
            position={[hudControls.hudPosX, hudControls.hudPosY, hudControls.hudPosZ]}
            rotation={[
              THREE.MathUtils.degToRad(hudControls.hudRotX),
@@ -1242,7 +1073,7 @@ export function CreatorRoomMVP({
            ]}
            scale={[hudControls.hudScale, hudControls.hudScale, hudControls.hudScale]}
         >
-           <pointLight position={[0, 0, 0.34]} intensity={2.4} color="#ff8c42" distance={4.2} decay={2} />
+           <CreatorLight name="screen-fill" channel="screen" position={[0, 0, 0.34]} intensity={2.4} distance={4.2} decay={2} />
            <StudioDisplayWall
              videoTexture={screenTex}
              fallbackVisible={!screenTex}
@@ -1250,7 +1081,7 @@ export function CreatorRoomMVP({
         </group>
 
         {/* ── AUDIO REACTIVE CEILING NEON ── */}
-        <RoomPerimeterNeon y={5.05} />
+        <CreatorPerimeterLights />
 
         {/* ── LAPTOP INTERACTIVE ZONE – otwiera HUD panel ── */}
         <group
@@ -1295,5 +1126,7 @@ export function CreatorRoomMVP({
 
       </Suspense>
     </group>
+    </CreatorLightingProvider>
+    </CreatorRoomProfileContext.Provider>
   );
 }

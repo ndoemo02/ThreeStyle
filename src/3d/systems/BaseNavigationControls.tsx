@@ -132,9 +132,11 @@ export function BaseNavigationControls() {
     };
 
     const swallowImmediateRelock = (event: MouseEvent) => {
-      if (useHudStore.getState().isOpen || !(event.target instanceof Element)
-        || !event.target.closest('.b3p-canvas-wrap')
-        || Date.now() >= pointerLockCooldownUntil.current) return;
+      if (!(event.target instanceof Element) || !event.target.closest('.b3p-canvas-wrap')) return;
+      if (useHudStore.getState().isOpen) {
+        // The device opens the HUD on pointerup, before Drei's native click can lock again.
+        if (useTransitionStore.getState().activeZone !== ROOM_ZONE) return;
+      } else if (Date.now() >= pointerLockCooldownUntil.current) return;
       event.stopImmediatePropagation();
       event.preventDefault();
     };

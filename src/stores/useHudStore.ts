@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { CreatorMediaItem, PlaybackStatus } from '../lib/creatorMedia';
+import { CREATOR_LIGHTING_PRESETS, patchCreatorLighting, type CreatorLightingSettings } from '../lib/creatorLighting';
 
 interface HudState {
   isOpen: boolean;
@@ -12,6 +13,9 @@ interface HudState {
   activeMedia: CreatorMediaItem | null;
   playbackStatus: PlaybackStatus;
   roomMood: 'warm' | 'focus' | 'night';
+  lighting: CreatorLightingSettings;
+  setLighting: (patch: Partial<CreatorLightingSettings>) => void;
+  resetLighting: () => void;
   setRoomMood: (mood: 'warm' | 'focus' | 'night') => void;
   setMediaState: (media: CreatorMediaItem | null, status: PlaybackStatus) => void;
   openHud: (screenId: string) => void;
@@ -34,7 +38,10 @@ export const useHudStore = create<HudState>((set) => ({
   activeMedia: null,
   playbackStatus: 'idle',
   roomMood: 'warm',
-  setRoomMood: (roomMood) => set({ roomMood }),
+  lighting: { ...CREATOR_LIGHTING_PRESETS.warm },
+  setRoomMood: (roomMood) => set({ roomMood, lighting: { ...CREATOR_LIGHTING_PRESETS[roomMood] } }),
+  setLighting: (patch) => set(state => ({ lighting: patchCreatorLighting(state.lighting, patch) })),
+  resetLighting: () => set({ roomMood: 'warm', lighting: { ...CREATOR_LIGHTING_PRESETS.warm } }),
   setMediaState: (activeMedia, playbackStatus) => set({ activeMedia, playbackStatus, isPlaying: playbackStatus === 'playing' }),
   openHud: (screenId) => set({ isOpen: true, activeScreenId: screenId }),
   closeHud: () => set({ isOpen: false, activeScreenId: null }),

@@ -41,7 +41,7 @@ export function useCreatorMedia(videoRef: RefObject<HTMLVideoElement | null>, au
       try {
         const ctx = new AudioContext();
         const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
+        analyser.fftSize = 512;
         analyser.smoothingTimeConstant = 0.8;
         // Both persistent elements share one graph, including after HUD close/reopen.
         for (const el of [videoRef.current, audioRef.current]) {

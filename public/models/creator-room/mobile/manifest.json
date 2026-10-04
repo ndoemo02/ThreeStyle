@@ -1,0 +1,50 @@
+[
+  {
+    "name": "ipad_pro_2024",
+    "before": {
+      "triangles": 136864,
+      "primitives": 46,
+      "materials": 38,
+      "textures": 36
+    },
+    "after": {
+      "triangles": 23962,
+      "primitives": 37,
+      "materials": 37,
+      "textures": 36
+    },
+    "bytes": 485616
+  },
+  {
+    "name": "mic-transformed",
+    "before": {
+      "triangles": 106448,
+      "primitives": 2,
+      "materials": 2,
+      "textures": 2
+    },
+    "after": {
+      "triangles": 11718,
+      "primitives": 2,
+      "materials": 2,
+      "textures": 2
+    },
+    "bytes": 72380
+  },
+  {
+    "name": "organizer",
+    "before": {
+      "triangles": 50107,
+      "primitives": 24,
+      "materials": 24,
+      "textures": 10
+    },
+    "after": {
+      "triangles": 12512,
+      "primitives": 23,
+      "materials": 23,
+      "textures": 6
+    },
+    "bytes": 211480
+  }
+]

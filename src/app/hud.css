@@ -74,6 +74,33 @@
 .creator-moods legend { font-size: 11px; color: var(--deck-muted); margin-bottom: 8px; }
 .creator-moods button { flex: 1; min-height: 44px; border: 1px solid var(--deck-line); border-radius: 10px; color: var(--deck-muted); background: transparent; font-size: 11px; }
 .creator-moods button[aria-pressed=true] { color: var(--deck-accent); border-color: var(--deck-accent); }
+.creator-deck-tabs { display: flex; padding: 0 20px; border-bottom: 1px solid var(--deck-line); flex-shrink: 0; }
+.creator-deck-tabs button { flex: 1; min-height: 44px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--deck-muted); font-size: 12px; }
+.creator-deck-tabs button[aria-selected=true] { color: var(--deck-accent); border-bottom-color: var(--deck-accent); }
+.creator-tab-panel[hidden] { display: none; }
+.creator-lighting-intro h2 { font-size: 15px; margin: 0 0 5px; }
+.creator-lighting-intro p { color: var(--deck-muted); font-size: 11px; line-height: 1.5; margin: 0; }
+.creator-lighting-panel .creator-moods { margin-top: 14px; }
+.creator-lighting-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; margin: 18px 0; }
+.creator-light-slider { min-width: 0; }
+.creator-light-slider > span { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; line-height: 1.5; }
+.creator-light-slider output { color: var(--deck-accent); font: 10px var(--font-geist-mono), monospace; }
+.creator-light-slider input { width: 100%; margin: 3px 0 0; }
+.creator-light-slider.is-disabled { opacity: .45; }
+.creator-light-colors { margin: 0 0 16px; padding: 0; border: 0; }
+.creator-light-colors legend { font-size: 11px; color: var(--deck-muted); margin-bottom: 8px; }
+.creator-light-colors > div { display: flex; gap: 8px; align-items: center; }
+.creator-light-colors button { width: 44px; height: 44px; border: 1px solid var(--deck-line); border-radius: 12px; background: radial-gradient(circle, var(--swatch) 0 9px, transparent 10px), #ffffff04; }
+.creator-light-colors button[aria-pressed=true] { border-color: var(--swatch); box-shadow: inset 0 0 0 1px var(--swatch); }
+.creator-custom-color { display: flex; align-items: center; gap: 7px; font-size: 10px; color: var(--deck-muted); }
+.creator-custom-color input { width: 44px; height: 44px; border: 1px solid var(--deck-line); border-radius: 12px; padding: 7px; background: transparent; cursor: pointer; }
+.creator-light-reactive { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-top: 1px solid var(--deck-line); }
+.creator-light-reactive > span { flex: 1; }
+.creator-light-reactive strong { display: block; font-size: 12px; font-weight: 500; }
+.creator-light-reactive small { display: block; margin-top: 4px; font-size: 10px; line-height: 1.5; color: var(--deck-muted); }
+.creator-light-reactive input { accent-color: var(--deck-accent); width: 22px; height: 22px; margin: 11px; flex-shrink: 0; }
+.creator-light-reset { width: 100%; }
+.is-light-page .creator-audio-meter { display: none; }
 @media (max-width: 600px) {
   .creator-deck-layer { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); align-items: flex-end; }
   .creator-deck { width: 100%; max-height: calc(100dvh - 56px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); border-radius: 20px; }
@@ -87,6 +114,10 @@
   .creator-deck { width: 380px; max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); border-radius: 18px; }
   .creator-deck-header { padding: 10px 14px; } .creator-deck-body { padding: 10px 14px; } .creator-deck-actions { margin-bottom: 10px; }
   .creator-player { padding: 10px 14px 6px; } .creator-player-top { margin-bottom: 4px; } .creator-audio-meter, .creator-return { display: none; }
+  .creator-deck-tabs { padding: 0 14px; }
+  .is-light-page .creator-player-art { display: none; }
+  .is-light-page .creator-player-top { min-height: 44px; margin-bottom: 0; }
+  .creator-lighting-intro p { display: none; }
   .creator-media-cover { aspect-ratio: 1.5; }
 }
 @media (prefers-reduced-motion: reduce) { .creator-deck-layer { transition: none; } }

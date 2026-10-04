@@ -1,24 +1,17 @@
 "use client";
 
-import { useMemo, useRef, useLayoutEffect } from 'react';
+import { useMemo, useRef, useLayoutEffect, useEffect } from 'react';
 import * as THREE from 'three';
 import { useTexture, useGLTF } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { AcousticFoamWall } from './CreatorRoomMVP';
+import { creatorModelUrl, useCreatorRoomMobile } from './CreatorRoomProfile';
+import { CreatorLight } from './CreatorLighting';
+import { disposeCreatorRoomMaterials } from './creatorRoomMaterials';
 
 // ══════════════════════════════════════════════════════════════════════════
 // PRELOAD HEAVY MODELS
 // ══════════════════════════════════════════════════════════════════════════
-useGLTF.preload('/models/optimized/mic-transformed.glb');
-
-const light = {
-  mainIntensity: 3.5,
-  fillIntensity: 1.8,
-  accentIntensity: 8,
-  ceilingIntensity: 8,
-  ambientIntensity: 0.15,
-  lightColor: '#ffffff',
-};
 
 const mic = {
   posX: 2.61,
@@ -30,7 +23,8 @@ const mic = {
 
 // ─── Real Microphone Component ───────────────────────────────────────────────
 function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, number, number], rotation?: [number, number, number], scale?: number }) {
-  const { scene } = useGLTF('/models/optimized/mic-transformed.glb') as { scene: THREE.Group };
+  const mobile = useCreatorRoomMobile();
+  const { scene } = useGLTF(creatorModelUrl('/models/optimized/mic-transformed.glb', mobile)) as { scene: THREE.Group };
   const processedScene = useMemo(() => {
     const clone = scene.clone();
     clone.traverse((n) => {
@@ -62,6 +56,7 @@ function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, n
 
     return clone;
   }, [scene]);
+  useEffect(() => () => disposeCreatorRoomMaterials(processedScene), [processedScene]);
   return (
     <group position={position} rotation={rotation || [0, 0, 0]} scale={scale}>
       <primitive object={processedScene} />
@@ -72,6 +67,7 @@ function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, n
 
 // ──────────────────────────────────────────────────────────────────────────────
 export function VocalBooth({ position = [0, 0, 0] as [number, number, number] }) {
+  const mobile = useCreatorRoomMobile();
   const { gl } = useThree();
   const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl]);
   const W = 6.6;
@@ -79,8 +75,8 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
   const D = 3.6;
 
   const [rawSonomaTex, rawFilcTex] = useTexture([
-    '/textures/vocal/wood.jpg',
-    '/textures/vocal/felt.jpg'
+    mobile ? '/textures/runtime/creator-room/mobile/vocal/wood.webp' : '/textures/vocal/wood.jpg',
+    mobile ? '/textures/runtime/creator-room/mobile/vocal/felt.webp' : '/textures/vocal/felt.jpg'
   ]) as THREE.Texture[];
 
   const { sonomaTex, filcTex } = useMemo(() => {
@@ -95,6 +91,8 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
     filcTex.needsUpdate = true;
     return { sonomaTex, filcTex };
   }, [rawSonomaTex, rawFilcTex, W, H, anisotropy]);
+
+  useEffect(() => () => { sonomaTex.dispose(); filcTex.dispose(); }, [sonomaTex, filcTex]);
 
   const slatCount = 132; // Back wall slats
   const slatMatrix = useMemo(() => new THREE.Matrix4(), []);
@@ -115,13 +113,7 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
     <group position={position}>
 
       {/* ── Lighting ── */}
-      <pointLight position={[0, H - 0.3, -D * 0.5]} intensity={light.mainIntensity} color={light.lightColor} distance={5} decay={1.8} />
-      <pointLight position={[0, H * 0.55, -0.15]} intensity={light.fillIntensity} color={light.lightColor} distance={4} decay={2} />
-      <pointLight position={[0.3, 1.7, -D * 0.45]} intensity={light.accentIntensity} color="#ff9944" distance={2.5} decay={2} />
-      <pointLight position={[0, H - 0.1, -D * 0.3]} intensity={light.ceilingIntensity} color={light.lightColor} distance={4} decay={2} />
-      <ambientLight intensity={light.ambientIntensity} color="#fff8ee" />
-      {/* ON AIR neon glow */}
-      <pointLight position={[0, H - 0.08, -0.05]} intensity={1.2} color="#ff2200" distance={1.2} decay={2} />
+      <CreatorLight channel="booth" name="booth-fill" position={[0, H - 0.3, -D * 0.5]} intensity={12} distance={5} decay={1.8} />
 
       {/* ── Floor / Ceiling ── */}
       <mesh position={[0, 0.02, -D / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
