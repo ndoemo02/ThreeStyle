@@ -16,6 +16,7 @@ import { ElevatorA } from '../../3d/world/elevators/ElevatorA';
 import { getCameraPreset, HUB_ZONE, ROOM_ZONE, EVENT_ROOM_ZONE } from '../../3d/navigation/navigationConfig';
 import { shouldUseMobileRoomProfileInBrowser } from '../../lib/deviceProfile';
 import { CreatorMobileQuality } from '../../3d/world/rooms/CreatorMobileQuality';
+import { CreatorComposerResolution } from '../../3d/world/rooms/CreatorComposerResolution';
 
 const loadGroundedHub = () => import('../../3d/world/hub/GroundedHub');
 const GroundedHub = dynamic(
@@ -231,6 +232,7 @@ export default function B3PPage() {
         {!isEventRoomZone && (isMobile || !usesCreatorRoomPipeline) && (
           <EffectComposer multisampling={0}>
             <SMAA />
+            <CreatorComposerResolution enabled={usesCreatorRoomPipeline && isMobile} />
           </EffectComposer>
         )}
         {!isMobile && usesCreatorRoomPipeline ? <AudioVisualizer /> : null}
