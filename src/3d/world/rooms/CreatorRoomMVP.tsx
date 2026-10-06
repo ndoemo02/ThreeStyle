@@ -16,6 +16,7 @@ import { useCreatorScreenTexture } from './useCreatorScreenTexture';
 import { CreatorMediaSurface } from './CreatorMediaSurface';
 import { useSceneInteraction } from '../../systems/useSceneInteraction';
 import { isInteractionTap } from '../../systems/sceneInteractionPolicy';
+import { SceneReadySignal } from '../../systems/SceneReadySignal';
 
 // ══════════════════════════════════════════════════════════════════════════
 // 0. Runtime loading diagnostics
@@ -107,14 +108,6 @@ const artControls = {
   repeatX: 1,
   repeatY: 1,
 };
-
-function StageReadySignal({ onReady }: { onReady?: () => void }) {
-  useEffect(() => {
-    onReady?.();
-  }, [onReady]);
-
-  return null;
-}
 
 const globalTrimMaterial = new THREE.MeshStandardMaterial({ color: '#060504', roughness: 0.96, metalness: 0.02 });
 const roomFallbackWallMaterial = new THREE.MeshStandardMaterial({ color: '#4b2f1f', roughness: 0.92 });
@@ -880,6 +873,7 @@ export function CreatorRoomMVP({
 
         {/* Right acoustic wall remains the desk/screen zone boundary. */}
         <AcousticFoamWall position={[7, wallHeight / 2, -0.5]} rotation={[0, -Math.PI / 2, 0]} args={[15.2, wallHeight, 0.5]} />
+        <SceneReadySignal onReady={onShellReady} />
       </Suspense>
 
       {/* STAGE 2: Primary Furniture (Mid-weight assets) */}
@@ -1122,7 +1116,6 @@ export function CreatorRoomMVP({
 
         {/* ── PARTICLE WAVE FLOOR — DISABLED */}
         {/* {!isMobile && <ParticleWaveFloor count={5000} size={16} />} */}
-        <StageReadySignal onReady={onShellReady} />
 
       </Suspense>
     </group>

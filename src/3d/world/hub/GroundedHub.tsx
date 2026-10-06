@@ -7,6 +7,7 @@ import { HubShell } from './HubShell';
 import { getInitialLobbyQuality, getLobbyAreaLights, type LobbyQualityProfile } from './lobbyConfig';
 import { useLobbyMaterials } from './LobbyMaterials';
 import { LobbyPerformanceGovernor } from './LobbyPerformanceGovernor';
+import { SceneReadySignal } from '../../systems/SceneReadySignal';
 
 function LobbyFallback() {
   return (
@@ -25,11 +26,13 @@ function LobbyScene({
   quality,
   onQualityChange,
   onEnterRoom,
+  onReady,
 }: {
   isMobile: boolean;
   quality: LobbyQualityProfile;
   onQualityChange: (quality: LobbyQualityProfile) => void;
   onEnterRoom: (id: string) => void;
+  onReady?: () => void;
 }) {
   const materials = useLobbyMaterials(isMobile, quality);
   const restoreDpr = useMemo(() => {
@@ -55,13 +58,14 @@ function LobbyScene({
           rotation={[-Math.PI / 2, 0, 0]}
         />
       ))}
-      <HubShell materials={materials} planterCount={quality.planterCount} />
+      <HubShell materials={materials} planterCount={quality.planterCount} low={quality.id.endsWith('-low')} />
       <LeftWingCorridor materials={materials} onEnterRoom={onEnterRoom} />
+      <SceneReadySignal onReady={onReady} />
     </group>
   );
 }
 
-export function GroundedHub({ onEnterRoom }: { onEnterRoom?: (id: string) => void }) {
+export function GroundedHub({ onEnterRoom, onReady }: { onEnterRoom?: (id: string) => void; onReady?: () => void }) {
   const [isMobile, setIsMobile] = useState(() => (
     typeof window !== 'undefined' && shouldUseMobileRoomProfileInBrowser()
   ));
@@ -92,6 +96,7 @@ export function GroundedHub({ onEnterRoom }: { onEnterRoom?: (id: string) => voi
         quality={quality}
         onQualityChange={handleQualityChange}
         onEnterRoom={handleEnterRoom}
+        onReady={onReady}
       />
     </Suspense>
   );

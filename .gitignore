@@ -62,3 +62,8 @@ next-env.d.ts
 
 # One-off diagnostic scripts
 /scripts/alibaba_api_diagnose.py
+
+# Local browser QA and unrelated scratch models
+/.playwright-mcp/
+/tests/mersh-kiwi-look.glb
+/tests/y7ybxj8p.glb

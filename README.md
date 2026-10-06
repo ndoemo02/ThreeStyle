@@ -1,36 +1,34 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ThreeStyle — Blok Trzech Pięter
 
-## Getting Started
+Interaktywna przestrzeń muzyczna: Creator Room, media deck, lobby/hol i przejazdy windą. Next.js 16, React 19, Three.js / React Three Fiber, Supabase.
 
-First, run the development server:
+## Stan i wznowienie
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+**Aktualny checkpoint:** [2026-10-06 — zakres, weryfikacja i następne kroki](docs/checkpoint-resume-2026-10-06.md).
+
+Creator Room odtwarza media i przyjmuje pliki sesyjne. Baza Supabase z profilami i prywatnym magazynem jest aktywna; formularz Auth i trwały upload w HUD wymagają podłączenia. Landing z drzwiami windy jest na etapie przygotowania grafik. `/` obecnie przekierowuje na `/b3p`, start w Creator Roomie.
+
+## Lokalnie
+
+```powershell
+npm.cmd ci
+npm.cmd run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Otwórz http://localhost:3001/b3p. Konfiguracja kont według [raportu Supabase](docs/supabase-accounts-media-2026-10-05.md) i [szablonu zmiennych](docs/supabase.env.example). `.env.local` oraz tokeny zarządzania pozostają prywatne.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```powershell
+npm.cmd run test:accounts
+npm.cmd run build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Wszystkie testy: Node `--experimental-strip-types --test` dla plików `tests/*.test.ts` i `tests/*.test.mjs`.
 
-## Learn More
+## Dokumentacja
 
-To learn more about Next.js, take a look at the following resources:
+- [Lobby i winda](docs/lobby-elevator-checkpoint-2026-10-04.md)
+- [Charakter i koszt renderowania lobby](docs/lobby-character-checkpoint-2026-10-05.md)
+- [Kierunek wejścia i logowania](docs/entry-login-direction-2026-10-05.md)
+- [Kontrakt HUD i pokoju](docs/threestyle_hud_room_contract.md)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Emulacja mobile nie zastępuje pomiarów na telefonie. Zakres kolejnych prac: landing/Auth → wejście do lobby → prywatna biblioteka/upload; Arena/Stage 7 pozostają osobnym zakresem.

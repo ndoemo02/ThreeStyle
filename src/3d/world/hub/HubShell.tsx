@@ -5,6 +5,8 @@ import * as THREE from 'three';
 import { InstancedLobbyBoxes, MergedLobbyBoxes, MergedLobbyGlow, type LobbyBoxSpec, type LobbyInstanceTransform, type LobbyPlaneSpec } from './LobbyMeshes';
 import type { LobbyMaterials } from './LobbyMaterials';
 import { LobbySignage, type LobbySign } from './LobbySignage';
+import { LobbyCharacter } from './LobbyCharacter';
+import { LOBBY_SEAT_LED, LOBBY_SEAT_GLOW } from './lobbyCharacterLayout';
 
 const HUB_STONE: LobbyBoxSpec[] = [
   { position: [0, -0.045, 0], size: [30, 0.09, 20] },
@@ -15,7 +17,12 @@ const HUB_PLASTER: LobbyBoxSpec[] = [
   { position: [-5.5, 2.4, 10], size: [17, 4.8, 0.36] },
   { position: [9.5, 2.4, 10], size: [9, 4.8, 0.36] },
   { position: [10, 2.4, 0], size: [20, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
-  { position: [-10, 2.4, 3.1], size: [13.8, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
+  // A shallow seating niche behind the original wall plane, off the travel route.
+  { position: [-10, 2.4, -2.4], size: [2.8, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
+  { position: [-10, 2.4, 7.1], size: [5.8, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
+  { position: [-10, 4.2, 1.6], size: [5.2, 1.2, 0.36], rotation: [0, Math.PI / 2, 0] },
+  { position: [-10.48, 1.8, -1.1], size: [1.3, 3.6, 0.2] },
+  { position: [-10.48, 1.8, 4.3], size: [1.3, 3.6, 0.2] },
   { position: [-10, 2.4, -8.1], size: [3.8, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
 ];
 
@@ -24,6 +31,7 @@ const HUB_DARK: LobbyBoxSpec[] = [
 ];
 
 const HUB_WOOD: LobbyBoxSpec[] = [
+  { position: [-10.95, 1.8, 1.6], size: [5.2, 3.6, 0.36], rotation: [0, Math.PI / 2, 0] },
   { position: [0, 0.12, -9.78], size: [28, 0.16, 0.12] },
   { position: [9.78, 0.12, 0], size: [0.12, 0.16, 19.5] },
   { position: [-9.78, 2.35, -6.3], size: [0.12, 4.5, 0.14] },
@@ -32,6 +40,7 @@ const HUB_WOOD: LobbyBoxSpec[] = [
 ];
 
 const HUB_LED: LobbyBoxSpec[] = [
+  ...LOBBY_SEAT_LED,
   { position: [0, 4.66, -7.2], size: [25.5, 0.035, 0.045] },
   { position: [0, 4.66, 7.2], size: [25.5, 0.035, 0.045] },
   { position: [-8.8, 4.66, 0], size: [0.045, 0.035, 13.8] },
@@ -39,6 +48,7 @@ const HUB_LED: LobbyBoxSpec[] = [
 ];
 
 const HUB_GLOW: LobbyPlaneSpec[] = [
+  ...LOBBY_SEAT_GLOW,
   { position: [0, 4.63, -7.2], size: [25.5, 0.65], rotation: [Math.PI / 2, 0, 0] },
   { position: [0, 4.63, 7.2], size: [25.5, 0.65], rotation: [Math.PI / 2, 0, 0] },
   { position: [-8.8, 4.63, 0], size: [13.8, 0.65], rotation: [Math.PI / 2, Math.PI / 2, 0] },
@@ -128,9 +138,11 @@ function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMa
 export function HubShell({
   materials,
   planterCount,
+  low = false,
 }: {
   materials: LobbyMaterials;
   planterCount: number;
+  low?: boolean;
 }) {
   return (
     <group>
@@ -155,6 +167,7 @@ export function HubShell({
         transforms={CEILING_BAFFLES}
       />
       <LobbyPlanters count={planterCount} materials={materials} />
+      <LobbyCharacter materials={materials} low={low} />
     </group>
   );
 }

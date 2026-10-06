@@ -9,13 +9,17 @@
     "start": "next start",
     "lint": "eslint",
     "assets:creator-room": "node scripts/build-creator-room-mobile-assets.mjs",
-    "assets:lobby": "node scripts/build-lobby-atlases.mjs"
+    "assets:lobby": "node scripts/build-lobby-atlases.mjs",
+    "test:accounts": "node --experimental-strip-types --test tests/accountDatabase.test.mjs tests/accountMedia.test.ts tests/accountLibrary.test.ts",
+    "supabase": "node scripts/supabase-cli.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@react-three/postprocessing": "^3.0.4",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.117.2",
     "@types/three": "^0.183.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.34.3",
@@ -30,6 +34,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@gltf-transform/cli": "^4.3.0",
     "@gltf-transform/core": "^4.3.0",
     "@gltf-transform/extensions": "^4.3.0",
@@ -44,9 +49,10 @@
     "eslint-config-next": "16.1.6",
     "ktx": "^0.0.1-beta",
     "meshopt-decoder": "^1.0.2",
+    "meshoptimizer": "^1.0.1",
     "sharp": "^0.34.5",
+    "supabase": "2.119.0",
     "tailwindcss": "^4",
-    "typescript": "5.9.3",
-    "meshoptimizer": "^1.0.1"
+    "typescript": "5.9.3"
   }
 }

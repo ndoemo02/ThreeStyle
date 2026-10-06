@@ -12,3 +12,6 @@ public/media/video/Spodek_odleciał_z_miejsca_202604292318.mp4 -filter -diff -me
 "public/media/video/Veo3 Generated Video.mp4" -filter -diff -merge -text
 public/media/video/day-cycle.mp4 -filter -diff -merge -text
 public/media/video/spodek.mp4 -filter -diff -merge -text
+
+# All media used by the web player must be real Git blobs, including audio-folder MP4s.
+public/media/**/*.mp4 -filter -diff -merge -text

@@ -50,8 +50,8 @@ export function HudOverlay() {
   return (
     <>
       <div className="creator-media-host" aria-hidden="true">
-        <video ref={videoRef} playsInline crossOrigin="anonymous" loop />
-        <audio ref={audioRef} crossOrigin="anonymous" loop />
+        <video ref={videoRef} playsInline preload="metadata" crossOrigin="anonymous" loop />
+        <audio ref={audioRef} preload="metadata" crossOrigin="anonymous" loop />
         <video ref={cameraRef} playsInline muted />
       </div>
       <div className={`creator-deck-layer ${isOpen ? 'is-open' : ''}`} inert={!isOpen} aria-hidden={!isOpen} onClick={event => { if (event.target === event.currentTarget) closeHud(); }}>

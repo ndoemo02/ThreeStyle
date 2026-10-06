@@ -12,8 +12,8 @@ Podstawowa petla MVP:
 
 1. Uzytkownik wchodzi na landing.
 2. Loguje sie albo kontynuuje jako ograniczony visitor.
-3. Trafia do Creator Room.
-4. Laptop otwiera HUD jako dodatkowy panel na tle pokoju.
+3. Trafia przez lobby, do Creator Room, przez 'windę' która jest animacją  i daje czas na loading assets
+4. Laptop otwiera HUD jako dodatkowy panel XR na tle pokoju.
 5. Uzytkownik slucha, eksploruje, uploaduje albo glosuje.
 6. Ekran w pokoju pokazuje stan aktualnej sesji.
 7. Tygodniowy ranking porzadkuje discovery.

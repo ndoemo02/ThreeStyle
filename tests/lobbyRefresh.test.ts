@@ -98,3 +98,13 @@ test('ships one bounded static signage atlas for each device profile', async () 
     assert.ok(fileStat.size < 500_000, `${variant} signage must stay below 500 KB`);
   }
 });
+
+test('large welcome screen has its own resolution without inflating the mobile door atlas', async () => {
+  for (const [variant, width] of [['mobile', 1024], ['desktop', 2048]] as const) {
+    const file = path.resolve(import.meta.dirname, '..', 'public', 'textures', 'runtime', 'lobby', variant, 'welcome.webp');
+    const [metadata, fileStat] = await Promise.all([sharp(file).metadata(), stat(file)]);
+    assert.equal(metadata.width, width);
+    assert.equal(metadata.height, width / 2);
+    assert.ok(fileStat.size < 150_000, `${variant} welcome must stay below 150 KB`);
+  }
+});

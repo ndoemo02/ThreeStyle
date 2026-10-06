@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useLayoutEffect } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect, useCallback } from 'react';
 import * as THREE from 'three';
 import dynamic from 'next/dynamic';
 import { Canvas, useThree } from '@react-three/fiber';
@@ -17,6 +17,9 @@ import { getCameraPreset, HUB_ZONE, ROOM_ZONE, EVENT_ROOM_ZONE } from '../../3d/
 import { shouldUseMobileRoomProfileInBrowser } from '../../lib/deviceProfile';
 import { CreatorMobileQuality } from '../../3d/world/rooms/CreatorMobileQuality';
 import { CreatorComposerResolution } from '../../3d/world/rooms/CreatorComposerResolution';
+import { ElevatorOverlay } from '../../components/ElevatorOverlay';
+import { DestinationBoundary } from '../../3d/systems/DestinationBoundary';
+import { SceneDiagnostics } from '../../3d/systems/SceneDiagnostics';
 
 const loadGroundedHub = () => import('../../3d/world/hub/GroundedHub');
 const GroundedHub = dynamic(
@@ -79,6 +82,11 @@ export default function B3PPage() {
   const releaseElevator = useTransitionStore(s => s.releaseElevator);
   const elevatorState = useTransitionStore(s => s.elevatorState);
   const [roomShellReady, setRoomShellReady] = useState(false);
+  const [hubReady, setHubReady] = useState(false);
+  const [failedZone, setFailedZone] = useState<string | null>(null);
+  const onRoomReady = useCallback(() => setRoomShellReady(true), []);
+  const onHubReady = useCallback(() => setHubReady(true), []);
+  const onRideStart = useCallback(() => setFailedZone(null), []);
   const [isMobile, setIsMobile] = useState(false);
   const [profileReady, setProfileReady] = useState(false);
   const canvasDpr = useMemo<[number, number]>(() => isMobile ? [0.75, 1] : [1, 1], [isMobile]);
@@ -114,17 +122,21 @@ export default function B3PPage() {
     if (activeZone !== ROOM_ZONE) {
       setRoomShellReady(false);
     }
+    if (activeZone !== HUB_ZONE) setHubReady(false);
   }, [activeZone]);
 
   useEffect(() => {
     if (activeZone !== ROOM_ZONE || elevatorState === 'idle') return;
     void loadGroundedHub();
     const variant = isMobile ? 'mobile' : 'desktop';
-    for (const map of ['albedo.webp', 'normal.webp', 'orm.webp']) {
+    for (const map of ['albedo.webp', 'normal.webp', 'orm.webp', 'signage.webp', 'welcome.webp']) {
       const image = new Image();
       image.decoding = 'async';
       image.src = `/textures/runtime/lobby/${variant}/${map}`;
     }
+    const paint = new Image();
+    paint.decoding = 'async';
+    paint.src = '/textures/runtime/lobby/shared/character.webp';
   }, [activeZone, elevatorState, isMobile]);
 
   return (
@@ -247,23 +259,29 @@ export default function B3PPage() {
           </Suspense>
         )} */}
 
-        {activeZone === HUB_ZONE && <GroundedHub onEnterRoom={(id) => setActiveZone(id)} />}
+        {activeZone === HUB_ZONE && <DestinationBoundary key={activeZone} onFailure={() => setFailedZone(activeZone)}>
+          <GroundedHub onEnterRoom={(id) => setActiveZone(id)} onReady={onHubReady} />
+        </DestinationBoundary>}
         {isEventRoomZone && <EventRoomScene onExit={(zone) => setActiveZone(zone)} />}
         {isCreatorRoomZone && profileReady && (
-          <CreatorRoomMVP
+          <DestinationBoundary key={activeZone} onFailure={() => setFailedZone(activeZone)}><CreatorRoomMVP
             mobile={isMobile}
             onExit={() => setActiveZone(HUB_ZONE)}
-            onShellReady={() => setRoomShellReady(true)}
-          />
+            onShellReady={onRoomReady}
+          /></DestinationBoundary>
         )}
         
-        {/* Physical elevator: hub always, room only after the room shell is ready. */}
-        <ElevatorA visible={activeZone === HUB_ZONE || (activeZone === ROOM_ZONE && roomShellReady)} />
+        {/* Cabin stays mounted while the destination architecture loads behind closed doors. */}
+        <ElevatorA visible={activeZone === HUB_ZONE || activeZone === ROOM_ZONE}
+          destinationReady={activeZone === HUB_ZONE ? hubReady : roomShellReady}
+          destinationFailed={failedZone === activeZone} onRideStart={onRideStart} />
+        {process.env.NODE_ENV !== 'production' && <SceneDiagnostics ready={activeZone === HUB_ZONE ? hubReady : roomShellReady} />}
 
         <BaseNavigationControls />
       </Canvas>
       </div>
       <HudOverlay />
+      <ElevatorOverlay />
       <NativeMobileJoystick />
     </div>
   );
