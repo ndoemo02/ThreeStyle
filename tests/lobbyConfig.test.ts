@@ -34,7 +34,7 @@ test('selects deterministic desktop and mobile quality profiles', () => {
   });
   assert.deepEqual(getInitialLobbyQuality(true), {
     id: 'mobile',
-    dpr: 1,
+    dpr: 1.25,
     lightCount: 2,
     planterCount: 2,
     useNormalMaps: true,
@@ -45,8 +45,8 @@ test('degrades each quality profile at most once per lobby visit', () => {
   const mobileLow = getDegradedLobbyQuality(getInitialLobbyQuality(true));
   assert.deepEqual(mobileLow, {
     id: 'mobile-low',
-    dpr: 0.75,
-    lightCount: 1,
+    dpr: 1,
+    lightCount: 2,
     planterCount: 1,
     useNormalMaps: false,
   });

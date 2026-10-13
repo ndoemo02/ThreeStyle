@@ -48,7 +48,7 @@ const DESKTOP_LOW_QUALITY: LobbyQualityProfile = {
 
 const MOBILE_QUALITY: LobbyQualityProfile = {
   id: 'mobile',
-  dpr: 1,
+  dpr: 1.25,
   lightCount: 2,
   planterCount: 2,
   useNormalMaps: true,
@@ -56,8 +56,8 @@ const MOBILE_QUALITY: LobbyQualityProfile = {
 
 const MOBILE_LOW_QUALITY: LobbyQualityProfile = {
   id: 'mobile-low',
-  dpr: 0.75,
-  lightCount: 1,
+  dpr: 1,
+  lightCount: 2,
   planterCount: 1,
   useNormalMaps: false,
 };
@@ -70,6 +70,14 @@ export function getDegradedLobbyQuality(profile: LobbyQualityProfile): LobbyQual
   if (profile.id === 'mobile') return MOBILE_LOW_QUALITY;
   if (profile.id === 'desktop') return DESKTOP_LOW_QUALITY;
   return profile;
+}
+
+/** Recover clarity after a sustained healthy window; never supersample at native phone DPR. */
+export function nextLobbyDpr(current: number, max: number, frameMs: number, moving: boolean) {
+  const ceiling = Math.min(max, moving ? 1.25 : 1.5);
+  if (frameMs > 36) return Math.min(max, Math.max(1, current - 0.25));
+  if (frameMs < 20) return Math.min(ceiling, current + 0.25);
+  return Math.min(current, ceiling);
 }
 
 export function shouldDegradeLobbyQuality(

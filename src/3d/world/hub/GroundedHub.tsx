@@ -8,6 +8,14 @@ import { getInitialLobbyQuality, getLobbyAreaLights, type LobbyQualityProfile } 
 import { useLobbyMaterials } from './LobbyMaterials';
 import { LobbyPerformanceGovernor } from './LobbyPerformanceGovernor';
 import { SceneReadySignal } from '../../systems/SceneReadySignal';
+import { useThree } from '@react-three/fiber';
+import type { WebGLRenderer } from 'three';
+
+function lobbyExposure(renderer: WebGLRenderer) {
+  const previous = renderer.toneMappingExposure;
+  renderer.toneMappingExposure = 1.1;
+  return () => { renderer.toneMappingExposure = previous; };
+}
 
 function LobbyFallback() {
   return (
@@ -34,6 +42,8 @@ function LobbyScene({
   onEnterRoom: (id: string) => void;
   onReady?: () => void;
 }) {
+  const gl = useThree(s => s.gl);
+  useEffect(() => lobbyExposure(gl), [gl]);
   const materials = useLobbyMaterials(isMobile, quality);
   const restoreDpr = useMemo(() => {
     if (typeof window === 'undefined') return isMobile ? 1 : 1.5;

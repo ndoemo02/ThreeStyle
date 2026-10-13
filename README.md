@@ -4,9 +4,9 @@ Interaktywna przestrzeń muzyczna: Creator Room, media deck, lobby/hol i przejaz
 
 ## Stan i wznowienie
 
-**Aktualny checkpoint:** [2026-10-06 — zakres, weryfikacja i następne kroki](docs/checkpoint-resume-2026-10-06.md).
+**Aktualny checkpoint:** [2026-10-13 — korekta intro/mobile i test Auth](docs/entry-mobile-correction-2026-10-13.md). Baza wejścia: [2026-10-12](docs/entry-lobby-checkpoint-2026-10-12.md). Poprzedni pełny checkpoint: [2026-10-06](docs/checkpoint-resume-2026-10-06.md).
 
-Creator Room odtwarza media i przyjmuje pliki sesyjne. Baza Supabase z profilami i prywatnym magazynem jest aktywna; formularz Auth i trwały upload w HUD wymagają podłączenia. Landing z drzwiami windy jest na etapie przygotowania grafik. `/` obecnie przekierowuje na `/b3p`, start w Creator Roomie.
+Strona główna ma responsywny landing, formularz Supabase i zsynchronizowane wejście przez drzwi do lobby; demo jest osobną, jawną opcją. `/b3p` nadal startuje w Creator Roomie. Baza profili i prywatny magazyn są aktywne. HUD nadal przyjmuje pliki sesyjne; trwały upload pozostaje do podłączenia. Test logowania, sesji po reload i wylogowania PASS; konfiguracja SMTP i dostarczanie wiadomości wymagają domknięcia przed otwartą rejestracją.
 
 ## Lokalnie
 
@@ -15,7 +15,7 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-Otwórz http://localhost:3001/b3p. Konfiguracja kont według [raportu Supabase](docs/supabase-accounts-media-2026-10-05.md) i [szablonu zmiennych](docs/supabase.env.example). `.env.local` oraz tokeny zarządzania pozostają prywatne.
+Otwórz http://localhost:3001 (landing) lub http://localhost:3001/b3p (bezpośrednie demo pokoju). Konfiguracja kont według [raportu Supabase](docs/supabase-accounts-media-2026-10-05.md) i [szablonu zmiennych](docs/supabase.env.example). `.env.local` oraz tokeny zarządzania pozostają prywatne.
 
 ```powershell
 npm.cmd run test:accounts

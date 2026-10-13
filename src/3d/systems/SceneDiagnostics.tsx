@@ -3,6 +3,9 @@ import { useEffect, useRef } from 'react';
 import { useThree } from '@react-three/fiber';
 import { useTransitionStore } from '../../store/useTransitionStore';
 import { useElevatorUiStore } from '../../stores/useElevatorUiStore';
+import { useEntryStore } from '../../stores/useEntryStore';
+import * as THREE from 'three';
+import { ENTRY } from '../../lib/entryTransition';
 
 export function SceneDiagnostics({ ready }: { ready: boolean }) {
   const get = useThree(s => s.get);
@@ -35,12 +38,17 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
       const scene = get();
       const navigation = useTransitionStore.getState();
       const cabin = scene.scene.getObjectByName('creator-elevator-cabin');
+      const seam = new THREE.Vector3(ENTRY.x, 2.325, ENTRY.z + 0.087).project(scene.camera);
       return JSON.stringify({
         coordinateSystem: 'Y up; camera forward follows view, metres',
         zone: navigation.activeZone, origin: navigation.originZone, target: navigation.targetZone,
         elevator: navigation.elevatorState, rideStatus: useElevatorUiStore.getState().rideStatus,
         canRide: useElevatorUiStore.getState().available,
         camera: scene.camera.position.toArray(), dpr: scene.gl.getPixelRatio(),
+        exposure: scene.gl.toneMappingExposure,
+        entry: { phase: useEntryStore.getState().phase,
+          seam: [(seam.x + 1) * scene.size.width / 2, (1 - seam.y) * scene.size.height / 2],
+          doors: ['landing-door-left', 'landing-door-right'].map(name => scene.scene.getObjectByName(name)?.position.x) },
         canvas: [scene.gl.domElement.width, scene.gl.domElement.height],
         cabin: cabin ? { visible: cabin.visible, doors: cabin.children.filter(o => o.type === 'Group').map(o => o.position.x),
           shaftVisible: scene.scene.getObjectByName('creator-elevator-shaft')?.visible } : null,

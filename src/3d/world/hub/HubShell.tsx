@@ -7,6 +7,7 @@ import type { LobbyMaterials } from './LobbyMaterials';
 import { LobbySignage, type LobbySign } from './LobbySignage';
 import { LobbyCharacter } from './LobbyCharacter';
 import { LOBBY_SEAT_LED, LOBBY_SEAT_GLOW } from './lobbyCharacterLayout';
+import { LobbyEntry } from './LobbyEntry';
 
 const HUB_STONE: LobbyBoxSpec[] = [
   { position: [0, -0.045, 0], size: [30, 0.09, 20] },
@@ -14,8 +15,8 @@ const HUB_STONE: LobbyBoxSpec[] = [
 
 const HUB_PLASTER: LobbyBoxSpec[] = [
   { position: [0, 2.4, -10], size: [28, 4.8, 0.36] },
-  { position: [-5.5, 2.4, 10], size: [17, 4.8, 0.36] },
-  { position: [9.5, 2.4, 10], size: [9, 4.8, 0.36] },
+  { position: [-5.95, 2.4, 10], size: [16.1, 4.8, 0.36] },
+  { position: [9.95, 2.4, 10], size: [8.1, 4.8, 0.36] },
   { position: [10, 2.4, 0], size: [20, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
   // A shallow seating niche behind the original wall plane, off the travel route.
   { position: [-10, 2.4, -2.4], size: [2.8, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
@@ -168,6 +169,7 @@ export function HubShell({
       />
       <LobbyPlanters count={planterCount} materials={materials} />
       <LobbyCharacter materials={materials} low={low} />
+      <LobbyEntry />
     </group>
   );
 }

@@ -8,6 +8,7 @@ import { useElevatorUiStore } from '../../../stores/useElevatorUiStore';
 import { useHudStore } from '../../../stores/useHudStore';
 import { useSceneInteraction } from '../../systems/useSceneInteraction';
 import { elevatorRideStatus, elevatorShaftOffset, elevatorDoorPosition } from './elevatorRidePolicy';
+import { useTransitionSurface } from '../../systems/useTransitionSurface';
 import {
   ELEVATOR_LOBBY_EXIT_LOOK_AT, ELEVATOR_LOBBY_EXIT_POSITION, ELEVATOR_LOBBY_POSITION,
   ELEVATOR_ROOM_EXIT_LOOK_AT, ELEVATOR_ROOM_EXIT_POSITION, ELEVATOR_ROOM_POSITION, HUB_ZONE, ROOM_ZONE,
@@ -38,7 +39,7 @@ const TRIM_BOXES: ElevatorBox[] = [
   ]),
 ];
 
-function CabinBoxes({ boxes, color }: { boxes: ElevatorBox[]; color: string }) {
+function CabinBoxes({ boxes, color, map }: { boxes: ElevatorBox[]; color: string; map: THREE.Texture }) {
   const ref = useRef<THREE.InstancedMesh>(null);
   useLayoutEffect(() => {
     if (!ref.current) return;
@@ -51,13 +52,13 @@ function CabinBoxes({ boxes, color }: { boxes: ElevatorBox[]; color: string }) {
     ref.current.computeBoundingSphere();
   }, [boxes]);
   return <instancedMesh ref={ref} args={[undefined, undefined, boxes.length]} raycast={() => {}}>
-    <boxGeometry args={[1, 1, 1]} /><meshBasicMaterial color={color} toneMapped={false} />
+    <boxGeometry args={[1, 1, 1]} /><meshBasicMaterial color={color} map={map} toneMapped={false} />
   </instancedMesh>;
 }
 
-function CabinDoor({ doorRef, x }: { doorRef: RefObject<THREE.Group | null>; x: number }) {
+function CabinDoor({ doorRef, x, map }: { doorRef: RefObject<THREE.Group | null>; x: number; map: THREE.Texture }) {
   return <group ref={doorRef} position={[x, 1.75, 2.86]}>
-    <mesh><boxGeometry args={[1.3, 3.4, 0.1]} /><meshBasicMaterial color="#59616a" toneMapped={false} /></mesh>
+    <mesh><boxGeometry args={[1.3, 3.4, 0.1]} /><meshBasicMaterial color="#4b6667" map={map} toneMapped={false} /></mesh>
     <mesh position={[0, 0, -0.066]}><boxGeometry args={[0.28, 2.75, 0.015]} /><meshBasicMaterial color="#10191f" /></mesh>
     <mesh position={[0, 0, 0.066]}><boxGeometry args={[0.024, 3.15, 0.015]} /><meshBasicMaterial color="#d9b184" /></mesh>
   </group>;
@@ -73,6 +74,7 @@ export function ElevatorA({ visible = true, destinationReady = false, destinatio
   const activeZone = useTransitionStore(s => s.activeZone);
   const targetZone = useTransitionStore(s => s.targetZone);
   const { camera } = useThree();
+  const surface = useTransitionSurface();
   const groupRef = useRef<THREE.Group>(null);
   const leftDoorRef = useRef<THREE.Group>(null);
   const rightDoorRef = useRef<THREE.Group>(null);
@@ -216,12 +218,12 @@ export function ElevatorA({ visible = true, destinationReady = false, destinatio
 
   if (!visible && !isActive) return null;
   return <group ref={groupRef} position={targetPos.toArray()} rotation={[0, Math.PI, 0]} name="creator-elevator-cabin">
-    <CabinBoxes boxes={CABIN_BOXES} color="#303840" />
-    <CabinBoxes boxes={TRIM_BOXES} color="#bd976e" />
+    <CabinBoxes boxes={CABIN_BOXES} color="#303840" map={surface} />
+    <CabinBoxes boxes={TRIM_BOXES} color="#bd976e" map={surface} />
     <mesh position={[0, 3.34, 0]} rotation={[Math.PI / 2, 0, 0]}>
       <planeGeometry args={[2.8, 3.6]} /><meshBasicMaterial ref={ledRef} color="#f7d8b4" side={THREE.DoubleSide} toneMapped={false} />
     </mesh>
-    <CabinDoor doorRef={leftDoorRef} x={-0.65} /><CabinDoor doorRef={rightDoorRef} x={0.65} />
+    <CabinDoor doorRef={leftDoorRef} x={-0.65} map={surface} /><CabinDoor doorRef={rightDoorRef} x={0.65} map={surface} />
     <instancedMesh ref={shaftRef} name="creator-elevator-shaft" args={[undefined, undefined, 14]} visible={moving && !reducedMotion} frustumCulled={false} raycast={() => {}}>
       <boxGeometry args={[1, 1, 1]} /><meshBasicMaterial color="#e1b279" toneMapped={false} />
     </instancedMesh>

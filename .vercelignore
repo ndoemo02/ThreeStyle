@@ -1,4 +1,17 @@
 # Source and archive assets are kept in the repository but are not part of the web runtime.
+node_modules/
+.next/
+.git/
+.vercel/
+.env*
+supabase/.temp/
+.playwright-mcp/
+output/
+data/
+_assets-src/
+tests/*.glb
+docs/design/*.png
+docs/references/
 public/Nowy folder/
 public/models/new/
 public/models/models/
@@ -15,3 +28,8 @@ public/**/*.obj
 public/**/*.blend
 public/**/*.exr
 public/**/*.NEF
+
+# Entry source references and PNG masters; the landing consumes WebP assets.
+public/Entry screen IMG/*.png
+public/Entry screen IMG/clean-v1/*.png
+public/Entry screen IMG/clean-v1/README.md
