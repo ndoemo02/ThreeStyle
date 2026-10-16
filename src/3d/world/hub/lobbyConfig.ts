@@ -27,6 +27,9 @@ export type LobbyQualityProfile = {
   dpr: number;
   lightCount: number;
   planterCount: number;
+  /** Additive floor light pools; transparent fill is the main mobile cost of the accents. */
+  poolCount: number;
+  accentGlow: boolean;
   useNormalMaps: boolean;
 };
 
@@ -35,6 +38,8 @@ const DESKTOP_QUALITY: LobbyQualityProfile = {
   dpr: 1.25,
   lightCount: 3,
   planterCount: 3,
+  poolCount: 5,
+  accentGlow: true,
   useNormalMaps: true,
 };
 
@@ -43,6 +48,8 @@ const DESKTOP_LOW_QUALITY: LobbyQualityProfile = {
   dpr: 1,
   lightCount: 2,
   planterCount: 2,
+  poolCount: 3,
+  accentGlow: true,
   useNormalMaps: true,
 };
 
@@ -51,6 +58,8 @@ const MOBILE_QUALITY: LobbyQualityProfile = {
   dpr: 1.25,
   lightCount: 2,
   planterCount: 2,
+  poolCount: 3,
+  accentGlow: true,
   useNormalMaps: true,
 };
 
@@ -59,6 +68,8 @@ const MOBILE_LOW_QUALITY: LobbyQualityProfile = {
   dpr: 1,
   lightCount: 2,
   planterCount: 1,
+  poolCount: 0,
+  accentGlow: false,
   useNormalMaps: false,
 };
 

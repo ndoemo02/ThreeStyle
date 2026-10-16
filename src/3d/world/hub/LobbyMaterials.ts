@@ -11,8 +11,13 @@ export type LobbyMaterials = Record<LobbySurface, THREE.MeshStandardMaterial> & 
   trunk: THREE.MeshStandardMaterial;
   foliage: THREE.MeshStandardMaterial;
   door: THREE.MeshStandardMaterial;
+  counter: THREE.MeshStandardMaterial;
+  fabric: THREE.MeshStandardMaterial;
+  rug: THREE.MeshStandardMaterial;
   led: THREE.MeshBasicMaterial;
   glow: THREE.MeshBasicMaterial;
+  pool: THREE.MeshBasicMaterial;
+  softShadow: THREE.MeshBasicMaterial;
   shadow: THREE.MeshBasicMaterial;
 };
 
@@ -58,6 +63,25 @@ export function useLobbyMaterials(
     return texture;
   }, []);
 
+  // Radial falloff for floor light pools; additive, so the edge fades to nothing.
+  const poolMap = useMemo(() => {
+    const size = 64;
+    const pixels = new Uint8Array(size * size * 4);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const dx = (x + 0.5) / size * 2 - 1;
+        const dy = (y + 0.5) / size * 2 - 1;
+        const falloff = Math.pow(Math.max(0, 1 - Math.hypot(dx, dy)), 1.8);
+        const value = Math.round(falloff * 255);
+        pixels.set([value, value, value, 255], (y * size + x) * 4);
+      }
+    }
+    const texture = new THREE.DataTexture(pixels, size, size, THREE.RGBAFormat);
+    texture.minFilter = texture.magFilter = THREE.LinearFilter;
+    texture.needsUpdate = true;
+    return texture;
+  }, []);
+
   const materials = useMemo<LobbyMaterials>(() => {
     const pbr = {
       map: albedo,
@@ -67,16 +91,23 @@ export function useLobbyMaterials(
     };
 
     return {
-      stone: new THREE.MeshStandardMaterial({ ...pbr, color: '#c5c7c5', roughness: 0.92, metalness: 0, normalScale: new THREE.Vector2(0.25, 0.25) }),
-      wood: new THREE.MeshStandardMaterial({ ...pbr, color: '#b9a896', roughness: 0.88, metalness: 0, normalScale: new THREE.Vector2(0.3, 0.3) }),
-      plaster: new THREE.MeshStandardMaterial({ ...pbr, color: '#d5d2c9', roughness: 0.96, metalness: 0 }),
+      // Roughness multiplies the ORM map: a semi-polished floor picks up area-light sheen.
+      stone: new THREE.MeshStandardMaterial({ ...pbr, color: '#75716d', roughness: 0.52, metalness: 0, normalScale: new THREE.Vector2(0.25, 0.25) }),
+      wood: new THREE.MeshStandardMaterial({ ...pbr, color: '#93725a', roughness: 0.72, metalness: 0, normalScale: new THREE.Vector2(0.3, 0.3) }),
+      plaster: new THREE.MeshStandardMaterial({ ...pbr, color: '#bdb6ae', roughness: 0.96, metalness: 0 }),
       dark: new THREE.MeshStandardMaterial({ ...pbr, color: '#a9b0b2', roughness: 0.94, metalness: 0 }),
       door: new THREE.MeshStandardMaterial({ color: '#41494d', roughness: 0.72, metalness: 0.06 }),
       brass: new THREE.MeshStandardMaterial({ color: '#c8a27b', roughness: 0.44, metalness: 0.6 }),
       trunk: new THREE.MeshStandardMaterial({ color: '#4b3424', roughness: 0.94, metalness: 0 }),
       foliage: new THREE.MeshStandardMaterial({ color: '#4a634b', roughness: 0.96, metalness: 0 }),
+      counter: new THREE.MeshStandardMaterial({ color: '#1f1b19', roughness: 0.34, metalness: 0.12 }),
+      // Dark teal ties the upholstery to the mural and the cool LED accent.
+      fabric: new THREE.MeshStandardMaterial({ color: '#29403f', roughness: 0.9, metalness: 0 }),
+      rug: new THREE.MeshStandardMaterial({ color: '#3a2a2c', roughness: 1, metalness: 0 }),
       led: new THREE.MeshBasicMaterial({ color: '#ffe0b8', toneMapped: false }),
       glow: new THREE.MeshBasicMaterial({ map: glowMap, color: '#ffc88d', transparent: true, opacity: 0.2, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }),
+      pool: new THREE.MeshBasicMaterial({ map: poolMap, color: '#ffb36b', transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
+      softShadow: new THREE.MeshBasicMaterial({ color: '#050302', alphaMap: poolMap, transparent: true, opacity: 0.6, depthWrite: false }),
       shadow: new THREE.MeshBasicMaterial({
         color: '#080604',
         transparent: true,
@@ -85,7 +116,7 @@ export function useLobbyMaterials(
         side: THREE.DoubleSide,
       }),
     };
-  }, [albedo, normal, orm, glowMap, quality.useNormalMaps]);
+  }, [albedo, normal, orm, glowMap, poolMap, quality.useNormalMaps]);
 
   useEffect(() => () => {
     Object.values(materials).forEach(material => material.dispose());
@@ -98,6 +129,7 @@ export function useLobbyMaterials(
   }, [albedo, normal, orm]);
 
   useEffect(() => () => glowMap.dispose(), [glowMap]);
+  useEffect(() => () => poolMap.dispose(), [poolMap]);
 
   return materials;
 }

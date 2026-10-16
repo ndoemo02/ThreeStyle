@@ -55,12 +55,13 @@ function LobbyScene({
   return (
     <group>
       <LobbyPerformanceGovernor quality={quality} restoreDpr={restoreDpr} onDegrade={onQualityChange} />
-      <hemisphereLight args={['#f1ede5', '#242321', isMobile ? 0.95 : 0.85]} />
-      <ambientLight color="#ece5d9" intensity={isMobile ? 0.3 : 0.24} />
+      {/* Low fill keeps contrast; warm accents and the area lights carry the room. */}
+      <hemisphereLight args={['#f4e2cb', '#1a1411', isMobile ? 0.5 : 0.42]} />
+      <ambientLight color="#f0dcc4" intensity={isMobile ? 0.12 : 0.08} />
       {lights.map(light => (
         <rectAreaLight
           key={light.position.join(':')}
-          color="#ffe4c4"
+          color="#ffd6a8"
           intensity={light.intensity}
           width={light.width}
           height={light.height}
@@ -68,7 +69,7 @@ function LobbyScene({
           rotation={[-Math.PI / 2, 0, 0]}
         />
       ))}
-      <HubShell materials={materials} planterCount={quality.planterCount} low={quality.id.endsWith('-low')} />
+      <HubShell materials={materials} quality={quality} />
       <LeftWingCorridor materials={materials} onEnterRoom={onEnterRoom} />
       <SceneReadySignal onReady={onReady} />
     </group>

@@ -30,6 +30,8 @@ test('selects deterministic desktop and mobile quality profiles', () => {
     dpr: 1.25,
     lightCount: 3,
     planterCount: 3,
+    poolCount: 5,
+    accentGlow: true,
     useNormalMaps: true,
   });
   assert.deepEqual(getInitialLobbyQuality(true), {
@@ -37,6 +39,8 @@ test('selects deterministic desktop and mobile quality profiles', () => {
     dpr: 1.25,
     lightCount: 2,
     planterCount: 2,
+    poolCount: 3,
+    accentGlow: true,
     useNormalMaps: true,
   });
 });
@@ -48,6 +52,8 @@ test('degrades each quality profile at most once per lobby visit', () => {
     dpr: 1,
     lightCount: 2,
     planterCount: 1,
+    poolCount: 0,
+    accentGlow: false,
     useNormalMaps: false,
   });
   assert.equal(getDegradedLobbyQuality(mobileLow), mobileLow);
@@ -58,6 +64,8 @@ test('degrades each quality profile at most once per lobby visit', () => {
     dpr: 1,
     lightCount: 2,
     planterCount: 2,
+    poolCount: 3,
+    accentGlow: true,
     useNormalMaps: true,
   });
   assert.equal(getDegradedLobbyQuality(desktopLow), desktopLow);

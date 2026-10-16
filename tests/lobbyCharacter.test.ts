@@ -3,15 +3,9 @@ import assert from 'node:assert/strict';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
-import { LOBBY_SEAT, LOBBY_SEAT_TRIM, LOBBY_SEAT_LED, LOBBY_PAINT, CHARACTER_UV } from '../src/3d/world/hub/lobbyCharacterLayout.ts';
+import { LOBBY_PAINT, CHARACTER_UV } from '../src/3d/world/hub/lobbyCharacterLayout.ts';
 
-test('all solid furnishings remain behind the original lobby wall, clear of the corridor mouth', () => {
-  for(const box of [...LOBBY_SEAT,...LOBBY_SEAT_TRIM,...LOBBY_SEAT_LED]) {
-    assert.ok(box.position[0]+box.size[0]/2 < -9.82,'furniture must not intrude on the walkable lobby footprint');
-    assert.ok(box.position[2]-box.size[2]/2 >= -1,'clear the corridor entry at z=-5');
-    assert.ok(box.position[2]+box.size[2]/2 <= 4.2,'stay within the seating recess');
-  }
-});
+// Furniture placement moved to tests/lobbyFurniture.test.ts with the reception and lounge.
 
 test('shared paint atlas keeps mobile memory and download bounded', async () => {
   for(const [profile,pixels,bytes] of [['shared',1024,120_000],['low',512,60_000]] as const) {

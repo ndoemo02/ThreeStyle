@@ -4,10 +4,15 @@ import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { InstancedLobbyBoxes, MergedLobbyBoxes, MergedLobbyGlow, type LobbyBoxSpec, type LobbyInstanceTransform, type LobbyPlaneSpec } from './LobbyMeshes';
 import type { LobbyMaterials } from './LobbyMaterials';
+import type { LobbyQualityProfile } from './lobbyConfig';
 import { LobbySignage, type LobbySign } from './LobbySignage';
 import { LobbyCharacter } from './LobbyCharacter';
-import { LOBBY_SEAT_LED, LOBBY_SEAT_GLOW } from './lobbyCharacterLayout';
 import { LobbyEntry } from './LobbyEntry';
+import { LobbyFurniture } from './LobbyFurniture';
+import { LobbyWayfinding } from './LobbyWayfinding';
+import {
+  LOBBY_ACCENT_GLOW, LOBBY_ACCENT_LED, LOBBY_DOWNLIGHTS, LOBBY_LIGHT_POOLS, LOBBY_PLANTER_POSITIONS, RECEPTION_WOOD,
+} from './lobbyFurnitureLayout';
 
 const HUB_STONE: LobbyBoxSpec[] = [
   { position: [0, -0.045, 0], size: [30, 0.09, 20] },
@@ -18,7 +23,7 @@ const HUB_PLASTER: LobbyBoxSpec[] = [
   { position: [-5.95, 2.4, 10], size: [16.1, 4.8, 0.36] },
   { position: [9.95, 2.4, 10], size: [8.1, 4.8, 0.36] },
   { position: [10, 2.4, 0], size: [20, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
-  // A shallow seating niche behind the original wall plane, off the travel route.
+  // A shallow niche behind the original wall plane; now the reception backdrop.
   { position: [-10, 2.4, -2.4], size: [2.8, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
   { position: [-10, 2.4, 7.1], size: [5.8, 4.8, 0.36], rotation: [0, Math.PI / 2, 0] },
   { position: [-10, 4.2, 1.6], size: [5.2, 1.2, 0.36], rotation: [0, Math.PI / 2, 0] },
@@ -38,18 +43,20 @@ const HUB_WOOD: LobbyBoxSpec[] = [
   { position: [-9.78, 2.35, -6.3], size: [0.12, 4.5, 0.14] },
   { position: [-9.78, 2.35, -3.7], size: [0.12, 4.5, 0.14] },
   { position: [-9.78, 4.58, -5], size: [0.12, 0.14, 2.74] },
+  ...RECEPTION_WOOD,
 ];
 
+// Downlights and trims join the existing LED batch: no extra draw call.
 const HUB_LED: LobbyBoxSpec[] = [
-  ...LOBBY_SEAT_LED,
   { position: [0, 4.66, -7.2], size: [25.5, 0.035, 0.045] },
   { position: [0, 4.66, 7.2], size: [25.5, 0.035, 0.045] },
   { position: [-8.8, 4.66, 0], size: [0.045, 0.035, 13.8] },
   { position: [8.8, 4.66, 0], size: [0.045, 0.035, 13.8] },
+  ...LOBBY_DOWNLIGHTS,
+  ...LOBBY_ACCENT_LED,
 ];
 
 const HUB_GLOW: LobbyPlaneSpec[] = [
-  ...LOBBY_SEAT_GLOW,
   { position: [0, 4.63, -7.2], size: [25.5, 0.65], rotation: [Math.PI / 2, 0, 0] },
   { position: [0, 4.63, 7.2], size: [25.5, 0.65], rotation: [Math.PI / 2, 0, 0] },
   { position: [-8.8, 4.63, 0], size: [13.8, 0.65], rotation: [Math.PI / 2, Math.PI / 2, 0] },
@@ -69,14 +76,17 @@ const CEILING_BAFFLES: LobbyInstanceTransform[] = Array.from({ length: 35 }, (_,
   position: [-13.6 + index * 0.8, 4.7, 0],
 }));
 
-const PLANTER_POSITIONS: Array<[number, number, number]> = [
-  [-7.2, 0, -8.8],
-  [8.7, 0, -4.3],
-  [8.7, 0, 5.4],
+/** Three leaf clumps per planter read as a shrub rather than a single ball. */
+const FOLIAGE_CLUMPS: Array<{ offset: Vec3; scale: Vec3 }> = [
+  { offset: [0, 1.72, 0], scale: [0.78, 0.92, 0.74] },
+  { offset: [0.26, 1.34, 0.12], scale: [0.5, 0.56, 0.5] },
+  { offset: [-0.22, 1.42, -0.16], scale: [0.54, 0.6, 0.52] },
 ];
+type Vec3 = [number, number, number];
 
 function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMaterials }) {
-  const visiblePositions = useMemo(() => PLANTER_POSITIONS.slice(0, count), [count]);
+  const visiblePositions = useMemo(() => LOBBY_PLANTER_POSITIONS.slice(0, count), [count]);
+  const potRef = useRef<THREE.InstancedMesh>(null);
   const trunkRef = useRef<THREE.InstancedMesh>(null);
   const foliageRef = useRef<THREE.InstancedMesh>(null);
   const shadowRef = useRef<THREE.InstancedMesh>(null);
@@ -84,66 +94,79 @@ function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMa
   useLayoutEffect(() => {
     const helper = new THREE.Object3D();
     visiblePositions.forEach(([x, , z], index) => {
+      helper.position.set(x, 0.31, z);
+      helper.rotation.set(0, 0, 0);
+      helper.scale.set(1, 1, 1);
+      helper.updateMatrix();
+      potRef.current?.setMatrixAt(index, helper.matrix);
+
       helper.position.set(x, 0.98, z);
       helper.rotation.set(0, 0, index % 2 ? 0.06 : -0.05);
-      helper.scale.set(1, 1, 1);
       helper.updateMatrix();
       trunkRef.current?.setMatrixAt(index, helper.matrix);
 
-      helper.position.set(x + (index % 2 ? 0.08 : -0.06), 1.72, z);
-      helper.rotation.set(0, index * 0.8, 0);
-      helper.scale.set(0.95, 1.18, 0.9);
-      helper.updateMatrix();
-      foliageRef.current?.setMatrixAt(index, helper.matrix);
+      FOLIAGE_CLUMPS.forEach((clump, clumpIndex) => {
+        const turn = index * 0.8 + clumpIndex * 2.1;
+        helper.position.set(
+          x + clump.offset[0] * Math.cos(turn) - clump.offset[2] * Math.sin(turn),
+          clump.offset[1],
+          z + clump.offset[0] * Math.sin(turn) + clump.offset[2] * Math.cos(turn),
+        );
+        helper.rotation.set(0, turn, 0);
+        helper.scale.set(...clump.scale);
+        helper.updateMatrix();
+        foliageRef.current?.setMatrixAt(index * FOLIAGE_CLUMPS.length + clumpIndex, helper.matrix);
+      });
 
       helper.position.set(x, 0.012, z);
       helper.rotation.set(-Math.PI / 2, 0, 0);
-      helper.scale.set(1.2, 0.72, 1);
+      helper.scale.set(1.2, 1.2, 1);
       helper.updateMatrix();
       shadowRef.current?.setMatrixAt(index, helper.matrix);
     });
 
-    for (const ref of [trunkRef, foliageRef, shadowRef]) {
+    for (const ref of [potRef, trunkRef, foliageRef, shadowRef]) {
       if (!ref.current) continue;
       ref.current.instanceMatrix.needsUpdate = true;
       ref.current.computeBoundingSphere();
     }
   }, [visiblePositions]);
 
-  const potTransforms = useMemo<LobbyInstanceTransform[]>(
-    () => visiblePositions.map(([x, , z]) => ({ position: [x, 0.34, z] })),
-    [visiblePositions],
-  );
-
   return (
     <>
-      <InstancedLobbyBoxes
-        size={[0.72, 0.68, 0.62]}
-        surface="dark"
-        material={materials.dark}
-        transforms={potTransforms}
-      />
-      <instancedMesh ref={trunkRef} args={[undefined, undefined, count]} material={materials.trunk} frustumCulled>
-        <cylinderGeometry args={[0.055, 0.085, 1.15, 7]} />
+      <instancedMesh ref={potRef} args={[undefined, undefined, count]} material={materials.counter} frustumCulled>
+        <cylinderGeometry args={[0.36, 0.3, 0.62, 18]} />
       </instancedMesh>
-      <instancedMesh ref={foliageRef} args={[undefined, undefined, count]} material={materials.foliage} frustumCulled>
+      <instancedMesh ref={trunkRef} args={[undefined, undefined, count]} material={materials.trunk} frustumCulled>
+        <cylinderGeometry args={[0.045, 0.07, 1.15, 7]} />
+      </instancedMesh>
+      <instancedMesh ref={foliageRef} args={[undefined, undefined, count * FOLIAGE_CLUMPS.length]} material={materials.foliage} frustumCulled>
         <icosahedronGeometry args={[0.66, 1]} />
       </instancedMesh>
-      <instancedMesh ref={shadowRef} args={[undefined, undefined, count]} material={materials.shadow} frustumCulled renderOrder={-1}>
-        <circleGeometry args={[0.72, 20]} />
+      <instancedMesh ref={shadowRef} args={[undefined, undefined, count]} material={materials.softShadow} frustumCulled renderOrder={-1}>
+        <planeGeometry args={[1.1, 1.1]} />
       </instancedMesh>
+    </>
+  );
+}
+
+/** Tier-gated transparent accents: the only lobby additions with mobile fill-rate cost. */
+function LobbyAccents({ quality, materials }: { quality: LobbyQualityProfile; materials: LobbyMaterials }) {
+  const pools = useMemo(() => LOBBY_LIGHT_POOLS.slice(0, quality.poolCount), [quality.poolCount]);
+  return (
+    <>
+      {quality.accentGlow && <MergedLobbyGlow planes={LOBBY_ACCENT_GLOW} material={materials.glow} />}
+      {pools.length > 0 && <MergedLobbyGlow planes={pools} material={materials.pool} />}
     </>
   );
 }
 
 export function HubShell({
   materials,
-  planterCount,
-  low = false,
+  quality,
 }: {
   materials: LobbyMaterials;
-  planterCount: number;
-  low?: boolean;
+  quality: LobbyQualityProfile;
 }) {
   return (
     <group>
@@ -167,8 +190,11 @@ export function HubShell({
         material={materials.dark}
         transforms={CEILING_BAFFLES}
       />
-      <LobbyPlanters count={planterCount} materials={materials} />
-      <LobbyCharacter materials={materials} low={low} />
+      <LobbyFurniture materials={materials} />
+      <LobbyAccents quality={quality} materials={materials} />
+      <LobbyPlanters count={quality.planterCount} materials={materials} />
+      <LobbyWayfinding materials={materials} />
+      <LobbyCharacter materials={materials} low={quality.id.endsWith('-low')} />
       <LobbyEntry />
     </group>
   );
