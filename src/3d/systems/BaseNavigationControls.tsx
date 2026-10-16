@@ -8,8 +8,9 @@ import type { PointerLockControls as PointerLockControlsImpl } from 'three-stdli
 import { useSceneInteractionController } from './useSceneInteraction';
 import { useHudStore } from '../../stores/useHudStore';
 import { useTransitionStore } from '../../store/useTransitionStore';
-import { EVENT_ROOM_ZONE, ROOM_ZONE } from '../navigation/navigationConfig';
+import { EVENT_ROOM_ZONE, HUB_ZONE, ROOM_ZONE } from '../navigation/navigationConfig';
 import { constrainEventRoomMovement, EVENT_ROOM_EYE_HEIGHT } from '../navigation/eventRoomLayout';
+import { constrainHubMovement } from '../navigation/hubCollision';
 
 type JoystickVector = {
   x: number;
@@ -57,6 +58,11 @@ function constrainCameraToZone(
 ) {
   camera.position.y = getZoneEyeHeight(zone);
   if (zone === ROOM_ZONE) clampCameraToCreatorRoom(camera);
+  if (zone === HUB_ZONE) {
+    const [x, z] = constrainHubMovement(previousX, previousZ, camera.position.x, camera.position.z);
+    camera.position.x = x;
+    camera.position.z = z;
+  }
   if (zone === EVENT_ROOM_ZONE) {
     const [x, z] = constrainEventRoomMovement(previousX, previousZ, camera.position.x, camera.position.z);
     camera.position.x = x;
