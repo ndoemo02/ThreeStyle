@@ -6,6 +6,7 @@ import { useElevatorUiStore } from '../../stores/useElevatorUiStore';
 import { useEntryStore } from '../../stores/useEntryStore';
 import * as THREE from 'three';
 import { ENTRY } from '../../lib/entryTransition';
+import { useCreatorFaceStore } from '../../stores/useCreatorFaceStore';
 
 export function SceneDiagnostics({ ready }: { ready: boolean }) {
   const get = useThree(s => s.get);
@@ -13,10 +14,15 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     // Development-only fixture: actual ride input still goes through the visible UI.
-    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
+    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural', 'face', 'face-close', 'face-side'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
       fixtureApplied.current = true;
       const state = get();
-      if (query.get('qa') === 'signage') {
+      if (query.get('qa') === 'face-close' || query.get('qa') === 'face-side') {
+        state.camera.position.set(query.get('qa') === 'face-side' ? -9.3 : -8.2, 2.15, query.get('qa') === 'face-side' ? -5.2 : -3.8);
+        state.camera.lookAt(-9.66, 2.15, -3.8);
+      } else if (query.get('qa') === 'face') {
+        state.camera.position.set(-4.8, 2.2, -2.5); state.camera.lookAt(-9.66, 2.15, -3.8);
+      } else if (query.get('qa') === 'signage') {
         state.camera.position.set(4, 2.05, 6); state.camera.lookAt(-2, 2.55, -9.5);
       } else if (query.get('qa') === 'bench') {
         state.camera.position.set(-4, 2.05, 6); state.camera.lookAt(-10.3, 1.6, 1);
@@ -38,6 +44,15 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
       const scene = get();
       const navigation = useTransitionStore.getState();
       const cabin = scene.scene.getObjectByName('creator-elevator-cabin');
+      const face = scene.scene.getObjectByName('creator-audio-face');
+      const faceHead = scene.scene.getObjectByName('creator-audio-face-head') as THREE.Mesh | undefined;
+      const faceParts: unknown[] = [];
+      if (query.get('qa')?.startsWith('face')) face?.traverse(node => {
+        if (!(node instanceof THREE.Mesh)) return;
+        const box = new THREE.Box3(), vertex = new THREE.Vector3();
+        for (let i = 0; i < node.geometry.attributes.position.count; i++) box.expandByPoint(node.getVertexPosition(i, vertex).applyMatrix4(node.matrixWorld));
+        faceParts.push({ name: node.name, center: box.getCenter(vertex).toArray(), size: box.getSize(new THREE.Vector3()).toArray(), screen: box.getCenter(vertex).project(scene.camera).toArray() });
+      });
       const seam = new THREE.Vector3(ENTRY.x, 2.325, ENTRY.z + 0.087).project(scene.camera);
       return JSON.stringify({
         coordinateSystem: 'Y up; camera forward follows view, metres',
@@ -46,6 +61,12 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
         canRide: useElevatorUiStore.getState().available,
         camera: scene.camera.position.toArray(), dpr: scene.gl.getPixelRatio(),
         exposure: scene.gl.toneMappingExposure,
+        ready,
+        render: { calls: scene.gl.info.render.calls, triangles: scene.gl.info.render.triangles, textures: scene.gl.info.memory.textures, geometries: scene.gl.info.memory.geometries },
+        face: { enabled: useCreatorFaceStore.getState().enabled, status: useCreatorFaceStore.getState().status, revision: useCreatorFaceStore.getState().revision,
+          disposed: scene.scene.userData.creatorFaceLastDisposal ?? null,
+          visible: face?.visible ?? false, mounted: Boolean(face), morphCount: faceHead?.geometry.morphAttributes.position?.length ?? 0,
+          pose: faceHead?.morphTargetInfluences ?? [], parts: faceParts },
         entry: { phase: useEntryStore.getState().phase,
           seam: [(seam.x + 1) * scene.size.width / 2, (1 - seam.y) * scene.size.height / 2],
           doors: ['landing-door-left', 'landing-door-right'].map(name => scene.scene.getObjectByName(name)?.position.x) },

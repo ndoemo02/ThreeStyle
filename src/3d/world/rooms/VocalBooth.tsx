@@ -8,6 +8,7 @@ import { AcousticFoamWall } from './CreatorRoomMVP';
 import { creatorModelUrl, useCreatorRoomMobile } from './CreatorRoomProfile';
 import { CreatorLight } from './CreatorLighting';
 import { disposeCreatorRoomMaterials } from './creatorRoomMaterials';
+import { CreatorBoothFace } from './CreatorBoothFace';
 
 // ══════════════════════════════════════════════════════════════════════════
 // PRELOAD HEAVY MODELS
@@ -111,6 +112,7 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
 
   return (
     <group position={position}>
+      <CreatorBoothFace />
 
       {/* ── Lighting ── */}
       <CreatorLight channel="booth" name="booth-fill" position={[0, H - 0.3, -D * 0.5]} intensity={12} distance={5} decay={1.8} />

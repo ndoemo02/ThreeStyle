@@ -4,6 +4,8 @@ import { RotateCcw } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useHudStore } from '../stores/useHudStore';
 import type { CreatorLightingSettings, RoomMood } from '../lib/creatorLighting';
+import { useCreatorFaceStore } from '../stores/useCreatorFaceStore';
+import { useTransitionStore } from '../store/useTransitionStore';
 
 const moods: { id: RoomMood; label: string }[] = [{ id: 'warm', label: 'Ciepło' }, { id: 'focus', label: 'Skupienie' }, { id: 'night', label: 'Noc' }];
 const colors = [{ color: '#ff9f45', label: 'Bursztyn' }, { color: '#a5d8ff', label: 'Lód' }, { color: '#bc8aff', label: 'Fiolet' }, { color: '#ff739e', label: 'Róż' }];
@@ -22,6 +24,8 @@ export function CreatorLightingPanel() {
   const setMood = useHudStore(s => s.setRoomMood);
   const setLighting = useHudStore(s => s.setLighting);
   const reset = useHudStore(s => s.resetLighting);
+  const face = useCreatorFaceStore();
+  const inRoom = useTransitionStore(s => s.activeZone === 'room1');
   return <div className="creator-lighting-panel">
     <div className="creator-lighting-intro"><h2>Twój nastrój</h2><p>Ustaw światło. Posłuchaj, jak zmienia się pokój.</p></div>
     <fieldset className="creator-moods"><legend>Wybierz nastrój</legend>{moods.map(item => <button type="button" key={item.id} aria-pressed={mood === item.id} onClick={() => setMood(item.id)}>{item.label}</button>)}</fieldset>
@@ -34,6 +38,9 @@ export function CreatorLightingPanel() {
     <fieldset className="creator-light-colors"><legend>Kolor LED i kabiny</legend><div>{colors.map(item => <button type="button" key={item.color} aria-label={`Kolor LED: ${item.label}`} aria-pressed={settings.ledColor === item.color} title={item.label} style={{ '--swatch': item.color } as CSSProperties} onClick={() => setLighting({ ledColor: item.color })} />)}<label className="creator-custom-color" title="Własny kolor"><input type="color" aria-label="Własny kolor LED" value={settings.ledColor} onChange={event => setLighting({ ledColor: event.target.value })} /><span>Własny</span></label></div></fieldset>
     <label className="creator-light-reactive"><span><strong>Reaguj na muzykę</strong><small>LED i kabina pulsują do odtwarzanego dźwięku.</small></span><input type="checkbox" role="switch" aria-label="Reaguj na muzykę" checked={settings.audioReactive} onChange={event => setLighting({ audioReactive: event.target.checked })} /></label>
     <p className="creator-session-note">W trybie Noc główne lampy gasną. Ekran, LED i kabinę ustawisz niezależnie.</p>
+    <label className="creator-light-reactive"><span><strong>Twarz w kabinie</strong><small>{inRoom ? 'Mimika do odtwarzanego audio. Bez mikrofonu.' : 'Dostępna w Creator Roomie.'}</small></span><input type="checkbox" role="switch" aria-label="Twarz w kabinie" checked={face.enabled} disabled={!inRoom} onChange={event => face.setEnabled(event.target.checked)} /></label>
+    {inRoom && face.enabled && <p className="creator-session-note" role="status">{face.status === 'loading' ? 'Przygotowujemy twarz…' : face.status === 'error' ? 'Twarz nie została wczytana. Pozostałe funkcje pokoju działają.' : 'Twarz jest gotowa. Odtwórz materiał i spójrz do kabiny.'}</p>}
+    {inRoom && face.enabled && face.status === 'error' && <button type="button" className="creator-secondary-button" onClick={face.retry}>Ponów wczytanie twarzy</button>}
     <button type="button" className="creator-secondary-button creator-light-reset" onClick={reset}><RotateCcw size={15} />Przywróć ustawienia</button>
   </div>;
 }

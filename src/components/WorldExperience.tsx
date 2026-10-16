@@ -38,13 +38,6 @@ const AudioVisualizer = dynamic(
   { ssr: false, loading: () => null },
 );
 
-// Studio Face — wewnątrz kabiny VocalBooth, przy mikrofonie
-// VocalBooth group: position=[-7.06, 0, -2.5], rotation=[0, PI/2, 0]
-// Rotacja 90° Y: localX→worldZ, localZ→worldX (odwrotnie)
-// Mic localPos = (2.61, 0.25, -2.7)
-// → worldX = -7.06 - (-2.7)  = -4.36
-// → worldZ = -2.5 + 2.61     = +0.11
-// Twarz stoi za mikrofonem (głębiej w kabinie), patrzy w stronę szyby (+X)
 function ZoneController({ activeZone }: { activeZone: string }) {
   const { size, camera } = useThree();
   const elevatorState = useTransitionStore(s => s.elevatorState);
@@ -255,14 +248,6 @@ export default function WorldExperience({ initialZone = ROOM_ZONE, entry = false
         {!isMobile && usesCreatorRoomPipeline ? <AudioVisualizer /> : null}
 
         {!isMobile && usesCreatorRoomPipeline ? <PerformanceCounter /> : null}
-
-        {/* ── Audio-Reactive Face — tylko w studiu, przy mikrofonie ── */}
-        {/* DISABLED: too heavy on mobile */}
-        {/* {activeZone !== 'hub' && (
-          <Suspense fallback={null}>
-            <StudioFacePositioner />
-          </Suspense>
-        )} */}
 
         {activeZone === HUB_ZONE && <DestinationBoundary key={activeZone} onFailure={() => setFailedZone(activeZone)}>
           <GroundedHub onEnterRoom={(id) => setActiveZone(id)} onReady={onHubReady} />
