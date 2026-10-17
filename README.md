@@ -4,11 +4,11 @@ Interaktywna przestrzeń muzyczna: Creator Room, media deck, lobby/hol i przejaz
 
 ## Stan i wznowienie
 
-**Aktualny checkpoint:** [2026-10-16 — opcjonalna twarz w kabinie](docs/creator-face-checkpoint-2026-10-16.md). Wejście i konta: [2026-10-13](docs/entry-mobile-correction-2026-10-13.md) i [2026-10-12](docs/entry-lobby-checkpoint-2026-10-12.md). Poprzedni pełny checkpoint: [2026-10-06](docs/checkpoint-resume-2026-10-06.md).
+**Aktualny checkpoint:** [2026-10-17 — Lucky, gospodarz w kabinie](docs/lucky-checkpoint-2026-10-17.md); twarz w kabinie: [2026-10-16](docs/creator-face-checkpoint-2026-10-16.md). Wejście i konta: [2026-10-13](docs/entry-mobile-correction-2026-10-13.md) i [2026-10-12](docs/entry-lobby-checkpoint-2026-10-12.md). Poprzedni pełny checkpoint: [2026-10-06](docs/checkpoint-resume-2026-10-06.md).
 
 Strona główna ma responsywny landing, formularz Supabase i zsynchronizowane wejście przez drzwi do lobby; demo jest osobną, jawną opcją. `/b3p` nadal startuje w Creator Roomie. Baza profili i prywatny magazyn są aktywne. HUD nadal przyjmuje pliki sesyjne; trwały upload pozostaje do podłączenia. Test logowania, sesji po reload i wylogowania PASS; konfiguracja SMTP i dostarczanie wiadomości wymagają domknięcia przed otwartą rejestracją.
 
-Media deck → Światło → **Twarz w kabinie** włącza opcjonalną mimikę do odtwarzanego audio. Model jest domyślnie wyłączony i nie korzysta z mikrofonu; oryginalny plik facecap pozostaje zachowany.
+Media deck → Światło → **Gospodarz w kabinie** włącza Lucky'ego (wita się i robi miny w rytm muzyki), a tam, gdzie jego modelu nie ma, samą twarz. Domyślnie wyłączone, bez mikrofonu. Model Lucky'ego jest tylko lokalny do czasu wyjaśnienia licencji.
 
 ## Lokalnie
 

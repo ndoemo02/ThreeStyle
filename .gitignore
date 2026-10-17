@@ -67,3 +67,6 @@ next-env.d.ts
 /.playwright-mcp/
 /tests/mersh-kiwi-look.glb
 /tests/y7ybxj8p.glb
+
+# Lucky host model: local preview only until model/face licences are confirmed (docs/lucky-licensing-2026-10-17.md).
+/public/models/lucky/

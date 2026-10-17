@@ -14,12 +14,16 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     // Development-only fixture: actual ride input still goes through the visible UI.
-    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural', 'face', 'face-close', 'face-side'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
+    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural', 'face', 'face-close', 'face-side', 'lucky', 'lucky-close'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
       fixtureApplied.current = true;
       const state = get();
       if (query.get('qa') === 'face-close' || query.get('qa') === 'face-side') {
         state.camera.position.set(query.get('qa') === 'face-side' ? -9.3 : -8.2, 2.15, query.get('qa') === 'face-side' ? -5.2 : -3.8);
         state.camera.lookAt(-9.66, 2.15, -3.8);
+      } else if (query.get('qa') === 'lucky-close') {
+        state.camera.position.set(-7.6, 2.08, -4.1); state.camera.lookAt(-8.46, 2.02, -4.25);
+      } else if (query.get('qa') === 'lucky') {
+        state.camera.position.set(-6.4, 2.05, -3.4); state.camera.lookAt(-8.46, 1.85, -4.25);
       } else if (query.get('qa') === 'face') {
         state.camera.position.set(-4.8, 2.2, -2.5); state.camera.lookAt(-9.66, 2.15, -3.8);
       } else if (query.get('qa') === 'signage') {
@@ -46,6 +50,10 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
       const cabin = scene.scene.getObjectByName('creator-elevator-cabin');
       const face = scene.scene.getObjectByName('creator-audio-face');
       const faceHead = scene.scene.getObjectByName('creator-audio-face-head') as THREE.Mesh | undefined;
+      const lucky = scene.scene.getObjectByName('creator-lucky');
+      const luckyFaces: THREE.Mesh[] = [];
+      lucky?.traverse(node => { if (node instanceof THREE.Mesh && node.morphTargetDictionary?.jawOpen !== undefined) luckyFaces.push(node); });
+      const luckyHead = luckyFaces[0];
       const faceParts: unknown[] = [];
       if (query.get('qa')?.startsWith('face')) face?.traverse(node => {
         if (!(node instanceof THREE.Mesh)) return;
@@ -67,6 +75,11 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
           disposed: scene.scene.userData.creatorFaceLastDisposal ?? null,
           visible: face?.visible ?? false, mounted: Boolean(face), morphCount: faceHead?.geometry.morphAttributes.position?.length ?? 0,
           pose: faceHead?.morphTargetInfluences ?? [], parts: faceParts },
+        lucky: { mounted: Boolean(lucky?.children.length), visible: lucky?.visible ?? false, disposed: scene.scene.userData.creatorLuckyDisposed ?? null,
+          morphs: luckyHead ? Object.fromEntries(Object.entries(luckyHead.morphTargetDictionary!).map(([name, index]) => [name, +(luckyHead!.morphTargetInfluences![index]).toFixed(3)])) : null,
+          faceMeshes: luckyFaces.length,
+          facesInSync: luckyFaces.every(mesh => mesh.morphTargetInfluences!.every((value, i) => Math.abs(value - luckyHead!.morphTargetInfluences![i]) < 1e-6)),
+          headPitch: lucky?.getObjectByName('head')?.rotation.x ?? null },
         entry: { phase: useEntryStore.getState().phase,
           seam: [(seam.x + 1) * scene.size.width / 2, (1 - seam.y) * scene.size.height / 2],
           doors: ['landing-door-left', 'landing-door-right'].map(name => scene.scene.getObjectByName(name)?.position.x) },

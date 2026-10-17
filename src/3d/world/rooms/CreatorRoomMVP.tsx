@@ -1030,25 +1030,15 @@ export function CreatorRoomMVP({
             <boxGeometry args={[0.08, boothControls.height + 0.32, 0.24]} />
             <meshStandardMaterial color="#030303" roughness={0.88} metalness={0.18} />
           </mesh>
-          <mesh renderOrder={2}>
-            <boxGeometry args={[0.06, boothControls.height, boothControls.width]} />
-            <meshStandardMaterial
-              color="#cfefff"
-              transparent
-              opacity={0.055}
-              roughness={0.02}
-              metalness={0}
-              side={THREE.DoubleSide}
-              depthWrite={false}
-            />
+          {/* Unlit, near-clear pane: a lit box picked up room highlights on all six faces and read as fog over the host.
+              One streak above eye height keeps it reading as glass; the one at eye height crossed the host. */}
+          <mesh position={[0.03, 0, 0]} rotation={[0, Math.PI / 2, 0]} renderOrder={2}>
+            <planeGeometry args={[boothControls.width, boothControls.height]} />
+            <meshBasicMaterial color="#d8f1ff" transparent opacity={0.025} side={THREE.DoubleSide} depthWrite={false} />
           </mesh>
           <mesh position={[0.045, boothControls.height * 0.23, 0]} rotation={[0, Math.PI / 2, 0]} renderOrder={3}>
             <planeGeometry args={[boothControls.width * 0.82, 0.035]} />
-            <meshBasicMaterial color="#ffffff" transparent opacity={0.12} depthWrite={false} side={THREE.DoubleSide} />
-          </mesh>
-          <mesh position={[0.047, -boothControls.height * 0.18, 0]} rotation={[0, Math.PI / 2, 0]} renderOrder={3}>
-            <planeGeometry args={[boothControls.width * 0.64, 0.024]} />
-            <meshBasicMaterial color="#bfefff" transparent opacity={0.08} depthWrite={false} side={THREE.DoubleSide} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.07} depthWrite={false} side={THREE.DoubleSide} />
           </mesh>
           <TechnicalTrim position={[0.08, boothControls.height / 2 + 0.12, 0]} args={[0.16, 0.16, boothControls.width + 0.64]} />
           <TechnicalTrim position={[0.08, -boothControls.height / 2 - 0.12, 0]} args={[0.16, 0.16, boothControls.width + 0.64]} />
