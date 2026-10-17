@@ -14,10 +14,10 @@ export function isHubPositionBlocked(x: number, z: number, obstacles: readonly L
 /** Longest unchecked move; well below the thinnest collider plus two radii (1 m). */
 export const HUB_MAX_STEP = 0.25;
 
-function slideStep(previousX: number, previousZ: number, nextX: number, nextZ: number): [number, number] {
-  if (!isHubPositionBlocked(nextX, nextZ)) return [nextX, nextZ];
-  if (!isHubPositionBlocked(nextX, previousZ)) return [nextX, previousZ];
-  if (!isHubPositionBlocked(previousX, nextZ)) return [previousX, nextZ];
+function slideStep(previousX: number, previousZ: number, nextX: number, nextZ: number, obstacles: readonly LobbyFloorRect[]): [number, number] {
+  if (!isHubPositionBlocked(nextX, nextZ, obstacles)) return [nextX, nextZ];
+  if (!isHubPositionBlocked(nextX, previousZ, obstacles)) return [nextX, previousZ];
+  if (!isHubPositionBlocked(previousX, nextZ, obstacles)) return [previousX, nextZ];
   return [previousX, previousZ];
 }
 
@@ -26,20 +26,22 @@ function slideStep(previousX: number, previousZ: number, nextX: number, nextZ: n
  * only the furniture footprints are solid. A long frame is swept in short steps
  * so it cannot tunnel through the desk. A camera that already starts inside a
  * footprint (scripted placement) may always move, so it can never be trapped.
+ * Other rooms pass their own footprints (the Creator Room does).
  */
 export function constrainHubMovement(
   previousX: number,
   previousZ: number,
   nextX: number,
   nextZ: number,
+  obstacles: readonly LobbyFloorRect[] = LOBBY_OBSTACLES,
 ): [number, number] {
-  if (isHubPositionBlocked(previousX, previousZ)) return [nextX, nextZ];
+  if (isHubPositionBlocked(previousX, previousZ, obstacles)) return [nextX, nextZ];
   const steps = Math.max(1, Math.ceil(Math.hypot(nextX - previousX, nextZ - previousZ) / HUB_MAX_STEP));
   // Fixed increments: a blocked axis simply stops advancing, it never catches up.
   const dx = (nextX - previousX) / steps;
   const dz = (nextZ - previousZ) / steps;
   let x = previousX;
   let z = previousZ;
-  for (let step = 0; step < steps; step++) [x, z] = slideStep(x, z, x + dx, z + dz);
+  for (let step = 0; step < steps; step++) [x, z] = slideStep(x, z, x + dx, z + dz, obstacles);
   return [x, z];
 }

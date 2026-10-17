@@ -12,7 +12,9 @@ import { CreatorRoomProfileContext, creatorModelUrl, creatorParameterMap, useCre
 import { CreatorLightingProvider, CreatorRoomLightingRig, CreatorLight } from './CreatorLighting';
 import { CreatorPerimeterLights } from './CreatorPerimeterLights';
 import { CreatorAccentLights } from './CreatorAccentLights';
-import { withBrickAccents, withFloorAccents } from './creatorAccentShader';
+import { withBrickAccents } from './creatorAccentShader';
+import { CreatorCeiling, CreatorFloor } from './CreatorFloorCeiling';
+import { CreatorDecor } from './CreatorDecor';
 import { prepareCreatorRoomMaterial, disposeCreatorRoomMaterials } from './creatorRoomMaterials';
 import { useCreatorScreenTexture } from './useCreatorScreenTexture';
 import { CreatorMediaSurface } from './CreatorMediaSurface';
@@ -211,54 +213,6 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat,
         color="#2f2a25"
         normalScale={new THREE.Vector2(2.0, 2.0)}
         roughness={0.9}
-      />
-    </mesh>
-  );
-}
-
-function DiamondPlateFloor({ args, position }: { args: [number, number], position: [number, number, number] }) {
-  const mobile = useCreatorRoomMobile();
-  const { gl } = useThree();
-  const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl]);
-  const textures = useTexture([
-    '/textures/runtime/diamond/color.webp',
-    '/textures/runtime/diamond/normal.webp',
-    creatorParameterMap('diamond', 'roughness', mobile),
-    creatorParameterMap('diamond', 'metalness', mobile),
-    '/textures/runtime/diamond/ao.webp',
-  ]);
-
-  const maps = useMemo(() => {
-    return textures.map(tex => {
-      const clone = tex.clone();
-      clone.wrapS = clone.wrapT = THREE.RepeatWrapping;
-      clone.repeat.set(args[0] / 1.5, args[1] / 1.5);
-      clone.anisotropy = anisotropy;
-      clone.needsUpdate = true;
-      return clone;
-    });
-  }, [textures, args, anisotropy]);
-
-  useEffect(() => {
-    return () => {
-      maps.forEach(m => m.dispose());
-    };
-  }, [maps]);
-
-  return (
-    <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-      <planeGeometry args={args} />
-      <meshStandardMaterial 
-        ref={material => { if (material) withFloorAccents(material); }}
-        map={maps[0]} 
-        normalMap={maps[1]} 
-        roughnessMap={maps[2]} 
-        metalnessMap={maps[3]} 
-        aoMap={maps[4]}
-        color="#4a3329"
-        normalScale={new THREE.Vector2(1.15, 1.15)}
-        roughness={0.9}
-        metalness={0.08}
       />
     </mesh>
   );
@@ -701,6 +655,15 @@ function SofaRaw() {
     const clone = scene.clone(true);
 
     prepareImportedRoomModel(clone);
+    // Room.B: dark leather cushions on a walnut base (room-local material clones).
+    clone.traverse(node => {
+      if (!(node instanceof THREE.Mesh)) return;
+      for (const material of [node.material].flat()) {
+        if (!(material instanceof THREE.MeshStandardMaterial)) continue;
+        if (material.name === 'coussin') { material.color.set('#8c6a56'); material.roughness = 0.5; }
+        if (material.name === 'pieds') { material.color.set('#4a3020'); material.roughness = 0.6; }
+      }
+    });
 
     // updateMatrixWorld so bbox includes full hierarchy transforms
     clone.updateMatrixWorld(true);
@@ -795,10 +758,9 @@ export function CreatorRoomMVP({
 
       {/* STAGE 1: Static Architecture (Fastest Load) */}
       <Suspense fallback={<RoomArchitectureFallback />}>
-        {/* Floor - Diamond Plate */}
-        <DiamondPlateFloor args={[14.2, 15.2]} position={[0, 0, -0.5]} />
-        {/* Ceiling */}
-        <AcousticFoamWall position={[0, 5.1, -0.5]} args={[14.2, 0.2, 15.2]} repeat={[14.2 / 2, 15.2 / 2]} />
+        {/* Procedural slate floor with a burgundy rug; slatted ceiling with downlights (Room.B). */}
+        <CreatorFloor />
+        <CreatorCeiling />
 
         {/* Entrance Area -> Front Wall + Elevator Hole */}
         <group position={[0, 0, 7]}> {/* Z=7 is the front wall */}
@@ -1071,6 +1033,7 @@ export function CreatorRoomMVP({
         {/* ── AUDIO REACTIVE CEILING NEON ── */}
         <CreatorPerimeterLights />
         <CreatorAccentLights />
+        <CreatorDecor />
 
         {/* ── LAPTOP INTERACTIVE ZONE – otwiera HUD panel ── */}
         <group

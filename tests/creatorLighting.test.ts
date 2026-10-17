@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { CREATOR_LIGHTING_PRESETS, LED_MIN_BEAT_INTERVAL, LED_PALETTE, createLedRhythm, creatorLightingLevels, ledPaletteColor, patchCreatorLighting, stepLedRhythm } from '../src/lib/creatorLighting.ts';
+import { CREATOR_LIGHTING_PRESETS, LED_MIN_BEAT_INTERVAL, LED_PALETTE, createLedRhythm, creatorLightingLevels, kickLevelFromDecibels, ledPaletteColor, patchCreatorLighting, stepLedRhythm } from '../src/lib/creatorLighting.ts';
 import { parseCreatorPreferences } from '../src/lib/creatorPreferences.ts';
 import { prepareCreatorRoomMaterial } from '../src/3d/world/rooms/creatorRoomMaterials.ts';
 import { nextCreatorDpr } from '../src/lib/creatorQuality.ts';
@@ -124,4 +124,40 @@ test('colour cycling is a validated, persisted preference that only Night enable
   const saved = JSON.stringify({ version: 1, roomMood: 'warm', lighting: { ...base, ledCycle: true }, volume: 0.5 });
   assert.equal(parseCreatorPreferences(saved).lighting.ledCycle, true);
   assert.equal(parseCreatorPreferences(JSON.stringify({ version: 1, roomMood: 'warm', lighting: { ledCycle: 1 } })).lighting.ledCycle, false);
+});
+
+/** Analyser-like kick band for a loud master: dB above maxDecibels (-30), smoothing 0.8, read at 30 Hz. */
+function loudMaster(bpm: number, seconds: number, kickDb: number, troughDb: number, jitterDb = 0) {
+  const rhythm = createLedRhythm(), beats: number[] = [];
+  let magnitude = 0, level = 0, read = 0, seed = 3;
+  const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const dt = 1 / 60, period = 60 / bpm;
+  for (let t = 0; t < seconds; t += dt) {
+    const db = (t % period < 0.08 ? kickDb : troughDb) + (random() - 0.5) * 2 * jitterDb;
+    magnitude = 0.8 * magnitude + 0.2 * 10 ** (db / 20);
+    read += dt;
+    if (read >= 1 / 30) { read = 0; const bandDb = 20 * Math.log10(magnitude); level = kickLevelFromDecibels([0, bandDb, bandDb, bandDb]); }
+    if (stepLedRhythm(rhythm, level, dt)) beats.push(rhythm.time);
+  }
+  return beats;
+}
+
+test('kicks stay visible in a loud master whose bass sits above the byte ceiling', () => {
+  for (const bpm of [100, 120, 128]) {
+    const beats = loudMaster(bpm, 20, -22, -29);
+    assert.ok(beats.length / 20 >= 1.4, `${bpm} BPM: ${beats.length} beats in 20 s`);
+    assert.ok(beats.filter(t => t > 10).length >= 14, `${bpm} BPM keeps detecting after the first seconds`);
+    for (let i = 1; i < beats.length; i++) assert.ok(beats[i] - beats[i - 1] >= LED_MIN_BEAT_INTERVAL - 1e-9);
+  }
+});
+
+test('steady bass with small jitter and no kicks barely triggers light hits', () => {
+  const beats = loudMaster(120, 20, -26, -26, 0.6);
+  assert.ok(beats.length <= 3, `${beats.length} false hits in 20 s`);
+});
+
+test('dB kick level is finite for silence and not clipped for loud bass', () => {
+  assert.equal(kickLevelFromDecibels([-Infinity, -Infinity, -Infinity, -Infinity]), 0);
+  assert.ok(kickLevelFromDecibels([0, -20, -20, -20]) > 1);
+  assert.ok(Number.isFinite(kickLevelFromDecibels([NaN, NaN, NaN, NaN])));
 });

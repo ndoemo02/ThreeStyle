@@ -5,7 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useHudStore } from '../../../stores/useHudStore';
 import { useAudioStore } from '../../../stores/useAudioStore';
-import { createLedRhythm, creatorLightingLevels, ledPaletteColor, stepLedRhythm, type CreatorLightingSettings } from '../../../lib/creatorLighting';
+import { createLedRhythm, creatorLightingLevels, kickLevelFromDecibels, ledPaletteColor, stepLedRhythm, type CreatorLightingSettings } from '../../../lib/creatorLighting';
 
 type Levels = ReturnType<typeof creatorLightingLevels>;
 type Channel = keyof Levels;
@@ -35,7 +35,7 @@ export function CreatorLightingProvider({ children }: { children: ReactNode }) {
   const initial = useMemo(() => { const { lighting, roomMood } = useHudStore.getState(); return createFrame(lighting, roomMood); }, []);
   const frameRef = useRef(initial);
   // One spectrum read per frame budget (30 Hz) shared by every LED, booth and accent consumer.
-  const audio = useRef({ analyser: null as AnalyserNode | null, data: new Uint8Array(256), last: 0, bass: 0, rhythm: createLedRhythm(), reduced: false, mix: new THREE.Color(), rgb: { r: 0, g: 0, b: 0 } });
+  const audio = useRef({ analyser: null as AnalyserNode | null, data: new Float32Array(256), last: 0, bass: 0, rhythm: createLedRhythm(), reduced: false, mix: new THREE.Color(), rgb: { r: 0, g: 0, b: 0 } });
   const lastColor = useRef('');
   const lastMood = useRef('');
   useEffect(() => {
@@ -54,11 +54,12 @@ export function CreatorLightingProvider({ children }: { children: ReactNode }) {
     if (lighting.audioReactive && playing && analyserNode && now - a.last >= 1000 / 30) {
       if (a.analyser !== analyserNode) {
         a.analyser = analyserNode;
-        a.data = new Uint8Array(analyserNode.frequencyBinCount);
+        a.data = new Float32Array(analyserNode.frequencyBinCount);
       }
-      analyserNode.getByteFrequencyData(a.data);
-      // FFT512: these bins cover approximately 90–280 Hz at 48 kHz.
-      a.bass = (a.data[1] + a.data[2] + a.data[3]) / (3 * 255);
+      // dB, not bytes: bytes clip at maxDecibels, and loud masters sit there, hiding the kick.
+      analyserNode.getFloatFrequencyData(a.data);
+      // FFT512: bins 1–3 cover approximately 90–280 Hz at 48 kHz.
+      a.bass = kickLevelFromDecibels(a.data);
       a.last = now;
     }
     const step = Math.min(delta, 0.1);

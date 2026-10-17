@@ -25,6 +25,7 @@ export function CreatorAccentLights() {
   useEffect(() => () => {
     resources.bars.dispose(); resources.led.dispose();
     CREATOR_ACCENT_UNIFORMS.uAccentStrength.value = 0;
+    CREATOR_ACCENT_UNIFORMS.uPoolStrength.value = 0;
   }, [resources]);
   useFrame(() => {
     const frame = frameRef.current;
@@ -33,6 +34,8 @@ export function CreatorAccentLights() {
     resources.led.color.copy(color).multiplyScalar(0.6 + frame.led * 1.4);
     CREATOR_ACCENT_UNIFORMS.uAccentColor.value.copy(color);
     CREATOR_ACCENT_UNIFORMS.uAccentStrength.value = frame.led;
+    CREATOR_ACCENT_UNIFORMS.uPoolColor.value.copy(frame.roomColor);
+    CREATOR_ACCENT_UNIFORMS.uPoolStrength.value = frame.room * 1.4;
   }, -1);
   return <mesh name="creator-accent-led" geometry={resources.bars} material={resources.led} raycast={() => {}} />;
 }

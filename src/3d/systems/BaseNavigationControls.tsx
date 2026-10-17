@@ -11,6 +11,7 @@ import { useTransitionStore } from '../../store/useTransitionStore';
 import { EVENT_ROOM_ZONE, HUB_ZONE, ROOM_ZONE } from '../navigation/navigationConfig';
 import { constrainEventRoomMovement, EVENT_ROOM_EYE_HEIGHT } from '../navigation/eventRoomLayout';
 import { constrainHubMovement } from '../navigation/hubCollision';
+import { constrainCreatorRoomMovement } from '../navigation/creatorRoomCollision';
 
 type JoystickVector = {
   x: number;
@@ -57,7 +58,12 @@ function constrainCameraToZone(
   previousZ: number,
 ) {
   camera.position.y = getZoneEyeHeight(zone);
-  if (zone === ROOM_ZONE) clampCameraToCreatorRoom(camera);
+  if (zone === ROOM_ZONE) {
+    const [x, z] = constrainCreatorRoomMovement(previousX, previousZ, camera.position.x, camera.position.z);
+    camera.position.x = x;
+    camera.position.z = z;
+    clampCameraToCreatorRoom(camera);
+  }
   if (zone === HUB_ZONE) {
     const [x, z] = constrainHubMovement(previousX, previousZ, camera.position.x, camera.position.z);
     camera.position.x = x;
