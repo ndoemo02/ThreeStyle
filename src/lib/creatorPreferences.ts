@@ -31,6 +31,7 @@ export function parseCreatorPreferences(raw: string | null): CreatorPreferences 
       }
       if (typeof saved.ledColor === 'string') patch.ledColor = saved.ledColor;
       if (typeof saved.audioReactive === 'boolean') patch.audioReactive = saved.audioReactive;
+      if (typeof saved.ledCycle === 'boolean') patch.ledCycle = saved.ledCycle;
     }
     const volume = typeof data.volume === 'number' && Number.isFinite(data.volume)
       ? Math.max(0, Math.min(1, data.volume)) : defaults.volume;

@@ -66,6 +66,16 @@ function RealMicMesh({ position, rotation, scale = 1.0 }: { position: [number, n
 }
 
 
+/** Booth key spot: on the ceiling between the host and the glass, aimed at his face (booth-local). */
+const BOOTH_KEY = (() => {
+  const position: [number, number, number] = [1.4, 3.12, -0.25];
+  const target: [number, number, number] = [1.75, 2.05, -1.4];
+  const dir = new THREE.Vector3(target[0] - position[0], target[1] - position[1], target[2] - position[2]).normalize();
+  const tilt = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir);
+  const euler = new THREE.Euler().setFromQuaternion(tilt);
+  return { position, target, fixtureRotation: [euler.x, euler.y, euler.z] as [number, number, number] };
+})();
+
 // ──────────────────────────────────────────────────────────────────────────────
 export function VocalBooth({ position = [0, 0, 0] as [number, number, number] }) {
   const mobile = useCreatorRoomMobile();
@@ -114,8 +124,18 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
     <group position={position}>
       <CreatorBoothFace />
 
-      {/* ── Lighting ── */}
-      <CreatorLight channel="booth" name="booth-fill" position={[0, H - 0.3, -D * 0.5]} intensity={12} distance={5} decay={1.8} />
+      {/* ── Lighting: one key spot over the host (replaces the former fill point, so the light count is unchanged). ── */}
+      <CreatorLight kind="spot" channel="booth" name="booth-key" position={BOOTH_KEY.position} target={BOOTH_KEY.target} intensity={20} angle={0.95} penumbra={0.85} distance={7} decay={1.4} />
+      <group position={BOOTH_KEY.position} rotation={BOOTH_KEY.fixtureRotation}>
+        <mesh position={[0, 0.07, 0]}>
+          <cylinderGeometry args={[0.11, 0.13, 0.2, 18]} />
+          <meshStandardMaterial color="#141210" roughness={0.45} metalness={0.7} />
+        </mesh>
+        <mesh position={[0, -0.031, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.1, 18]} />
+          <meshBasicMaterial color="#fff1dc" toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+      </group>
 
       {/* ── Floor / Ceiling ── */}
       <mesh position={[0, 0.02, -D / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>

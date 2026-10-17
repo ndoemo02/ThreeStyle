@@ -14,7 +14,7 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     // Development-only fixture: actual ride input still goes through the visible UI.
-    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural', 'face', 'face-close', 'face-side', 'lucky', 'lucky-close'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
+    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural', 'face', 'face-close', 'face-side', 'lucky', 'lucky-close', 'room', 'room-back'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
       fixtureApplied.current = true;
       const state = get();
       if (query.get('qa') === 'face-close' || query.get('qa') === 'face-side') {
@@ -24,6 +24,11 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
         state.camera.position.set(-7.6, 2.08, -4.1); state.camera.lookAt(-8.46, 2.02, -4.25);
       } else if (query.get('qa') === 'lucky') {
         state.camera.position.set(-6.4, 2.05, -3.4); state.camera.lookAt(-8.46, 1.85, -4.25);
+      } else if (query.get('qa') === 'room') {
+        // Creator Room framing of the Room.A/B references: elevator wall ahead, sofa left, cabinet right.
+        state.camera.position.set(0, 2.05, -3); state.camera.lookAt(0, 1.9, 7);
+      } else if (query.get('qa') === 'room-back') {
+        state.camera.position.set(-1, 2.05, 5.6); state.camera.lookAt(0.5, 1.9, -6);
       } else if (query.get('qa') === 'face') {
         state.camera.position.set(-4.8, 2.2, -2.5); state.camera.lookAt(-9.66, 2.15, -3.8);
       } else if (query.get('qa') === 'signage') {

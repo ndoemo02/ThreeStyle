@@ -11,6 +11,8 @@ import { useHudStore } from '../../../stores/useHudStore';
 import { CreatorRoomProfileContext, creatorModelUrl, creatorParameterMap, useCreatorRoomMobile } from './CreatorRoomProfile';
 import { CreatorLightingProvider, CreatorRoomLightingRig, CreatorLight } from './CreatorLighting';
 import { CreatorPerimeterLights } from './CreatorPerimeterLights';
+import { CreatorAccentLights } from './CreatorAccentLights';
+import { withBrickAccents, withFloorAccents } from './creatorAccentShader';
 import { prepareCreatorRoomMaterial, disposeCreatorRoomMaterials } from './creatorRoomMaterials';
 import { useCreatorScreenTexture } from './useCreatorScreenTexture';
 import { CreatorMediaSurface } from './CreatorMediaSurface';
@@ -154,11 +156,12 @@ function BrickWall({ args, position }: { args: [number, number, number], positio
     <mesh position={position} castShadow receiveShadow>
       <boxGeometry args={args} />
       <meshStandardMaterial 
+        ref={material => { if (material) withBrickAccents(material); }}
         map={maps[0]} 
         aoMap={maps[1]} 
         normalMap={maps[2]} 
         roughnessMap={maps[3]} 
-        color="#929292"
+        color="#7c7c7c"
       />
     </mesh>
   );
@@ -246,6 +249,7 @@ function DiamondPlateFloor({ args, position }: { args: [number, number], positio
     <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
       <planeGeometry args={args} />
       <meshStandardMaterial 
+        ref={material => { if (material) withFloorAccents(material); }}
         map={maps[0]} 
         normalMap={maps[1]} 
         roughnessMap={maps[2]} 
@@ -1066,6 +1070,7 @@ export function CreatorRoomMVP({
 
         {/* ── AUDIO REACTIVE CEILING NEON ── */}
         <CreatorPerimeterLights />
+        <CreatorAccentLights />
 
         {/* ── LAPTOP INTERACTIVE ZONE – otwiera HUD panel ── */}
         <group
