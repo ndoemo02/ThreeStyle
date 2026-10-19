@@ -18,9 +18,9 @@ function createOnAirTexture() {
     context.fillRect(0, 0, 512, 128);
     context.strokeStyle = '#ff2416';
     context.lineWidth = 6;
-    context.beginPath();
-    context.roundRect(10, 10, 492, 108, 16);
-    context.stroke();
+    // roundRect is missing before Safari 16 / Firefox 112; a square border is fine there.
+    if (typeof context.roundRect === 'function') { context.beginPath(); context.roundRect(10, 10, 492, 108, 16); context.stroke(); }
+    else context.strokeRect(10, 10, 492, 108);
     context.fillStyle = '#ff2416';
     context.font = 'bold 76px Arial, Helvetica, sans-serif';
     context.textAlign = 'center';

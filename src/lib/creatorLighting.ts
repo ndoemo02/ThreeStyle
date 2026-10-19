@@ -29,8 +29,11 @@ export function patchCreatorLighting(current: CreatorLightingSettings, patch: Pa
   return next;
 }
 
-/** The booth key lifts this much while the session is live, also with the music reaction off (a steady level, never a flash). */
-export const BOOTH_LIVE_BOOST = 1.3;
+/**
+ * The booth key lifts this much while the session is live, also with the music reaction off (a steady level, never a flash).
+ * Kept small: the key aims at the host's face, which already nears white on a beat (1.3 clipped a third of it in QA).
+ */
+export const BOOTH_LIVE_BOOST = 1.12;
 
 export function creatorLightingLevels(settings: CreatorLightingSettings, energy: number, playing: boolean, live = false) {
   const music = settings.audioReactive && playing ? Math.max(0, Math.min(1, energy)) * settings.musicStrength : 0;
