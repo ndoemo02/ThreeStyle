@@ -75,6 +75,7 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
         camera: scene.camera.position.toArray(), dpr: scene.gl.getPixelRatio(),
         exposure: scene.gl.toneMappingExposure,
         ready,
+        session: scene.scene.userData.creatorSession ?? null,
         render: { calls: scene.gl.info.render.calls, triangles: scene.gl.info.render.triangles, textures: scene.gl.info.memory.textures, geometries: scene.gl.info.memory.geometries },
         face: { enabled: useCreatorFaceStore.getState().enabled, status: useCreatorFaceStore.getState().status, revision: useCreatorFaceStore.getState().revision,
           disposed: scene.scene.userData.creatorFaceLastDisposal ?? null,

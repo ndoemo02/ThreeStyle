@@ -1,12 +1,15 @@
 'use client';
 
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode, type RefObject } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useHudStore } from '../../../stores/useHudStore';
 import { useAudioStore } from '../../../stores/useAudioStore';
+import { useTransitionStore } from '../../../store/useTransitionStore';
+import { ROOM_ZONE } from '../../navigation/navigationConfig';
 import { createLedRhythm, creatorLightingLevels, ledPaletteColor, stepLedRhythm, type CreatorLightingSettings } from '../../../lib/creatorLighting';
 import { createBeatTracker, createSharedMusic, kickLevelFromDecibels, lowLevelFromDecibels, stepBeatTracker, voiceLevelFromDecibels } from '../../../lib/creatorMusic';
+import { createCreatorSession, stepCreatorSession } from '../../../lib/creatorSession';
 
 type Levels = ReturnType<typeof creatorLightingLevels>;
 type Channel = keyof Levels;
@@ -27,6 +30,8 @@ function createFrame(lighting: CreatorLightingSettings, mood: string) {
     cycling: lighting.ledCycle,
     /** The one music reading (levels and beat count) shared with the booth host; see readSharedMusic. */
     music: createSharedMusic(),
+    /** Session state (idle/ready/live/paused/ended) with a change count for ON AIR, the booth and the host. */
+    session: createCreatorSession(),
   };
 }
 export type CreatorLightingFrame = ReturnType<typeof createFrame>;
@@ -41,6 +46,12 @@ export function CreatorLightingProvider({ children }: { children: ReactNode }) {
   const audio = useRef({ analyser: null as AnalyserNode | null, data: new Float32Array(256), last: 0, beat: createBeatTracker(), rhythm: createLedRhythm(), reduced: false, mix: new THREE.Color(), rgb: { r: 0, g: 0, b: 0 } });
   const lastColor = useRef('');
   const lastMood = useRef('');
+  const scene = useThree(s => s.scene);
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') return;
+    scene.userData.creatorSession = frameRef.current.session;
+    return () => { delete scene.userData.creatorSession; };
+  }, [scene]);
   useEffect(() => {
     const media = matchMedia('(prefers-reduced-motion: reduce)');
     const update = () => { audio.current.reduced = media.matches; };
@@ -52,6 +63,8 @@ export function CreatorLightingProvider({ children }: { children: ReactNode }) {
     const { lighting, roomMood, playbackStatus } = useHudStore.getState();
     const { analyserNode, isActive } = useAudioStore.getState();
     const playing = playbackStatus === 'playing' && isActive;
+    // The loop stays (owner's call), so a track never ends today.
+    stepCreatorSession(frame.session, { playback: playbackStatus, audible: isActive, inRoom: useTransitionStore.getState().activeZone === ROOM_ZONE, ended: false });
     const a = audio.current, music = frame.music;
     const now = performance.now();
     // Read even with the light reaction off: the booth host's faces follow the music on their own.
