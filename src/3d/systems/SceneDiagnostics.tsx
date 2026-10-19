@@ -14,7 +14,7 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     // Development-only fixture: actual ride input still goes through the visible UI.
-    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural', 'face', 'face-close', 'face-side', 'lucky', 'lucky-close', 'booth', 'screen', 'room', 'room-back', 'elevator-door'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
+    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural', 'face', 'face-close', 'face-side', 'lucky', 'lucky-close', 'booth', 'screen', 'room', 'room-back', 'elevator-door', 'elevator-open'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
       fixtureApplied.current = true;
       const state = get();
       if (query.get('qa') === 'face-close' || query.get('qa') === 'face-side') {
@@ -31,6 +31,10 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
         // The closed elevator front as approached: from the corridor in the hub, from the sofa side in the room.
         if (useTransitionStore.getState().activeZone === 'hub') { state.camera.position.set(-24, 2.05, -8.4); state.camera.lookAt(-24, 2.3, 1.5); }
         else { state.camera.position.set(0, 2.05, 2.4); state.camera.lookAt(0, 2.2, 9.65); }
+      } else if (query.get('qa') === 'elevator-open') {
+        // Close enough for the doors to open, at an angle that shows where the leaves go.
+        if (useTransitionStore.getState().activeZone === 'hub') { state.camera.position.set(-22.9, 2.0, -3.6); state.camera.lookAt(-24, 1.9, -1.2); }
+        else { state.camera.position.set(1.2, 2.0, 4.5); state.camera.lookAt(0, 1.9, 7); }
       } else if (query.get('qa') === 'screen') {
         // The focal screen (visualizer) and its ambilight on the back wall.
         state.camera.position.set(0.8, 2.2, 1.8); state.camera.lookAt(3.6, 2.6, -5.6);

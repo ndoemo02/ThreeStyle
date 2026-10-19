@@ -10,7 +10,7 @@ import { useSceneInteraction } from '../../systems/useSceneInteraction';
 import { elevatorRideStatus, elevatorShaftOffset, elevatorDoorPosition } from './elevatorRidePolicy';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
-  CABIN_BRASS, CABIN_CEILING, CABIN_FLOOR, CABIN_LED, CABIN_WALLS, CALL_PANEL, CLADDING_BOXES, FRAME_BOXES, HUB_HEADER,
+  CABIN_BRASS, CABIN_CEILING, CABIN_FLOOR, CABIN_LED, CABIN_WALLS, CALL_PANEL, DOOR, FRAME_BOXES, HUB_HEADER, HUB_POCKETS,
   cabinShade, doorFaceBoxes, faceUvScale, type CabinBox,
 } from './elevatorCabinLayout';
 import { createBrushedMap, createPanelMap, createStoneMap } from './elevatorTextures';
@@ -57,9 +57,9 @@ function createCabinLook() {
     ceiling: cabinGeometry(CABIN_CEILING),
     brass: cabinGeometry(CABIN_BRASS, true),
     led: cabinGeometry(CABIN_LED),
-    front: cabinGeometry([...FRAME_BOXES, ...CLADDING_BOXES, CALL_PANEL]),
-    header: cabinGeometry([HUB_HEADER]),
-    door: cabinGeometry([{ position: [0, 0, 0], size: [1.3, 3.4, 0.1] }]),
+    front: cabinGeometry([...FRAME_BOXES, CALL_PANEL]),
+    hubFront: cabinGeometry([...HUB_POCKETS, HUB_HEADER]),
+    door: cabinGeometry([{ position: [0, 0, 0], size: [DOOR.width, DOOR.height, DOOR.depth] }]),
     doorFaceLeft: cabinGeometry(doorFaceBoxes(-1)),
     doorFaceRight: cabinGeometry(doorFaceBoxes(1)),
   };
@@ -88,7 +88,7 @@ function createCabinLook() {
 type CabinLook = ReturnType<typeof createCabinLook>;
 
 function CabinDoor({ doorRef, x, look }: { doorRef: RefObject<THREE.Group | null>; x: number; look: CabinLook }) {
-  return <group ref={doorRef} name="creator-elevator-door" position={[x, 1.75, 2.86]}>
+  return <group ref={doorRef} name="creator-elevator-door" position={[x, 1.75, DOOR.z]}>
     <mesh geometry={look.geometry.door} material={look.material.doorInner} raycast={noRaycast} />
     <mesh geometry={x < 0 ? look.geometry.doorFaceLeft : look.geometry.doorFaceRight} material={look.material.doorOuter} raycast={noRaycast} />
   </group>;
@@ -264,8 +264,8 @@ export function ElevatorA({ visible = true, destinationReady = false, destinatio
     <mesh geometry={look.geometry.brass} material={look.material.brass} raycast={noRaycast} />
     <mesh geometry={look.geometry.led} material={look.material.led} raycast={noRaycast} />
     <mesh geometry={look.geometry.front} material={look.material.front} raycast={noRaycast} />
-    {/* Fills the corridor opening above the cabin; inside the brick in the room. */}
-    <mesh geometry={look.geometry.header} material={look.material.front} raycast={noRaycast} visible={activeZone === HUB_ZONE} />
+    {/* Corridor only: pockets for the open leaves and the header above the cabin; the room's brick does both. */}
+    <mesh geometry={look.geometry.hubFront} material={look.material.front} raycast={noRaycast} visible={activeZone === HUB_ZONE} />
     <CabinDoor doorRef={leftDoorRef} x={-0.65} look={look} /><CabinDoor doorRef={rightDoorRef} x={0.65} look={look} />
     <instancedMesh ref={shaftRef} name="creator-elevator-shaft" args={[undefined, undefined, 14]} visible={moving && !reducedMotion} frustumCulled={false} raycast={() => {}}>
       <boxGeometry args={[1, 1, 1]} /><meshBasicMaterial color="#e1b279" toneMapped={false} />
