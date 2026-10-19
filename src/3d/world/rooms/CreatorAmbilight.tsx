@@ -12,8 +12,10 @@ const SAMPLE_H = 18;
 /** Glow zones, like a TV's: each one averages a deep slice of the picture. */
 const COLS = 6;
 const ROWS = 4;
-/** Each sample blends this much of the new picture into the old one: cuts and flashes ease over ~0.3 s. */
-const SAMPLE_BLEND = 0.35;
+/** Picture changes ease over this many seconds: cuts and flashes never hit the wall at full speed. */
+const EASE = 0.25;
+/** With reduced motion or the music reaction off the glow and light only drift, like the other lights. */
+const CALM_EASE = 2;
 const STRENGTH = 0.75;
 
 /** Luminance mask (alphaMap reads green): solid behind the casing, fading out over `spread` around it. */
@@ -83,7 +85,9 @@ export function CreatorAmbilight({ texture, screen, casing, plane, center, z, mo
   // Drawn into every frame through a ref, like the screen's audio display (hook values stay unmodified).
   const sampleRef = useRef(sample);
   const mask = useMemo(() => createGlowMask(plane, casing, center, 0.55), [plane, casing, center]);
-  const state = useRef({ last: -1, glow: 0, picture: { r: 0, g: 0, b: 0 }, tint: { r: 0, g: 0, b: 0 }, room: { r: 0, g: 0, b: 0 }, target: new THREE.Color(), has: false, readable: true });
+  const mesh = useRef<THREE.Mesh>(null);
+  const bounds = useMemo(() => ({ frustum: new THREE.Frustum(), matrix: new THREE.Matrix4(), sphere: new THREE.Sphere(new THREE.Vector3(), 5) }), []);
+  const state = useRef({ frames: 0, last: -1, glow: 0, picture: { r: 0, g: 0, b: 0 }, tint: { r: 0, g: 0, b: 0 }, room: { r: 0, g: 0, b: 0 }, target: new THREE.Color(), has: false, readable: true });
 
   useEffect(() => {
     sampleRef.current = sample;
@@ -92,15 +96,31 @@ export function CreatorAmbilight({ texture, screen, casing, plane, center, z, mo
   useEffect(() => () => mask.dispose(), [mask]);
   useEffect(() => { state.current.readable = true; }, [texture]);
 
-  useFrame(({ clock }, delta) => {
+  useFrame(({ clock, camera }, delta) => {
     const frame = lighting.current, s = state.current;
+    // Draw the (transparent) plane for its first frames so its shader compiles at load, not on the first Play.
+    if (s.frames < 3) {
+      s.frames++;
+      if (material.current) { material.current.visible = true; material.current.opacity = 0; }
+      if (mesh.current) mesh.current.frustumCulled = s.frames >= 3;
+      return;
+    }
+    const calm = frame.reducedMotion || !useHudStore.getState().lighting.audioReactive;
     const source = texture?.image as HTMLVideoElement | HTMLCanvasElement | undefined;
     // Only a picture the viewer sees: a selected but unplayed video has frames the screen does not show yet.
     const shown = frame.session.state === 'live' || frame.session.state === 'paused' || useHudStore.getState().camEnabled;
     const ready = shown && !!source && (!(source instanceof HTMLVideoElement) || source.readyState >= 2);
     const now = clock.elapsedTime;
     const { context, readContext, glowContext, canvas, read, colors, pixels, zones, smooth } = sampleRef.current;
-    if (context && readContext && glowContext && pixels && now - s.last >= 1 / (mobile ? 6 : 10)) {
+    let inView = true;
+    if (mesh.current) {
+      mesh.current.getWorldPosition(bounds.sphere.center);
+      bounds.frustum.setFromProjectionMatrix(bounds.matrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+      inView = bounds.frustum.intersectsSphere(bounds.sphere);
+    }
+    // Off camera the last colours stay; sampling (a video draw and a readback) waits until the screen is in view.
+    if (inView && context && readContext && glowContext && pixels && now - s.last >= 1 / (mobile ? 6 : 10)) {
+      const blend = 1 - Math.exp(-(s.last < 0 ? 1 : Math.min(now - s.last, 1)) / (calm ? CALM_EASE : EASE));
       s.last = now;
       let sampled = false;
       if (ready && source && s.readable) {
@@ -117,7 +137,7 @@ export function CreatorAmbilight({ texture, screen, casing, plane, center, z, mo
           s.readable = false;
         }
       }
-      for (let i = 0; i < smooth.length; i++) smooth[i] += ((sampled ? zones[i] : 0) - smooth[i]) * SAMPLE_BLEND;
+      for (let i = 0; i < smooth.length; i++) smooth[i] += ((sampled ? zones[i] : 0) - smooth[i]) * blend;
       for (let zone = 0; zone < COLS * ROWS; zone++) {
         for (let c = 0; c < 3; c++) pixels.data[zone * 4 + c] = Math.round(smooth[zone * 3 + c] * 255);
         pixels.data[zone * 4 + 3] = 255;
@@ -127,8 +147,8 @@ export function CreatorAmbilight({ texture, screen, casing, plane, center, z, mo
       s.has = sampled;
     }
     const step = Math.min(delta, 0.1);
-    const blend = 1 - Math.exp(-step * 3);
-    s.glow = THREE.MathUtils.lerp(s.glow, s.has ? 1 : 0, blend);
+    const fade = 1 - Math.exp(-step * 3);
+    s.glow = THREE.MathUtils.lerp(s.glow, s.has ? 1 : 0, fade);
     if (material.current) {
       material.current.opacity = STRENGTH * s.glow;
       material.current.visible = s.glow > 0.01;
@@ -138,11 +158,11 @@ export function CreatorAmbilight({ texture, screen, casing, plane, center, z, mo
     if (s.has) ambilightTint(s.picture, s.room, s.tint);
     else { s.tint.r = s.room.r; s.tint.g = s.room.g; s.tint.b = s.room.b; }
     s.target.setRGB(s.tint.r, s.tint.g, s.tint.b, THREE.SRGBColorSpace);
-    frame.screenColor.lerp(s.target, blend);
+    frame.screenColor.lerp(s.target, 1 - Math.exp(-step / (calm ? CALM_EASE : 0.33)));
   });
 
   return (
-    <mesh position={[center.x, center.y, z]} renderOrder={1}>
+    <mesh ref={mesh} name="creator-ambilight" position={[center.x, center.y, z]} renderOrder={1} frustumCulled={false}>
       <planeGeometry args={[plane.width, plane.height]} />
       <meshBasicMaterial ref={material} map={sample.colors} alphaMap={mask} transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} visible={false} />
     </mesh>
