@@ -8,59 +8,89 @@ import { useElevatorUiStore } from '../../../stores/useElevatorUiStore';
 import { useHudStore } from '../../../stores/useHudStore';
 import { useSceneInteraction } from '../../systems/useSceneInteraction';
 import { elevatorRideStatus, elevatorShaftOffset, elevatorDoorPosition } from './elevatorRidePolicy';
-import { useTransitionSurface } from '../../systems/useTransitionSurface';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import {
+  CABIN_BRASS, CABIN_CEILING, CABIN_FLOOR, CABIN_LED, CABIN_WALLS, CALL_PANEL, CLADDING_BOXES, FRAME_BOXES, HUB_HEADER,
+  cabinShade, doorFaceBoxes, faceUvScale, type CabinBox,
+} from './elevatorCabinLayout';
+import { createBrushedMap, createPanelMap, createStoneMap } from './elevatorTextures';
 import {
   ELEVATOR_LOBBY_EXIT_LOOK_AT, ELEVATOR_LOBBY_EXIT_POSITION, ELEVATOR_LOBBY_POSITION,
   ELEVATOR_ROOM_EXIT_LOOK_AT, ELEVATOR_ROOM_EXIT_POSITION, ELEVATOR_ROOM_POSITION, HUB_ZONE, ROOM_ZONE,
 } from '../../navigation/navigationConfig';
 
-type ElevatorBox = { position: [number, number, number]; scale: [number, number, number] };
-const CABIN_BOXES: ElevatorBox[] = [
-  { position: [0, 0.05, 0], scale: [4.4, 0.1, 5] },
-  { position: [0, 0.04, 2.65], scale: [2.6, 0.08, 0.7] },
-  { position: [0, 3.45, 0], scale: [4.4, 0.15, 5] },
-  { position: [-2.1, 1.75, 0], scale: [0.35, 3.5, 5] },
-  { position: [2.1, 1.75, 0], scale: [0.35, 3.5, 5] },
-  { position: [0, 1.75, -2.4], scale: [3.8, 3.5, 0.35] },
-  { position: [-1.75, 1.75, 2.73], scale: [0.9, 3.5, 0.18] },
-  { position: [1.75, 1.75, 2.73], scale: [0.9, 3.5, 0.18] },
-];
-const TRIM_BOXES: ElevatorBox[] = [
-  { position: [-1.47, 1.75, 2.8], scale: [0.18, 3.6, 0.35] },
-  { position: [1.47, 1.75, 2.8], scale: [0.18, 3.6, 0.35] },
-  { position: [0, 3.45, 2.8], scale: [3.12, 0.2, 0.35] },
-  { position: [0, 0.12, 2.8], scale: [2.95, 0.06, 0.2] },
-  { position: [-1.9, 0.16, 0], scale: [0.035, 0.08, 4.6] },
-  { position: [1.9, 0.16, 0], scale: [0.035, 0.08, 4.6] },
-  { position: [0, 1.05, -2.18], scale: [3.5, 0.045, 0.06] },
-  ...[-1.7, -0.6, 0.6, 1.7].flatMap(z => [
-    { position: [-1.91, 1.75, z] as [number, number, number], scale: [0.015, 3.1, 0.02] as [number, number, number] },
-    { position: [1.91, 1.75, z] as [number, number, number], scale: [0.015, 3.1, 0.02] as [number, number, number] },
-  ]),
-];
+const noRaycast = () => {};
 
-function CabinBoxes({ boxes, color, map }: { boxes: ElevatorBox[]; color: string; map: THREE.Texture }) {
-  const ref = useRef<THREE.InstancedMesh>(null);
-  useLayoutEffect(() => {
-    if (!ref.current) return;
-    const object = new THREE.Object3D();
-    boxes.forEach((box, index) => {
-      object.position.set(...box.position); object.scale.set(...box.scale); object.updateMatrix();
-      ref.current?.setMatrixAt(index, object.matrix);
-    });
-    ref.current.instanceMatrix.needsUpdate = true;
-    ref.current.computeBoundingSphere();
-  }, [boxes]);
-  return <instancedMesh ref={ref} args={[undefined, undefined, boxes.length]} raycast={() => {}}>
-    <boxGeometry args={[1, 1, 1]} /><meshBasicMaterial color={color} map={map} toneMapped={false} />
-  </instancedMesh>;
+/** One merged geometry per material: UVs in metres, optionally a baked shade (or a box's tone) as vertex colour. */
+function cabinGeometry(boxes: CabinBox[], shade = false) {
+  const colored = shade || boxes.some(box => box.tone !== undefined);
+  const parts = boxes.map(({ position, size, tone }) => {
+    const box = new THREE.BoxGeometry(...size);
+    const uv = box.getAttribute('uv');
+    for (let face = 0; face < 6; face++) {
+      const [su, sv] = faceUvScale(face, size);
+      for (let i = face * 4; i < face * 4 + 4; i++) uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv);
+    }
+    box.translate(...position);
+    if (colored) {
+      const positions = box.getAttribute('position');
+      const colors = new Float32Array(positions.count * 3);
+      for (let i = 0; i < positions.count; i++) colors.fill(tone ?? (shade ? cabinShade(positions.getY(i)) : 1), i * 3, i * 3 + 3);
+      box.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    }
+    return box;
+  });
+  const merged = mergeGeometries(parts, false);
+  parts.forEach(part => part.dispose());
+  return merged;
 }
 
-function CabinDoor({ doorRef, x, map }: { doorRef: RefObject<THREE.Group | null>; x: number; map: THREE.Texture }) {
-  return <group ref={doorRef} position={[x, 1.75, 2.86]}>
-    <mesh><boxGeometry args={[1.3, 3.4, 0.1]} /><meshBasicMaterial color="#4b6667" map={map} toneMapped={false} /></mesh>
-    <mesh position={[0, 0, -0.066]}><boxGeometry args={[0.28, 2.75, 0.015]} /><meshBasicMaterial color="#10191f" /></mesh>
-    <mesh position={[0, 0, 0.066]}><boxGeometry args={[0.024, 3.15, 0.015]} /><meshBasicMaterial color="#d9b184" /></mesh>
+/**
+ * The cabin's look. Inside is unlit with baked shading, so it reads the same in the bright lobby
+ * and the dark room; the front (frame, cladding, call panel, outer door faces) is lit by each zone.
+ */
+function createCabinLook() {
+  const brushed = createBrushedMap(), panel = createPanelMap(), stone = createStoneMap();
+  const geometry = {
+    walls: cabinGeometry(CABIN_WALLS, true),
+    floor: cabinGeometry(CABIN_FLOOR),
+    ceiling: cabinGeometry(CABIN_CEILING),
+    brass: cabinGeometry(CABIN_BRASS, true),
+    led: cabinGeometry(CABIN_LED),
+    front: cabinGeometry([...FRAME_BOXES, ...CLADDING_BOXES, CALL_PANEL]),
+    header: cabinGeometry([HUB_HEADER]),
+    door: cabinGeometry([{ position: [0, 0, 0], size: [1.3, 3.4, 0.1] }]),
+    doorFaceLeft: cabinGeometry(doorFaceBoxes(-1)),
+    doorFaceRight: cabinGeometry(doorFaceBoxes(1)),
+  };
+  const material = {
+    walls: new THREE.MeshBasicMaterial({ color: '#6c5444', map: panel, vertexColors: true, toneMapped: false }),
+    floor: new THREE.MeshBasicMaterial({ color: '#5d5751', map: stone, toneMapped: false }),
+    ceiling: new THREE.MeshBasicMaterial({ color: '#211c18', toneMapped: false }),
+    brass: new THREE.MeshBasicMaterial({ color: '#cfa36b', map: brushed, vertexColors: true, toneMapped: false }),
+    led: new THREE.MeshBasicMaterial({ color: '#f7d8b4', toneMapped: false }),
+    // Dark bronze around the doors, like the Room.B frame; the warm LED line draws the opening.
+    front: new THREE.MeshStandardMaterial({ color: '#2f2721', map: brushed, roughness: 0.5, metalness: 0.2 }),
+    // No environment map in these zones: low metalness keeps the champagne from going dark.
+    // Greyed champagne: warmer tones read as light wood under the lobby's warm light.
+    doorOuter: new THREE.MeshStandardMaterial({ color: '#c4b8a8', map: brushed, roughness: 0.32, metalness: 0.2, vertexColors: true }),
+    doorInner: new THREE.MeshBasicMaterial({ color: '#a39684', map: brushed, toneMapped: false }),
+  };
+  return {
+    geometry, material,
+    dispose() {
+      Object.values(geometry).forEach(part => part.dispose());
+      Object.values(material).forEach(part => part.dispose());
+      [brushed, panel, stone].forEach(map => map.dispose());
+    },
+  };
+}
+type CabinLook = ReturnType<typeof createCabinLook>;
+
+function CabinDoor({ doorRef, x, look }: { doorRef: RefObject<THREE.Group | null>; x: number; look: CabinLook }) {
+  return <group ref={doorRef} name="creator-elevator-door" position={[x, 1.75, 2.86]}>
+    <mesh geometry={look.geometry.door} material={look.material.doorInner} raycast={noRaycast} />
+    <mesh geometry={x < 0 ? look.geometry.doorFaceLeft : look.geometry.doorFaceRight} material={look.material.doorOuter} raycast={noRaycast} />
   </group>;
 }
 
@@ -74,7 +104,8 @@ export function ElevatorA({ visible = true, destinationReady = false, destinatio
   const activeZone = useTransitionStore(s => s.activeZone);
   const targetZone = useTransitionStore(s => s.targetZone);
   const { camera } = useThree();
-  const surface = useTransitionSurface();
+  const look = useMemo(() => createCabinLook(), []);
+  const warmFrames = useRef(0);
   const groupRef = useRef<THREE.Group>(null);
   const leftDoorRef = useRef<THREE.Group>(null);
   const rightDoorRef = useRef<THREE.Group>(null);
@@ -101,6 +132,10 @@ export function ElevatorA({ visible = true, destinationReady = false, destinatio
     return () => query.removeEventListener('change', update);
   }, []);
   useEffect(() => () => panelTexture.dispose(), [panelTexture]);
+  useEffect(() => () => look.dispose(), [look]);
+  useEffect(() => { ledRef.current = look.material.led; }, [look]);
+  // Each zone has its own lights: draw the whole cabin once there, so no shader compiles on approach.
+  useEffect(() => { warmFrames.current = 0; }, [visible, activeZone]);
   useEffect(() => {
     const context = (panelTexture.image as HTMLCanvasElement).getContext('2d')!;
     const down = (targetZone ?? (activeZone === ROOM_ZONE ? HUB_ZONE : ROOM_ZONE)) === HUB_ZONE;
@@ -166,6 +201,11 @@ export function ElevatorA({ visible = true, destinationReady = false, destinatio
   });
 
   useFrame(() => {
+    if (warmFrames.current < 3 && groupRef.current) {
+      warmFrames.current++;
+      const culled = warmFrames.current >= 3;
+      groupRef.current.traverse(object => { if (object.name !== 'creator-elevator-shaft') object.frustumCulled = culled; });
+    }
     const navigation = useTransitionStore.getState();
     if (navigation.elevatorState !== elevatorState || navigation.activeZone !== activeZone) return;
     if (!visible && !isActive) {
@@ -218,12 +258,15 @@ export function ElevatorA({ visible = true, destinationReady = false, destinatio
 
   if (!visible && !isActive) return null;
   return <group ref={groupRef} position={targetPos.toArray()} rotation={[0, Math.PI, 0]} name="creator-elevator-cabin">
-    <CabinBoxes boxes={CABIN_BOXES} color="#303840" map={surface} />
-    <CabinBoxes boxes={TRIM_BOXES} color="#bd976e" map={surface} />
-    <mesh position={[0, 3.34, 0]} rotation={[Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[2.8, 3.6]} /><meshBasicMaterial ref={ledRef} color="#f7d8b4" side={THREE.DoubleSide} toneMapped={false} />
-    </mesh>
-    <CabinDoor doorRef={leftDoorRef} x={-0.65} map={surface} /><CabinDoor doorRef={rightDoorRef} x={0.65} map={surface} />
+    <mesh geometry={look.geometry.walls} material={look.material.walls} raycast={noRaycast} />
+    <mesh geometry={look.geometry.floor} material={look.material.floor} raycast={noRaycast} />
+    <mesh geometry={look.geometry.ceiling} material={look.material.ceiling} raycast={noRaycast} />
+    <mesh geometry={look.geometry.brass} material={look.material.brass} raycast={noRaycast} />
+    <mesh geometry={look.geometry.led} material={look.material.led} raycast={noRaycast} />
+    <mesh geometry={look.geometry.front} material={look.material.front} raycast={noRaycast} />
+    {/* Fills the corridor opening above the cabin; inside the brick in the room. */}
+    <mesh geometry={look.geometry.header} material={look.material.front} raycast={noRaycast} visible={activeZone === HUB_ZONE} />
+    <CabinDoor doorRef={leftDoorRef} x={-0.65} look={look} /><CabinDoor doorRef={rightDoorRef} x={0.65} look={look} />
     <instancedMesh ref={shaftRef} name="creator-elevator-shaft" args={[undefined, undefined, 14]} visible={moving && !reducedMotion} frustumCulled={false} raycast={() => {}}>
       <boxGeometry args={[1, 1, 1]} /><meshBasicMaterial color="#e1b279" toneMapped={false} />
     </instancedMesh>
