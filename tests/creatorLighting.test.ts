@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { CREATOR_LIGHTING_PRESETS, LED_PALETTE, createLedRhythm, creatorLightingLevels, ledPaletteColor, patchCreatorLighting, stepLedRhythm } from '../src/lib/creatorLighting.ts';
+import { BOOTH_LIVE_BOOST, CREATOR_LIGHTING_PRESETS, LED_PALETTE, createLedRhythm, creatorLightingLevels, ledPaletteColor, onAirLevel, patchCreatorLighting, stepLedRhythm } from '../src/lib/creatorLighting.ts';
 import { BEAT_MIN_INTERVAL, createBeatTracker, kickLevelFromDecibels, stepBeatTracker } from '../src/lib/creatorMusic.ts';
 import { parseCreatorPreferences } from '../src/lib/creatorPreferences.ts';
 import { prepareCreatorRoomMaterial } from '../src/3d/world/rooms/creatorRoomMaterials.ts';
@@ -161,4 +161,31 @@ test('dB kick level is finite for silence and not clipped for loud bass', () => 
   assert.equal(kickLevelFromDecibels([-Infinity, -Infinity, -Infinity, -Infinity]), 0);
   assert.ok(kickLevelFromDecibels([0, -20, -20, -20]) > 1);
   assert.ok(Number.isFinite(kickLevelFromDecibels([NaN, NaN, NaN, NaN])));
+});
+
+test('the booth key is brighter while live, also without the music reaction, and only then', () => {
+  const settings = CREATOR_LIGHTING_PRESETS.warm;
+  const base = creatorLightingLevels(settings, 0, false);
+  assert.equal(creatorLightingLevels(settings, 0, true, true).booth, settings.boothBrightness * BOOTH_LIVE_BOOST);
+  assert.equal(creatorLightingLevels({ ...settings, audioReactive: false }, 1, true, true).booth, settings.boothBrightness * BOOTH_LIVE_BOOST);
+  const live = creatorLightingLevels(settings, 0, true, true);
+  assert.equal(live.room, base.room); assert.equal(live.led, base.led); assert.equal(live.screen, base.screen);
+  assert.ok(creatorLightingLevels(settings, 1, true, true).booth > live.booth, 'the beat still lifts it with the reaction on');
+});
+
+test('ON AIR is unlit when idle, dim while waiting, lit when live, and only pulses live', () => {
+  assert.ok(onAirLevel('idle', 0) < onAirLevel('ready', 0));
+  assert.equal(onAirLevel('ready', 0), onAirLevel('paused', 0));
+  assert.equal(onAirLevel('ended', 0), onAirLevel('paused', 0));
+  assert.ok(onAirLevel('live', 0) > 3 * onAirLevel('paused', 0));
+  for (const state of ['idle', 'ready', 'paused', 'ended'] as const) assert.equal(onAirLevel(state, 1), onAirLevel(state, 0), `${state} never pulses`);
+  assert.ok(onAirLevel('live', 1) > onAirLevel('live', 0));
+  assert.equal(onAirLevel('live', 5), onAirLevel('live', 1));
+  assert.equal(onAirLevel('live', NaN), onAirLevel('live', 0));
+  assert.equal(onAirLevel('broken' as 'idle', 1), onAirLevel('idle', 0));
+});
+
+test('reduced motion and the music reaction off give a steady ON AIR: the LED rhythm never hits', () => {
+  const { rhythm } = runKicks(128, 10, true);
+  assert.equal(onAirLevel('live', rhythm.pulse), onAirLevel('live', 0));
 });

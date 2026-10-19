@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { EditingTable } from '../../modules/furniture/EditingTable';
 import { DistanceCulledModel } from '../../systems/DistanceCulledModel';
 import { VocalBooth } from './VocalBooth';
+import { CreatorOnAirSign } from './CreatorOnAirSign';
 import { useHudStore } from '../../../stores/useHudStore';
 import { CreatorRoomProfileContext, creatorModelUrl, creatorParameterMap, useCreatorRoomMobile } from './CreatorRoomProfile';
 import { CreatorLightingProvider, CreatorRoomLightingRig, CreatorLight } from './CreatorLighting';
@@ -855,6 +856,8 @@ export function CreatorRoomMVP({
         <group position={[leftWallX - 0.06, 0, boothControls.posZ]} rotation={[0, Math.PI / 2, 0]}>
           <VocalBooth />
         </group>
+        {/* ON AIR on the room side of the wall, above the booth window. */}
+        <CreatorOnAirSign position={[leftWallX + 0.27, boothWindowTop + 0.4, boothControls.posZ]} rotation={[0, Math.PI / 2, 0]} />
 
         {/* RTV Cabinet — heavy 4K model, distance-culled */}
         <group position={[decorControls.rtvPosX, decorControls.rtvPosY, decorControls.rtvPosZ]} rotation={[0, THREE.MathUtils.degToRad(decorControls.rtvRotY), 0]} scale={decorControls.rtvScale}>

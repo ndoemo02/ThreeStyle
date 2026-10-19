@@ -1,3 +1,5 @@
+import type { CreatorSessionState } from './creatorSession';
+
 export type RoomMood = 'warm' | 'focus' | 'night';
 
 export interface CreatorLightingSettings {
@@ -27,14 +29,33 @@ export function patchCreatorLighting(current: CreatorLightingSettings, patch: Pa
   return next;
 }
 
-export function creatorLightingLevels(settings: CreatorLightingSettings, energy: number, playing: boolean) {
+/** The booth key lifts this much while the session is live, also with the music reaction off (a steady level, never a flash). */
+export const BOOTH_LIVE_BOOST = 1.3;
+
+export function creatorLightingLevels(settings: CreatorLightingSettings, energy: number, playing: boolean, live = false) {
   const music = settings.audioReactive && playing ? Math.max(0, Math.min(1, energy)) * settings.musicStrength : 0;
   return {
     room: settings.roomBrightness,
     led: settings.ledBrightness * (1 + music * 2.2),
-    booth: settings.boothBrightness * (1 + music * 0.45),
+    booth: settings.boothBrightness * (live ? BOOTH_LIVE_BOOST : 1) * (1 + music * 0.45),
     screen: 0.18 + settings.roomBrightness * 0.82,
   };
+}
+
+/**
+ * ON AIR sign brightness (linear colour scale) per session state: an unlit tube, dimmed while a track waits,
+ * lit when live. Live sits below 1 so the beat pulse still shows: the red lettering saturates at 1.
+ */
+export const ON_AIR_LEVELS: Record<CreatorSessionState, number> = { idle: 0.03, ready: 0.12, paused: 0.12, ended: 0.12, live: 0.6 };
+export const ON_AIR_PULSE = 0.5;
+
+/**
+ * ON AIR brightness. `pulse` is the LED light hit (0..1): it only fires through the shared 2-per-second
+ * beat cap, never with reduced motion or with the music reaction off, so then the sign glows steadily.
+ */
+export function onAirLevel(state: CreatorSessionState, pulse: number) {
+  const base = ON_AIR_LEVELS[state] ?? ON_AIR_LEVELS.idle;
+  return state === 'live' && Number.isFinite(pulse) ? base + Math.max(0, Math.min(1, pulse)) * ON_AIR_PULSE : base;
 }
 
 /** Club palette the LED strips walk through when `ledCycle` is on. */

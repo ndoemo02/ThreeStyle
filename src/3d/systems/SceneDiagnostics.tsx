@@ -14,7 +14,7 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     // Development-only fixture: actual ride input still goes through the visible UI.
-    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural', 'face', 'face-close', 'face-side', 'lucky', 'lucky-close', 'room', 'room-back'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
+    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural', 'face', 'face-close', 'face-side', 'lucky', 'lucky-close', 'booth', 'room', 'room-back'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
       fixtureApplied.current = true;
       const state = get();
       if (query.get('qa') === 'face-close' || query.get('qa') === 'face-side') {
@@ -24,6 +24,9 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
         state.camera.position.set(-7.6, 2.08, -4.1); state.camera.lookAt(-8.46, 2.02, -4.25);
       } else if (query.get('qa') === 'lucky') {
         state.camera.position.set(-6.4, 2.05, -3.4); state.camera.lookAt(-8.46, 1.85, -4.25);
+      } else if (query.get('qa') === 'booth') {
+        // The booth window and the wall above it (ON AIR, VU) as seen from the middle of the room.
+        state.camera.position.set(0.5, 2.3, -2.5); state.camera.lookAt(-7, 2.6, -2.5);
       } else if (query.get('qa') === 'room') {
         // Creator Room framing of the Room.A/B references: elevator wall ahead, sofa left, cabinet right.
         state.camera.position.set(0, 2.05, -3); state.camera.lookAt(0, 1.9, 7);
@@ -66,6 +69,7 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
         for (let i = 0; i < node.geometry.attributes.position.count; i++) box.expandByPoint(node.getVertexPosition(i, vertex).applyMatrix4(node.matrixWorld));
         faceParts.push({ name: node.name, center: box.getCenter(vertex).toArray(), size: box.getSize(new THREE.Vector3()).toArray(), screen: box.getCenter(vertex).project(scene.camera).toArray() });
       });
+      const lighting = scene.scene.userData.creatorLighting as { session: unknown; onAir: number; booth: number } | undefined;
       const seam = new THREE.Vector3(ENTRY.x, 2.325, ENTRY.z + 0.087).project(scene.camera);
       return JSON.stringify({
         coordinateSystem: 'Y up; camera forward follows view, metres',
@@ -75,7 +79,8 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
         camera: scene.camera.position.toArray(), dpr: scene.gl.getPixelRatio(),
         exposure: scene.gl.toneMappingExposure,
         ready,
-        session: scene.scene.userData.creatorSession ?? null,
+        session: lighting?.session ?? null,
+        onAir: lighting ? { level: +lighting.onAir.toFixed(3), booth: +lighting.booth.toFixed(3) } : null,
         render: { calls: scene.gl.info.render.calls, triangles: scene.gl.info.render.triangles, textures: scene.gl.info.memory.textures, geometries: scene.gl.info.memory.geometries },
         face: { enabled: useCreatorFaceStore.getState().enabled, status: useCreatorFaceStore.getState().status, revision: useCreatorFaceStore.getState().revision,
           disposed: scene.scene.userData.creatorFaceLastDisposal ?? null,

@@ -187,12 +187,6 @@ export function VocalBooth({ position = [0, 0, 0] as [number, number, number] })
         <meshStandardMaterial color="#bbb" metalness={0.8} roughness={0.2} />
       </mesh>
 
-      {/* ── ON AIR neon strip (meshBasicMaterial = self-illuminating, no extra light needed) ── */}
-      <mesh position={[0, H - 0.08, -0.05]}>
-        <boxGeometry args={[0.62, 0.1, 0.04]} />
-        <meshBasicMaterial color="#cc0000" />
-      </mesh>
-
       {/* ── Floor skirting ── */}
       <mesh position={[0, 0.02, -D]}>
         <boxGeometry args={[W, 0.04, 0.05]} />

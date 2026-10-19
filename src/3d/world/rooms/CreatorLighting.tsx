@@ -7,7 +7,7 @@ import { useHudStore } from '../../../stores/useHudStore';
 import { useAudioStore } from '../../../stores/useAudioStore';
 import { useTransitionStore } from '../../../store/useTransitionStore';
 import { ROOM_ZONE } from '../../navigation/navigationConfig';
-import { createLedRhythm, creatorLightingLevels, ledPaletteColor, stepLedRhythm, type CreatorLightingSettings } from '../../../lib/creatorLighting';
+import { createLedRhythm, creatorLightingLevels, ledPaletteColor, onAirLevel, stepLedRhythm, type CreatorLightingSettings } from '../../../lib/creatorLighting';
 import { createBeatTracker, createSharedMusic, kickLevelFromDecibels, lowLevelFromDecibels, stepBeatTracker, voiceLevelFromDecibels } from '../../../lib/creatorMusic';
 import { createCreatorSession, stepCreatorSession } from '../../../lib/creatorSession';
 
@@ -32,6 +32,8 @@ function createFrame(lighting: CreatorLightingSettings, mood: string) {
     music: createSharedMusic(),
     /** Session state (idle/ready/live/paused/ended) with a change count for ON AIR, the booth and the host. */
     session: createCreatorSession(),
+    /** ON AIR sign brightness (see onAirLevel), eased like the light channels. */
+    onAir: onAirLevel('idle', 0),
   };
 }
 export type CreatorLightingFrame = ReturnType<typeof createFrame>;
@@ -49,8 +51,8 @@ export function CreatorLightingProvider({ children }: { children: ReactNode }) {
   const scene = useThree(s => s.scene);
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') return;
-    scene.userData.creatorSession = frameRef.current.session;
-    return () => { delete scene.userData.creatorSession; };
+    scene.userData.creatorLighting = frameRef.current;
+    return () => { delete scene.userData.creatorLighting; };
   }, [scene]);
   useEffect(() => {
     const media = matchMedia('(prefers-reduced-motion: reduce)');
@@ -88,9 +90,11 @@ export function CreatorLightingProvider({ children }: { children: ReactNode }) {
     const beat = stepBeatTracker(a.beat, music.playing ? music.kick : null, step);
     if (beat) music.beats++;
     stepLedRhythm(a.rhythm, playing ? lighting.audioReactive && beat : null, step, a.reduced || !lighting.audioReactive);
-    const levels = creatorLightingLevels(lighting, a.rhythm.pulse, playing);
+    const live = frame.session.state === 'live';
+    const levels = creatorLightingLevels(lighting, a.rhythm.pulse, playing, live);
     const blend = 1 - Math.exp(-step * 10);
     for (const key of ['room', 'led', 'booth', 'screen'] as const) frame[key] = THREE.MathUtils.lerp(frame[key], levels[key], blend);
+    frame.onAir = THREE.MathUtils.lerp(frame.onAir, onAirLevel(frame.session.state, a.rhythm.pulse), blend);
     frame.cycling = lighting.ledCycle;
     if (lighting.ledCycle) {
       frame.palette = a.rhythm.position;
