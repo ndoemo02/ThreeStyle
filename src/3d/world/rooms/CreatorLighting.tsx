@@ -5,7 +5,8 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useHudStore } from '../../../stores/useHudStore';
 import { useAudioStore } from '../../../stores/useAudioStore';
-import { createLedRhythm, creatorLightingLevels, kickLevelFromDecibels, ledPaletteColor, stepLedRhythm, type CreatorLightingSettings } from '../../../lib/creatorLighting';
+import { createLedRhythm, creatorLightingLevels, ledPaletteColor, stepLedRhythm, type CreatorLightingSettings } from '../../../lib/creatorLighting';
+import { createBeatTracker, createSharedMusic, kickLevelFromDecibels, lowLevelFromDecibels, stepBeatTracker, voiceLevelFromDecibels } from '../../../lib/creatorMusic';
 
 type Levels = ReturnType<typeof creatorLightingLevels>;
 type Channel = keyof Levels;
@@ -24,6 +25,8 @@ function createFrame(lighting: CreatorLightingSettings, mood: string) {
     /** Palette position for strips that spread the palette along their length. */
     palette: 0,
     cycling: lighting.ledCycle,
+    /** The one music reading (levels and beat count) shared with the booth host; see readSharedMusic. */
+    music: createSharedMusic(),
   };
 }
 export type CreatorLightingFrame = ReturnType<typeof createFrame>;
@@ -34,8 +37,8 @@ export function useCreatorLightingFrame() { return useContext(LightingContext); 
 export function CreatorLightingProvider({ children }: { children: ReactNode }) {
   const initial = useMemo(() => { const { lighting, roomMood } = useHudStore.getState(); return createFrame(lighting, roomMood); }, []);
   const frameRef = useRef(initial);
-  // One spectrum read per frame budget (30 Hz) shared by every LED, booth and accent consumer.
-  const audio = useRef({ analyser: null as AnalyserNode | null, data: new Float32Array(256), last: 0, bass: 0, rhythm: createLedRhythm(), reduced: false, mix: new THREE.Color(), rgb: { r: 0, g: 0, b: 0 } });
+  // One spectrum read per frame budget (30 Hz) shared by every LED, booth and accent consumer and the booth host.
+  const audio = useRef({ analyser: null as AnalyserNode | null, data: new Float32Array(256), last: 0, beat: createBeatTracker(), rhythm: createLedRhythm(), reduced: false, mix: new THREE.Color(), rgb: { r: 0, g: 0, b: 0 } });
   const lastColor = useRef('');
   const lastMood = useRef('');
   useEffect(() => {
@@ -49,23 +52,29 @@ export function CreatorLightingProvider({ children }: { children: ReactNode }) {
     const { lighting, roomMood, playbackStatus } = useHudStore.getState();
     const { analyserNode, isActive } = useAudioStore.getState();
     const playing = playbackStatus === 'playing' && isActive;
-    const a = audio.current;
+    const a = audio.current, music = frame.music;
     const now = performance.now();
-    if (lighting.audioReactive && playing && analyserNode && now - a.last >= 1000 / 30) {
-      if (a.analyser !== analyserNode) {
-        a.analyser = analyserNode;
-        a.data = new Float32Array(analyserNode.frequencyBinCount);
+    // Read even with the light reaction off: the booth host's faces follow the music on their own.
+    const analyser = playing ? analyserNode : null;
+    music.playing = !!analyser;
+    if (!analyser) music.kick = music.low = music.voice = 0;
+    else if (now - a.last >= 1000 / 30) {
+      if (a.analyser !== analyser) {
+        a.analyser = analyser;
+        a.data = new Float32Array(analyser.frequencyBinCount);
       }
       // dB, not bytes: bytes clip at maxDecibels, and loud masters sit there, hiding the kick.
-      analyserNode.getFloatFrequencyData(a.data);
-      // FFT512: bins 1–3 cover approximately 90–280 Hz at 48 kHz.
-      a.bass = kickLevelFromDecibels(a.data);
+      analyser.getFloatFrequencyData(a.data);
+      music.kick = kickLevelFromDecibels(a.data);
+      music.low = lowLevelFromDecibels(a.data);
+      music.voice = voiceLevelFromDecibels(a.data);
       a.last = now;
     }
     const step = Math.min(delta, 0.1);
-    // Beats (and so light hits and colour steps) are capped in stepLedRhythm; without the music
-    // reaction a cycling palette only drifts.
-    stepLedRhythm(a.rhythm, playing ? (lighting.audioReactive ? a.bass : 0) : null, step, a.reduced || !lighting.audioReactive);
+    // Beats are capped at 2 per second in the tracker; without the music reaction a cycling palette only drifts.
+    const beat = stepBeatTracker(a.beat, music.playing ? music.kick : null, step);
+    if (beat) music.beats++;
+    stepLedRhythm(a.rhythm, playing ? lighting.audioReactive && beat : null, step, a.reduced || !lighting.audioReactive);
     const levels = creatorLightingLevels(lighting, a.rhythm.pulse, playing);
     const blend = 1 - Math.exp(-step * 10);
     for (const key of ['room', 'led', 'booth', 'screen'] as const) frame[key] = THREE.MathUtils.lerp(frame[key], levels[key], blend);

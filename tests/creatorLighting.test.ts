@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { CREATOR_LIGHTING_PRESETS, LED_MIN_BEAT_INTERVAL, LED_PALETTE, createLedRhythm, creatorLightingLevels, kickLevelFromDecibels, ledPaletteColor, patchCreatorLighting, stepLedRhythm } from '../src/lib/creatorLighting.ts';
+import { CREATOR_LIGHTING_PRESETS, LED_PALETTE, createLedRhythm, creatorLightingLevels, ledPaletteColor, patchCreatorLighting, stepLedRhythm } from '../src/lib/creatorLighting.ts';
+import { BEAT_MIN_INTERVAL, createBeatTracker, kickLevelFromDecibels, stepBeatTracker } from '../src/lib/creatorMusic.ts';
 import { parseCreatorPreferences } from '../src/lib/creatorPreferences.ts';
 import { prepareCreatorRoomMaterial } from '../src/3d/world/rooms/creatorRoomMaterials.ts';
 import { nextCreatorDpr } from '../src/lib/creatorQuality.ts';
@@ -58,13 +59,13 @@ test('room glass avoids transmission without mutating the cached source or losin
 
 /** Square kick: 0.9 for 60 ms at every beat of `bpm`, quiet otherwise; returns beat times. */
 function runKicks(bpm: number, seconds: number, reduced = false, double = false) {
-  const rhythm = createLedRhythm();
+  const rhythm = createLedRhythm(), tracker = createBeatTracker();
   const beats: number[] = [];
   const dt = 1 / 60, period = 60 / bpm;
   for (let t = 0; t < seconds; t += dt) {
     const phase = t % period;
     const kick = phase < 0.06 || (double && phase > 0.12 && phase < 0.18) ? 0.9 : 0.05;
-    if (stepLedRhythm(rhythm, kick, dt, reduced)) beats.push(rhythm.time);
+    if (stepLedRhythm(rhythm, stepBeatTracker(tracker, kick, dt), dt, reduced)) beats.push(rhythm.time);
   }
   return { rhythm, beats };
 }
@@ -73,7 +74,7 @@ test('LED light hits never exceed two per second, whatever the tempo or double k
   for (const [bpm, double] of [[90, false], [128, false], [174, false], [200, true], [240, true]] as const) {
     const { beats } = runKicks(bpm, 20, false, double);
     assert.ok(beats.length > 10, `${bpm} BPM should still react`);
-    for (let i = 1; i < beats.length; i++) assert.ok(beats[i] - beats[i - 1] >= LED_MIN_BEAT_INTERVAL - 1e-9, `${bpm} BPM gap ${beats[i] - beats[i - 1]}`);
+    for (let i = 1; i < beats.length; i++) assert.ok(beats[i] - beats[i - 1] >= BEAT_MIN_INTERVAL - 1e-9, `${bpm} BPM gap ${beats[i] - beats[i - 1]}`);
     // Any one-second window holds at most two hits (below the 3 flashes/s threshold).
     for (const start of beats) assert.ok(beats.filter(t => t >= start && t < start + 1).length <= 2);
   }
@@ -88,18 +89,18 @@ test('reduced motion never flashes the LEDs but the palette still drifts slowly'
 
 test('a colour step glides instead of cutting, and silence holds the colour', () => {
   const rhythm = createLedRhythm();
-  stepLedRhythm(rhythm, 0.05, 1 / 60);
-  stepLedRhythm(rhythm, 0.9, 1 / 60);
+  stepLedRhythm(rhythm, false, 1 / 60);
+  stepLedRhythm(rhythm, true, 1 / 60);
   assert.equal(rhythm.target, 1);
   assert.ok(rhythm.position > 0 && rhythm.position < 0.3, `first frame ${rhythm.position}`);
-  for (let i = 0; i < 60; i++) stepLedRhythm(rhythm, 0.05, 1 / 60);
+  for (let i = 0; i < 60; i++) stepLedRhythm(rhythm, false, 1 / 60);
   assert.ok(Math.abs(rhythm.position - 1) < 0.01);
   const held = rhythm.position;
   for (let i = 0; i < 600; i++) stepLedRhythm(rhythm, null, 1 / 60);
   assert.equal(rhythm.target, 1);
   assert.ok(Math.abs(rhythm.position - held) < 0.01);
   assert.ok(rhythm.pulse < 1e-6);
-  stepLedRhythm(rhythm, NaN, NaN);
+  stepLedRhythm(rhythm, true, NaN);
   assert.ok(Number.isFinite(rhythm.position) && Number.isFinite(rhythm.pulse));
 });
 
@@ -128,7 +129,7 @@ test('colour cycling is a validated, persisted preference that only Night enable
 
 /** Analyser-like kick band for a loud master: dB above maxDecibels (-30), smoothing 0.8, read at 30 Hz. */
 function loudMaster(bpm: number, seconds: number, kickDb: number, troughDb: number, jitterDb = 0) {
-  const rhythm = createLedRhythm(), beats: number[] = [];
+  const rhythm = createLedRhythm(), tracker = createBeatTracker(), beats: number[] = [];
   let magnitude = 0, level = 0, read = 0, seed = 3;
   const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   const dt = 1 / 60, period = 60 / bpm;
@@ -137,7 +138,7 @@ function loudMaster(bpm: number, seconds: number, kickDb: number, troughDb: numb
     magnitude = 0.8 * magnitude + 0.2 * 10 ** (db / 20);
     read += dt;
     if (read >= 1 / 30) { read = 0; const bandDb = 20 * Math.log10(magnitude); level = kickLevelFromDecibels([0, bandDb, bandDb, bandDb]); }
-    if (stepLedRhythm(rhythm, level, dt)) beats.push(rhythm.time);
+    if (stepLedRhythm(rhythm, stepBeatTracker(tracker, level, dt), dt)) beats.push(rhythm.time);
   }
   return beats;
 }
@@ -147,7 +148,7 @@ test('kicks stay visible in a loud master whose bass sits above the byte ceiling
     const beats = loudMaster(bpm, 20, -22, -29);
     assert.ok(beats.length / 20 >= 1.4, `${bpm} BPM: ${beats.length} beats in 20 s`);
     assert.ok(beats.filter(t => t > 10).length >= 14, `${bpm} BPM keeps detecting after the first seconds`);
-    for (let i = 1; i < beats.length; i++) assert.ok(beats[i] - beats[i - 1] >= LED_MIN_BEAT_INTERVAL - 1e-9);
+    for (let i = 1; i < beats.length; i++) assert.ok(beats[i] - beats[i - 1] >= BEAT_MIN_INTERVAL - 1e-9);
   }
 });
 

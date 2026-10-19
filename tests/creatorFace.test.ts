@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { FACE_EXPRESSIONS, FACE_MORPHS, createFaceDirector, directFace, faceExpressionPose, neutralFacePose, smoothFacePose } from '../src/lib/creatorFace.ts';
+import { createBeatTracker, kickLevelFromDecibels, lowLevelFromDecibels, stepBeatTracker, voiceLevelFromDecibels, type BeatTracker, type MusicFrame } from '../src/lib/creatorMusic.ts';
 import { useCreatorFaceStore } from '../src/stores/useCreatorFaceStore.ts';
 
 test('real face asset supports all chosen expressions within the geometry budget', async () => {
@@ -26,11 +27,18 @@ function songFrame(time: number, loud = 200) {
   return fft;
 }
 
+/** What the lighting provider shares: byte-scale frames as analyser dB, through the one beat tracker. */
+function listen(tracker: BeatTracker, decibels: ArrayLike<number>, delta: number): MusicFrame {
+  const kick = kickLevelFromDecibels(decibels);
+  return { kick, low: lowLevelFromDecibels(decibels), voice: voiceLevelFromDecibels(decibels), beat: stepBeatTracker(tracker, kick, delta) };
+}
+const decibels = (bytes: Uint8Array) => Float32Array.from(bytes, byte => byte / 255 * 70 - 100);
+
 test('silence, pause and a short analyser buffer never produce invalid expression values', () => {
-  const director = createFaceDirector(seeded(1));
+  const director = createFaceDirector(seeded(1)), tracker = createBeatTracker();
   assert.deepEqual(directFace(director, null, 1 / 30), neutralFacePose());
   for (const size of [0, 1, 2, 8, 256]) {
-    const pose = directFace(director, new Uint8Array(size).fill(255), 1 / 30, false, seeded(size));
+    const pose = directFace(director, listen(tracker, decibels(new Uint8Array(size).fill(255)), 1 / 30), 1 / 30, false, seeded(size));
     assert.equal(pose.length, FACE_MORPHS.length);
     assert(pose.every(n => Number.isFinite(n) && n >= 0 && n <= 1));
   }
@@ -40,12 +48,12 @@ test('silence, pause and a short analyser buffer never produce invalid expressio
 });
 
 test('music changes the expression on the beat, never faster than the hold time, and keeps variety', () => {
-  const random = seeded(7), director = createFaceDirector(random);
+  const random = seeded(7), director = createFaceDirector(random), tracker = createBeatTracker();
   const seen = new Set<string>(), switches: number[] = [];
   let previous: string | null = null;
   for (let frame = 0; frame < 30 * 8; frame++) {
     const time = frame / 30;
-    const pose = directFace(director, songFrame(time), 1 / 30, false, random);
+    const pose = directFace(director, listen(tracker, decibels(songFrame(time)), 1 / 30), 1 / 30, false, random);
     assert(pose.every(n => n >= 0 && n <= 1));
     if (director.expression !== previous) { switches.push(time); previous = director.expression; }
     if (director.expression) seen.add(director.expression);
@@ -63,7 +71,7 @@ test('quiet passages favour calm faces, loud ones big faces; the jaw follows the
     let big = 0;
     for (let seed = 1; seed <= 200; seed++) {
       const director = createFaceDirector(seeded(seed));
-      directFace(director, frame, 1 / 30, false, seeded(seed * 7));
+      directFace(director, listen(createBeatTracker(), decibels(frame), 1 / 30), 1 / 30, false, seeded(seed * 7));
       if (hot.has(director.expression!)) big++;
     }
     return big / 200;
@@ -72,17 +80,17 @@ test('quiet passages favour calm faces, loud ones big faces; the jaw follows the
   const loudFrame = songFrame(0, 255).fill(220, 4, 18);
   assert(share(quiet) < 0.3, `quiet big-face share ${share(quiet)}`);
   assert(share(loudFrame) > 0.6, `loud big-face share ${share(loudFrame)}`);
-  const pose = directFace(createFaceDirector(seeded(4)), loudFrame, 1 / 30, false, seeded(4));
+  const pose = directFace(createFaceDirector(seeded(4)), listen(createBeatTracker(), decibels(loudFrame), 1 / 30), 1 / 30, false, seeded(4));
   assert(pose[FACE_MORPHS.indexOf('jawOpen')] > 0.3);
 });
 
 test('reduced motion changes faces slowly and softly; pause settles everything back to neutral', () => {
-  const random = seeded(11), director = createFaceDirector(random);
+  const random = seeded(11), director = createFaceDirector(random), tracker = createBeatTracker();
   const switches: number[] = [];
   let previous: string | null = null, peak = 0;
   const pose = neutralFacePose();
   for (let frame = 0; frame < 15 * 8; frame++) {
-    const target = directFace(director, songFrame(frame / 15), 1 / 15, true, random);
+    const target = directFace(director, listen(tracker, decibels(songFrame(frame / 15)), 1 / 15), 1 / 15, true, random);
     smoothFacePose(pose, target, 1 / 15);
     if (director.expression !== previous) { switches.push(frame / 15); previous = director.expression; }
     peak = Math.max(peak, ...target.filter((_, i) => i !== 1 && i !== 2));
@@ -92,6 +100,39 @@ test('reduced motion changes faces slowly and softly; pause settles everything b
   assert(peak <= 0.6, `reduced intensity peak ${peak}`);
   for (let i = 0; i < 120; i++) smoothFacePose(pose, directFace(director, null, 1 / 60), 1 / 60);
   assert(pose.every(n => n < 0.00001), 'pause settles all expressions back to neutral');
+});
+
+/**
+ * Loud master at 120 BPM: the kick band peaks at -22 dB over a -29 dB floor, both above the byte
+ * ceiling (-30 dB), so byte data reads a flat 255 and the old face detector saw no beats at all.
+ * Analyser-like: smoothing 0.8 at 60 Hz, read at 30 Hz like the provider.
+ */
+function loudMasterFace(seconds: number) {
+  const random = seeded(5), director = createFaceDirector(random), tracker = createBeatTracker();
+  const db = new Float32Array(256).fill(-45);
+  let magnitude = 0, read = 0, nods = 0, switches = 0, previous: string | null = null, saturatedBytes = true;
+  const dt = 1 / 60;
+  for (let t = 0; t < seconds; t += dt) {
+    magnitude = 0.8 * magnitude + 0.2 * 10 ** ((t % 0.5 < 0.08 ? -22 : -29) / 20);
+    read += dt;
+    if (read < 1 / 30) continue;
+    const bandDb = 20 * Math.log10(magnitude);
+    if (t > 1) saturatedBytes &&= bandDb > -30;
+    db.fill(bandDb, 1, 8);
+    directFace(director, listen(tracker, db, read), read, false, random);
+    read = 0;
+    if (director.nod === 1) nods++;
+    if (director.expression !== previous) { switches++; previous = director.expression; }
+  }
+  return { nods, switches, saturatedBytes };
+}
+
+test('a loud master whose bass sits above the byte ceiling still drives faces and nods on the beat', () => {
+  const { nods, switches, saturatedBytes } = loudMasterFace(20);
+  assert.ok(saturatedBytes, 'the test signal really clips byte data');
+  // ~40 beats in 20 s; the 1.3 s fallback alone would give ~15 switches and no nods.
+  assert.ok(nods >= 25, `${nods} beat nods in 20 s`);
+  assert.ok(switches >= 25, `${switches} face changes in 20 s`);
 });
 
 test('turning off or retrying rejects completion from an obsolete model request', () => {

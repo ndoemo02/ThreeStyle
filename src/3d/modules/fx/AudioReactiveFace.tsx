@@ -4,11 +4,11 @@ import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { GLTFLoader, KTX2Loader, MeshoptDecoder } from 'three-stdlib';
 import * as THREE from 'three';
-import { useAudioStore } from '@/stores/useAudioStore';
-import { useHudStore } from '@/stores/useHudStore';
 import { useCreatorFaceStore } from '@/stores/useCreatorFaceStore';
 import { CREATOR_FACE_MODEL, FACE_MORPHS, createFaceDirector, directFace, neutralFacePose, smoothFacePose } from '@/lib/creatorFace';
 import { cloneCreatorFaceGeometry } from '@/lib/creatorFaceGeometry';
+import { createMusicFrame, readSharedMusic } from '@/lib/creatorMusic';
+import { useCreatorLightingFrame } from '@/3d/world/rooms/CreatorLighting';
 
 function disposeSource(scene: THREE.Group) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -67,7 +67,8 @@ export default function AudioReactiveFace({ revision }: { revision: number }) {
   const root = useRef<THREE.Group>(null);
   const renderer = useThree(s => s.gl);
   const scene = useThree(s => s.scene);
-  const runtime = useRef({ model: null as ReturnType<typeof prepareFace> | null, elapsed: 0, data: new Uint8Array(0), pose: neutralFacePose(), director: createFaceDirector(), time: 0,
+  const lighting = useCreatorLightingFrame();
+  const runtime = useRef({ model: null as ReturnType<typeof prepareFace> | null, elapsed: 0, music: createMusicFrame(), cursor: { beats: 0 }, pose: neutralFacePose(), director: createFaceDirector(), time: 0,
     frustum: new THREE.Frustum(), matrix: new THREE.Matrix4(), sphere: new THREE.Sphere(new THREE.Vector3(), 0.85), reduced: false });
 
   useEffect(() => {
@@ -126,18 +127,12 @@ export default function AudioReactiveFace({ revision }: { revision: number }) {
     if (!group.visible) return;
     state.elapsed += Math.min(delta, 0.1);
     if (state.elapsed < 1 / (state.reduced ? 15 : 30)) return;
-    const { analyserNode, isActive } = useAudioStore.getState();
-    const playing = useHudStore.getState().playbackStatus === 'playing' && isActive;
-    let data: Uint8Array | null = null;
-    if (playing && analyserNode) {
-      if (state.data.length !== analyserNode.frequencyBinCount) state.data = new Uint8Array(analyserNode.frequencyBinCount);
-      analyserNode.getByteFrequencyData(state.data); data = state.data;
-    }
+    const music = readSharedMusic(lighting.current.music, state.cursor, state.music);
     const step = state.elapsed; state.elapsed = 0; state.time += step;
-    smoothFacePose(state.pose, directFace(state.director, data, step, state.reduced), step);
+    smoothFacePose(state.pose, directFace(state.director, music, step, state.reduced), step);
     state.model.head.morphTargetInfluences!.splice(0, FACE_MORPHS.length, ...state.pose);
     // Small head motion while music plays: a nod on detected beats plus a slow sway; eases back on pause.
-    const sway = data && !state.reduced ? 1 : 0, follow = 1 - Math.exp(-step * 6);
+    const sway = music && !state.reduced ? 1 : 0, follow = 1 - Math.exp(-step * 6);
     group.rotation.x += (state.director.nod * 0.09 + sway * Math.sin(state.time * 1.3) * 0.025 - group.rotation.x) * follow;
     group.rotation.y += (sway * Math.sin(state.time * 0.7) * 0.06 - group.rotation.y) * follow;
   });

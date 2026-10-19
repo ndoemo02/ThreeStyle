@@ -8,8 +8,10 @@ import { useAudioStore } from '@/stores/useAudioStore';
 import { useHudStore } from '@/stores/useHudStore';
 import { useCreatorFaceStore } from '@/stores/useCreatorFaceStore';
 import { FACE_MORPHS, createFaceDirector, directFace, faceExpressionPose, neutralFacePose, smoothFacePose } from '@/lib/creatorFace';
+import { createMusicFrame, readSharedMusic } from '@/lib/creatorMusic';
 import { LUCKY_BOOTH_POSITION, LUCKY_BOOTH_ROTATION_Y, LUCKY_GREETING_DISTANCE, LUCKY_SCALE, LUCKY_GREETING_SECONDS, luckyBodyPose, luckyModelUrl } from '@/lib/lucky';
 import { useCreatorRoomMobile } from './CreatorRoomProfile';
+import { useCreatorLightingFrame } from './CreatorLighting';
 
 type BoneDriver = { bone: THREE.Bone; rest: THREE.Quaternion; x: THREE.Vector3; y: THREE.Vector3; z: THREE.Vector3 };
 const turn = new THREE.Quaternion();
@@ -69,10 +71,11 @@ export default function LuckyHost({ revision, onUnavailable }: { revision: numbe
   const mobile = useCreatorRoomMobile();
   const root = useRef<THREE.Group>(null);
   const scene = useThree(s => s.scene);
+  const lighting = useCreatorLightingFrame();
   const unavailable = useRef(onUnavailable);
   useEffect(() => { unavailable.current = onUnavailable; }, [onUnavailable]);
   const runtime = useRef({
-    model: null as ReturnType<typeof prepareLucky> | null, elapsed: 0, time: 0, data: new Uint8Array(0),
+    model: null as ReturnType<typeof prepareLucky> | null, elapsed: 0, time: 0, music: createMusicFrame(), cursor: { beats: 0 },
     pose: neutralFacePose(), director: createFaceDirector(), greetingStart: -1, reduced: false,
     frustum: new THREE.Frustum(), matrix: new THREE.Matrix4(), sphere: new THREE.Sphere(new THREE.Vector3(), 1.3), head: new THREE.Vector3(),
   });
@@ -133,8 +136,7 @@ export default function LuckyHost({ revision, onUnavailable }: { revision: numbe
     // Greet only once the deck is closed, so the nod is actually seen.
     if (state.greetingStart < 0 && distanceSq < LUCKY_GREETING_DISTANCE ** 2 && !useHudStore.getState().isOpen) state.greetingStart = state.time;
     const greeting = state.greetingStart < 0 ? -1 : state.time - state.greetingStart;
-    const { analyserNode, isActive } = useAudioStore.getState();
-    const playing = useHudStore.getState().playbackStatus === 'playing' && isActive;
+    const playing = useHudStore.getState().playbackStatus === 'playing' && useAudioStore.getState().isActive;
 
     const body = luckyBodyPose(state.time, greeting, state.director.nod, playing, state.reduced);
     drive(model.headBone, body.headPitch, body.headYaw);
@@ -145,14 +147,10 @@ export default function LuckyHost({ revision, onUnavailable }: { revision: numbe
     state.elapsed += step;
     if (state.elapsed < 1 / (state.reduced ? 15 : 30)) return;
     const faceStep = state.elapsed; state.elapsed = 0;
-    let data: Uint8Array | null = null;
-    if (playing && analyserNode) {
-      if (state.data.length !== analyserNode.frequencyBinCount) state.data = new Uint8Array(analyserNode.frequencyBinCount);
-      analyserNode.getByteFrequencyData(state.data); data = state.data;
-    }
+    const music = readSharedMusic(lighting.current.music, state.cursor, state.music);
     const target = greeting >= 0 && greeting < LUCKY_GREETING_SECONDS
       ? faceExpressionPose('smile', state.reduced ? 0.5 : 0.9)
-      : directFace(state.director, data, faceStep, state.reduced);
+      : directFace(state.director, music, faceStep, state.reduced);
     smoothFacePose(state.pose, target, faceStep);
     for (const face of model.faces) {
       const influences = face.mesh.morphTargetInfluences!;

@@ -1,3 +1,5 @@
+import type { MusicFrame } from './creatorMusic';
+
 export const CREATOR_FACE_MODEL = '/models/optimized/facecap.glb';
 
 /** ARKit channels used by the expressions; the remaining facecap layers never reach the GPU. */
@@ -46,17 +48,12 @@ export function faceExpressionPose(expression: FaceExpression, intensity = 1): F
   return pose;
 }
 
-function band(data: Uint8Array, start: number, end: number) {
-  const stop = Math.min(end, data.length);
-  if (stop <= start) return 0;
-  let sum = 0;
-  for (let i = start; i < stop; i++) sum += data[i];
-  return sum / ((stop - start) * 255);
-}
+const level = (value: number) => Number.isFinite(value) ? Math.max(0, Math.min(2, value)) : 0;
 
 export interface FaceDirector {
   expression: FaceExpression | null;
   sinceSwitch: number;
+  /** Smoothed kick level: loudness that tilts the choice towards big faces (beats come from the shared tracker). */
   bassAverage: number;
   blinkIn: number;
   blinkLeft: number;
@@ -73,19 +70,18 @@ export function createFaceDirector(random: () => number = Math.random): FaceDire
  * expression at most every ~0.45 s (reduced motion: 1.6 s) and at the latest
  * after ~1.3 s, chosen by loudness and never repeated back to back. The jaw also
  * follows the vocal band. This is energy/rhythm driven, not phoneme lip sync.
- * Silence or pause returns to neutral.
+ * `music` is the shared reading (creatorMusic), so the face hits the same beats as the lights,
+ * also in loud masters. Silence or pause (null) returns to neutral.
  */
-export function directFace(state: FaceDirector, data: Uint8Array | null, delta: number, reducedMotion = false, random: () => number = Math.random): FacePose {
+export function directFace(state: FaceDirector, music: MusicFrame | null, delta: number, reducedMotion = false, random: () => number = Math.random): FacePose {
   const step = Number.isFinite(delta) ? Math.min(Math.max(delta, 0), 0.1) : 0;
   state.nod = Math.max(0, state.nod - step * 4);
-  if (!data) {
+  if (!music) {
     state.expression = null; state.sinceSwitch = 0; state.bassAverage = 0; state.blinkLeft = 0; state.nod = 0;
     return neutralFacePose();
   }
-  // FFT512 bins 1–3 ≈ 90–280 Hz: the kick, kept apart from the vocal band so singing is not a beat.
-  const kick = band(data, 1, 4), low = band(data, 1, 8), voice = band(data, 4, 18);
+  const kick = level(music.kick), low = level(music.low), voice = level(music.voice), beat = music.beat;
   const energy = Math.max(low, voice);
-  const beat = kick > 0.15 && kick - state.bassAverage > 0.06;
   state.bassAverage += (kick - state.bassAverage) * (1 - Math.exp(-step * 4));
   state.sinceSwitch += step;
 

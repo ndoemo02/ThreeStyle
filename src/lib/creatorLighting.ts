@@ -39,29 +39,12 @@ export function creatorLightingLevels(settings: CreatorLightingSettings, energy:
 
 /** Club palette the LED strips walk through when `ledCycle` is on. */
 export const LED_PALETTE = ['#ff9f45', '#ff4f9a', '#9a5cff', '#3fc6ff', '#ff5a3c', '#ffd35a'] as const;
-/**
- * Hard floor between light hits, whatever the tempo or double kicks: at most 2 per second,
- * below the 3 flashes per second photosensitivity threshold.
- */
-export const LED_MIN_BEAT_INTERVAL = 0.5;
 /** Without beats (reduced motion) the palette still drifts, one colour every few seconds. */
 export const LED_CALM_STEP_SECONDS = 4;
 
-/** A beat is a rise of the kick band this far above its recent trough (0.05 = 3.5 dB on the dB/70 scale). */
-export const LED_BEAT_RISE = 0.05;
-
-/** Kick-band level from analyser dB values (bins 1–3): (dB + 100) / 70, not clamped at the top, so loud masters keep their kicks. */
-export function kickLevelFromDecibels(decibels: ArrayLike<number>) {
-  let sum = 0;
-  for (let bin = 1; bin <= 3; bin++) { const value = decibels[bin]; sum += Number.isFinite(value) ? Math.max(-100, value) : -100; }
-  return (sum / 3 + 100) / 70;
-}
-
 export interface LedRhythm {
   time: number;
-  lastBeat: number;
-  /** Trough tracker: drops with the level at once, creeps up slowly; a beat is a rise above it. */
-  bassFloor: number;
+  lastStep: number;
   /** 0..1 light hit, set to 1 on a beat and decaying; drives the LED/booth pulse. */
   pulse: number;
   /** Continuous palette position (1 = one colour); eases towards `target`. */
@@ -70,33 +53,27 @@ export interface LedRhythm {
 }
 
 export function createLedRhythm(): LedRhythm {
-  return { time: 0, lastBeat: -Infinity, bassFloor: 0, pulse: 0, position: 0, target: 0 };
+  return { time: 0, lastStep: -Infinity, pulse: 0, position: 0, target: 0 };
 }
 
 /**
- * Advances the rhythm by `delta` seconds. `bass` is the kick-band level (see kickLevelFromDecibels;
- * ~0..1, may exceed 1), or null when nothing plays. Beats are onsets — a rise of LED_BEAT_RISE above
- * the trough — so steady loud bass does not hide them. Capped by LED_MIN_BEAT_INTERVAL; reduced motion
- * never flashes. Returns true when a beat fired this step.
+ * Advances the LED response by `delta` seconds. `beat` comes from the shared tracker
+ * (creatorMusic stepBeatTracker, already capped at 2 per second), or null when nothing plays.
+ * Reduced motion never flashes. Returns true when a light hit fired this step.
  */
-export function stepLedRhythm(state: LedRhythm, bass: number | null, delta: number, reducedMotion = false): boolean {
+export function stepLedRhythm(state: LedRhythm, beat: boolean | null, delta: number, reducedMotion = false): boolean {
   const step = Number.isFinite(delta) ? Math.max(0, Math.min(delta, 0.1)) : 0;
   state.time += step;
   state.pulse *= Math.exp(-step * 5);
-  let beat = false;
-  const level = bass !== null && Number.isFinite(bass) ? Math.max(0, Math.min(2, bass)) : null;
-  if (level !== null && !reducedMotion) {
-    if (level < state.bassFloor) state.bassFloor = level;
-    else state.bassFloor += (level - state.bassFloor) * (1 - Math.exp(-step * 1.5));
-    if (level > 0.15 && level - state.bassFloor > LED_BEAT_RISE && state.time - state.lastBeat >= LED_MIN_BEAT_INTERVAL) {
-      state.lastBeat = state.time; state.pulse = 1; state.target += 1; state.bassFloor = level; beat = true;
-    }
-  } else if (level !== null && state.time - state.lastBeat >= LED_CALM_STEP_SECONDS) {
-    state.lastBeat = state.time; state.target += 1;
+  let hit = false;
+  if (beat && !reducedMotion) {
+    state.lastStep = state.time; state.pulse = 1; state.target += 1; hit = true;
+  } else if (beat !== null && reducedMotion && state.time - state.lastStep >= LED_CALM_STEP_SECONDS) {
+    state.lastStep = state.time; state.target += 1;
   }
   // A colour change glides over ~0.3 s (reduced: ~1.5 s), so a step is never a hard cut.
   state.position += (state.target - state.position) * (1 - Math.exp(-step * (reducedMotion ? 2 : 10)));
-  return beat;
+  return hit;
 }
 
 /** Palette colour at a continuous position (wraps), blended linearly in sRGB hex space. */
