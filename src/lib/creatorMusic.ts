@@ -78,10 +78,12 @@ export interface SharedMusic {
   low: number;
   voice: number;
   beats: number;
+  /** The provider's latest dB spectrum (one value per analyser bin). Stale while not playing; check `playing`. */
+  spectrum: ArrayLike<number>;
 }
 
 export function createSharedMusic(): SharedMusic {
-  return { playing: false, kick: 0, low: 0, voice: 0, beats: 0 };
+  return { playing: false, kick: 0, low: 0, voice: 0, beats: 0, spectrum: new Float32Array(0) };
 }
 
 /**

@@ -14,7 +14,7 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     // Development-only fixture: actual ride input still goes through the visible UI.
-    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural', 'face', 'face-close', 'face-side', 'lucky', 'lucky-close', 'booth', 'room', 'room-back'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
+    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural', 'face', 'face-close', 'face-side', 'lucky', 'lucky-close', 'booth', 'screen', 'room', 'room-back'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
       fixtureApplied.current = true;
       const state = get();
       if (query.get('qa') === 'face-close' || query.get('qa') === 'face-side') {
@@ -25,8 +25,11 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
       } else if (query.get('qa') === 'lucky') {
         state.camera.position.set(-6.4, 2.05, -3.4); state.camera.lookAt(-8.46, 1.85, -4.25);
       } else if (query.get('qa') === 'booth') {
-        // The booth window and the wall above it (ON AIR, VU) as seen from the middle of the room.
+        // The booth window and the wall above it (ON AIR) as seen from the middle of the room.
         state.camera.position.set(0.5, 2.3, -2.5); state.camera.lookAt(-7, 2.6, -2.5);
+      } else if (query.get('qa') === 'screen') {
+        // The focal screen (visualizer) and its ambilight on the back wall.
+        state.camera.position.set(0.8, 2.2, 1.8); state.camera.lookAt(3.6, 2.6, -5.6);
       } else if (query.get('qa') === 'room') {
         // Creator Room framing of the Room.A/B references: elevator wall ahead, sofa left, cabinet right.
         state.camera.position.set(0, 2.05, -3); state.camera.lookAt(0, 1.9, 7);
@@ -69,7 +72,7 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
         for (let i = 0; i < node.geometry.attributes.position.count; i++) box.expandByPoint(node.getVertexPosition(i, vertex).applyMatrix4(node.matrixWorld));
         faceParts.push({ name: node.name, center: box.getCenter(vertex).toArray(), size: box.getSize(new THREE.Vector3()).toArray(), screen: box.getCenter(vertex).project(scene.camera).toArray() });
       });
-      const lighting = scene.scene.userData.creatorLighting as { session: unknown; onAir: number; booth: number } | undefined;
+      const lighting = scene.scene.userData.creatorLighting as { session: unknown; onAir: number; booth: number; screenColor: THREE.Color; music: { playing: boolean; spectrum: ArrayLike<number> } } | undefined;
       const seam = new THREE.Vector3(ENTRY.x, 2.325, ENTRY.z + 0.087).project(scene.camera);
       return JSON.stringify({
         coordinateSystem: 'Y up; camera forward follows view, metres',
@@ -81,6 +84,8 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
         ready,
         session: lighting?.session ?? null,
         onAir: lighting ? { level: +lighting.onAir.toFixed(3), booth: +lighting.booth.toFixed(3) } : null,
+        screen: lighting ? { light: lighting.screenColor.getHexString(), playing: lighting.music.playing, bins: lighting.music.spectrum.length,
+          peakDb: lighting.music.spectrum.length ? +Math.max(...Array.from(lighting.music.spectrum).slice(1)).toFixed(1) : null } : null,
         render: { calls: scene.gl.info.render.calls, triangles: scene.gl.info.render.triangles, textures: scene.gl.info.memory.textures, geometries: scene.gl.info.memory.geometries },
         face: { enabled: useCreatorFaceStore.getState().enabled, status: useCreatorFaceStore.getState().status, revision: useCreatorFaceStore.getState().revision,
           disposed: scene.scene.userData.creatorFaceLastDisposal ?? null,

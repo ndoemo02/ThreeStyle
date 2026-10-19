@@ -8,6 +8,7 @@ import { EditingTable } from '../../modules/furniture/EditingTable';
 import { DistanceCulledModel } from '../../systems/DistanceCulledModel';
 import { VocalBooth } from './VocalBooth';
 import { CreatorOnAirSign } from './CreatorOnAirSign';
+import { CreatorAmbilight } from './CreatorAmbilight';
 import { useHudStore } from '../../../stores/useHudStore';
 import { CreatorRoomProfileContext, creatorModelUrl, creatorParameterMap, useCreatorRoomMobile } from './CreatorRoomProfile';
 import { CreatorLightingProvider, CreatorRoomLightingRig, CreatorLight } from './CreatorLighting';
@@ -540,6 +541,39 @@ function StudioDisplayWall({
   );
 }
 
+// Screen and casing sizes match StudioDisplayWall; the glow plane hangs lower, as the screen sits close under the ceiling.
+const AMBILIGHT_SCREEN = { width: 3.2, height: 1.8 };
+const AMBILIGHT_CASING = { width: 3.98, height: 2.44 };
+const AMBILIGHT_PLANE = { width: 5.6, height: 3.4 };
+const AMBILIGHT_CENTER = { x: 0, y: -0.35 };
+
+/** Focal screen: always rendered, texture swapped imperatively; inside the lighting provider for the visualizer. */
+function CreatorFocalScreen() {
+  const mobile = useCreatorRoomMobile();
+  const screenRef = useRef<THREE.Group>(null);
+  const screenTex = useCreatorScreenTexture(screenRef, mobile);
+  return (
+    <group
+       ref={screenRef}
+       position={[hudControls.hudPosX, hudControls.hudPosY, hudControls.hudPosZ]}
+       rotation={[
+         THREE.MathUtils.degToRad(hudControls.hudRotX),
+         THREE.MathUtils.degToRad(hudControls.hudRotY),
+         THREE.MathUtils.degToRad(hudControls.hudRotZ)
+       ]}
+       scale={[hudControls.hudScale, hudControls.hudScale, hudControls.hudScale]}
+    >
+       <CreatorLight name="screen-fill" channel="screen" position={[0, 0, 0.34]} intensity={2.4} distance={4.2} decay={2} />
+       {/* Just in front of the back wall (z -5.75), inside the casing's depth so only the spill shows. */}
+       <CreatorAmbilight texture={screenTex} screen={AMBILIGHT_SCREEN} casing={AMBILIGHT_CASING} plane={AMBILIGHT_PLANE} center={AMBILIGHT_CENTER} z={-0.087} mobile={mobile} />
+       <StudioDisplayWall
+         videoTexture={screenTex}
+         fallbackVisible={!screenTex}
+       />
+    </group>
+  );
+}
+
 function CreatorScreenFallback({ screenWidth, screenHeight }: { screenWidth: number; screenHeight: number }) {
   return (
     <group position={[0, 0, 0.012]}>
@@ -703,7 +737,6 @@ export function CreatorRoomMVP({
 
   const plaqueRef = useRef<THREE.Group>(null);
   const deviceRef = useRef<THREE.Group>(null);
-  const screenRef = useRef<THREE.Group>(null);
   const devicePointerStart = useRef<{ pointerId: number; clientX: number; clientY: number } | null>(null);
   const hudCooldownRef = useRef(0);
 
@@ -737,8 +770,6 @@ export function CreatorRoomMVP({
     activate: toggleHud, releasePointer: true,
   });
   const deviceScreenHovered = plaqueInteraction.isTargeted || deviceInteraction.isTargeted;
-
-  const screenTex = useCreatorScreenTexture(screenRef, mobile);
 
   const roomBackZ = -6;
   const roomFrontZ = 7;
@@ -1015,23 +1046,7 @@ export function CreatorRoomMVP({
           <TechnicalTrim position={[0.08, 0, boothControls.width / 2 + 0.12]} args={[0.16, boothControls.height + 0.32, 0.16]} />
         </group>
 
-        {/* Focal screen: always rendered, texture swapped imperatively. */}
-        <group
-           ref={screenRef}
-           position={[hudControls.hudPosX, hudControls.hudPosY, hudControls.hudPosZ]}
-           rotation={[
-             THREE.MathUtils.degToRad(hudControls.hudRotX),
-             THREE.MathUtils.degToRad(hudControls.hudRotY),
-             THREE.MathUtils.degToRad(hudControls.hudRotZ)
-           ]}
-           scale={[hudControls.hudScale, hudControls.hudScale, hudControls.hudScale]}
-        >
-           <CreatorLight name="screen-fill" channel="screen" position={[0, 0, 0.34]} intensity={2.4} distance={4.2} decay={2} />
-           <StudioDisplayWall
-             videoTexture={screenTex}
-             fallbackVisible={!screenTex}
-           />
-        </group>
+        <CreatorFocalScreen />
 
         {/* ── AUDIO REACTIVE CEILING NEON ── */}
         <CreatorPerimeterLights />

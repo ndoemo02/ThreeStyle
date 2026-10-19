@@ -25,6 +25,8 @@ function createFrame(lighting: CreatorLightingSettings, mood: string) {
     /** The booth keeps the chosen colour as a tint on a warm key, so the host is never rainbow-lit. */
     boothColor: KEY_WHITE.clone().lerp(color, 0.4),
     roomColor: new THREE.Color(moodColor(mood)),
+    /** Screen-fill light colour: the room colour tinted by the picture (ambilight, see CreatorAmbilight). */
+    screenColor: new THREE.Color(moodColor(mood)),
     /** Palette position for strips that spread the palette along their length. */
     palette: 0,
     cycling: lighting.ledCycle,
@@ -34,6 +36,8 @@ function createFrame(lighting: CreatorLightingSettings, mood: string) {
     session: createCreatorSession(),
     /** ON AIR sign brightness (see onAirLevel), eased like the light channels. */
     onAir: onAirLevel('idle', 0),
+    /** prefers-reduced-motion, for consumers that animate on their own (the screen visualizer). */
+    reducedMotion: false,
   };
 }
 export type CreatorLightingFrame = ReturnType<typeof createFrame>;
@@ -56,7 +60,7 @@ export function CreatorLightingProvider({ children }: { children: ReactNode }) {
   }, [scene]);
   useEffect(() => {
     const media = matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => { audio.current.reduced = media.matches; };
+    const update = () => { audio.current.reduced = frameRef.current.reducedMotion = media.matches; };
     update(); media.addEventListener('change', update);
     return () => media.removeEventListener('change', update);
   }, []);
@@ -80,6 +84,7 @@ export function CreatorLightingProvider({ children }: { children: ReactNode }) {
       }
       // dB, not bytes: bytes clip at maxDecibels, and loud masters sit there, hiding the kick.
       analyser.getFloatFrequencyData(a.data);
+      music.spectrum = a.data;
       music.kick = kickLevelFromDecibels(a.data);
       music.low = lowLevelFromDecibels(a.data);
       music.voice = voiceLevelFromDecibels(a.data);
@@ -140,7 +145,7 @@ export function CreatorLight({ kind = 'point', channel = 'room', name, intensity
     const frame = frameRef.current;
     if (!ref.current) return;
     ref.current.intensity = intensity * frame[channel];
-    ref.current.color.copy(color ?? (channel === 'led' ? frame.color : channel === 'booth' ? frame.boothColor : frame.roomColor));
+    ref.current.color.copy(color ?? (channel === 'led' ? frame.color : channel === 'booth' ? frame.boothColor : channel === 'screen' ? frame.screenColor : frame.roomColor));
   }, -1);
   const common = { name: `creator-${name}`, ref: bind, intensity: 0, position: props.position };
   if (kind === 'ambient') return <ambientLight {...common} />;
