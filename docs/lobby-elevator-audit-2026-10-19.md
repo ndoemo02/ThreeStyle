@@ -29,7 +29,7 @@ Referencje:
 2. **Rozmyta, rozciągnięta tekstura.** Jedna tekstura szumu 128×128 (`useTransitionSurface`, `repeat 3×2`) na jednostkowym boxie skalowanym do 5 m — UV nie zależą od rozmiaru, więc szum rozciąga się na metry („rozmyte tekstury ścian i podłogi”).
 3. **Sufit to jeden kremowy prostokąt** (`planeGeometry 2.8×3.6`, `#f7d8b4`) — „płaski sufit bez detalu”.
 4. **Drzwi turkusowe w beżowej ramie** — odstają od ceglanej ściany Creator Roomu i od Room.B (szczotkowany brąz, ciemna rama, LED).
-5. **Fioletowe pasy przy drzwiach w pokoju** — w ścianie frontowej pokoju stoi `PortalEffect` (`CreatorRoomMVP.tsx:818`), widoczny przez otwarte drzwi kabiny. Do potwierdzenia w C1, czy to on.
+5. **Fioletowe pasy przy drzwiach w pokoju** — `PortalEffect` w ścianie frontowej jest wyłączony (zakomentowany); fiolet na zrzucie z 19.10 to światło palety LED pokoju na ościeżach muru. Nie wymaga poprawki.
 6. Panel z napisem (canvas 1024×448, anisotropy 4) jest ostry; problemem jest otoczenie, nie tekst.
 
 Kabina pojawia się w dwóch strefach o różnym świetle (lobby jasne, pokój ciemny), więc nieoświetlone materiały z „wypieczonym” cieniowaniem są dobrym założeniem (stabilny wygląd, brak nowych świateł) — zawodzi wykonanie, nie podejście.
@@ -69,7 +69,6 @@ Koszty to **estimate z kodu** — zostaną zmierzone przy każdym podetapie.
 **C1. Winda — drzwi i kabina** (największy „dramat”)
 - Drzwi jak w Room.B: szczotkowany szampański brąz (tekstura proceduralna, UV w metrach), ciemna rama z ciepłą obwódką LED, ciemne nadproże ze wskaźnikiem, panel przywołania obok drzwi (od strony pokoju i lobby).
 - Kabina: ściany z paneli w ciemnym brązie z pionowymi fugami i wypieczonym cieniem w narożnikach, listwy LED przy suficie i podłodze, sufit z downlightami zamiast kremowego prostokąta, kamienna posadzka, poręcz. Panel z napisem zostaje.
-- Sprawdzić i ewentualnie ukryć `PortalEffect` za drzwiami w pokoju.
 - Estimate: +3–6 draw calli, 2–3 tekstury proceduralne 256–512 px (VRAM ≈ 0,5–1,5 MB, estimate).
 
 **C2. Lobby — światło i posadzka** (największa zmiana nastroju)
@@ -91,7 +90,14 @@ Koszty to **estimate z kodu** — zostaną zmierzone przy każdym podetapie.
 
 Proponowana kolejność: C1 → C2 → C3 → C4 → C5 (C1 i C2 dają najwięcej na telefonie przy najmniejszym ryzyku).
 
-## 7. Pytania do właściciela
+## 7. Decyzje właściciela (2026-10-19)
+
+1. Paleta: **teal + bursztyn** — z Lobby.B bierzemy układ i nastrój światła, kolory zostają nasze.
+2. Postacie: **zostaje jedna** postać.
+3. Meble: **proceduralnie w kodzie**.
+4. Start: **C1 — winda**.
+
+## 8. Pytania (zadane właścicielowi)
 
 1. **Paleta akcentów:** fiolet/śliwka jak w Lobby.B czy zostajemy przy teal + bursztyn (spójne z muralem 3S i Creator Roomem)?
 2. **Postacie w lobby:** dodać kilka sylwetek (ludzie przy ladzie, na sofach) czy zostać przy jednej postaci?
