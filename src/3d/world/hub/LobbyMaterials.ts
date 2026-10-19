@@ -5,8 +5,11 @@ import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import type { LobbyQualityProfile } from './lobbyConfig';
 import type { LobbySurface } from './lobbyGeometry';
+import { withLobbyFloor, withLobbyWalls } from './lobbySurfaceShader';
 
 export type LobbyMaterials = Record<LobbySurface, THREE.MeshStandardMaterial> & {
+  /** Procedural glossy tiles (hub and corridor floors); `stone` stays for the atlas surface type. */
+  floor: THREE.MeshStandardMaterial;
   brass: THREE.MeshStandardMaterial;
   trunk: THREE.MeshStandardMaterial;
   foliage: THREE.MeshStandardMaterial;
@@ -94,7 +97,10 @@ export function useLobbyMaterials(
       // Roughness multiplies the ORM map: a semi-polished floor picks up area-light sheen.
       stone: new THREE.MeshStandardMaterial({ ...pbr, color: '#75716d', roughness: 0.52, metalness: 0, normalScale: new THREE.Vector2(0.25, 0.25) }),
       wood: new THREE.MeshStandardMaterial({ ...pbr, color: '#93725a', roughness: 0.72, metalness: 0, normalScale: new THREE.Vector2(0.3, 0.3) }),
-      plaster: new THREE.MeshStandardMaterial({ ...pbr, color: '#bdb6ae', roughness: 0.96, metalness: 0 }),
+      // Moderate roughness: the big ceiling area lights would otherwise mirror as panels across the floor.
+      floor: withLobbyFloor(new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0 }), quality.floorReflections),
+      // Darker low, warm cove wash high (lobbySurfaceShader).
+      plaster: withLobbyWalls(new THREE.MeshStandardMaterial({ ...pbr, color: '#bdb6ae', roughness: 0.96, metalness: 0 })),
       dark: new THREE.MeshStandardMaterial({ ...pbr, color: '#a9b0b2', roughness: 0.94, metalness: 0 }),
       door: new THREE.MeshStandardMaterial({ color: '#41494d', roughness: 0.72, metalness: 0.06 }),
       brass: new THREE.MeshStandardMaterial({ color: '#c8a27b', roughness: 0.44, metalness: 0.6 }),
@@ -116,7 +122,7 @@ export function useLobbyMaterials(
         side: THREE.DoubleSide,
       }),
     };
-  }, [albedo, normal, orm, glowMap, poolMap, quality.useNormalMaps]);
+  }, [albedo, normal, orm, glowMap, poolMap, quality.useNormalMaps, quality.floorReflections]);
 
   useEffect(() => () => {
     Object.values(materials).forEach(material => material.dispose());

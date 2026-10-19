@@ -31,6 +31,8 @@ export type LobbyQualityProfile = {
   poolCount: number;
   accentGlow: boolean;
   useNormalMaps: boolean;
+  /** Downlights mirrored in the floor shader; off with the other extras on the lowest mobile tier. */
+  floorReflections: boolean;
 };
 
 const DESKTOP_QUALITY: LobbyQualityProfile = {
@@ -41,6 +43,7 @@ const DESKTOP_QUALITY: LobbyQualityProfile = {
   poolCount: 5,
   accentGlow: true,
   useNormalMaps: true,
+  floorReflections: true,
 };
 
 const DESKTOP_LOW_QUALITY: LobbyQualityProfile = {
@@ -51,6 +54,7 @@ const DESKTOP_LOW_QUALITY: LobbyQualityProfile = {
   poolCount: 3,
   accentGlow: true,
   useNormalMaps: true,
+  floorReflections: true,
 };
 
 const MOBILE_QUALITY: LobbyQualityProfile = {
@@ -61,6 +65,7 @@ const MOBILE_QUALITY: LobbyQualityProfile = {
   poolCount: 3,
   accentGlow: true,
   useNormalMaps: true,
+  floorReflections: true,
 };
 
 const MOBILE_LOW_QUALITY: LobbyQualityProfile = {
@@ -71,6 +76,7 @@ const MOBILE_LOW_QUALITY: LobbyQualityProfile = {
   poolCount: 0,
   accentGlow: false,
   useNormalMaps: false,
+  floorReflections: false,
 };
 
 export function getInitialLobbyQuality(isMobile: boolean): LobbyQualityProfile {

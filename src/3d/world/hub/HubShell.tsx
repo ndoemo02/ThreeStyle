@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { InstancedLobbyBoxes, MergedLobbyBoxes, MergedLobbyGlow, type LobbyBoxSpec, type LobbyInstanceTransform, type LobbyPlaneSpec } from './LobbyMeshes';
 import type { LobbyMaterials } from './LobbyMaterials';
@@ -13,6 +13,7 @@ import { LobbyWayfinding } from './LobbyWayfinding';
 import {
   LOBBY_ACCENT_GLOW, LOBBY_ACCENT_LED, LOBBY_DOWNLIGHTS, LOBBY_LIGHT_POOLS, LOBBY_PLANTER_POSITIONS, RECEPTION_WOOD,
 } from './lobbyFurnitureLayout';
+import { LOBBY_CEILING_ARC, LOBBY_COVE_LED } from './lobbyLightLayout';
 
 const HUB_STONE: LobbyBoxSpec[] = [
   { position: [0, -0.045, 0], size: [30, 0.09, 20] },
@@ -54,6 +55,7 @@ const HUB_LED: LobbyBoxSpec[] = [
   { position: [8.8, 4.66, 0], size: [0.045, 0.035, 13.8] },
   ...LOBBY_DOWNLIGHTS,
   ...LOBBY_ACCENT_LED,
+  ...LOBBY_COVE_LED,
 ];
 
 const HUB_GLOW: LobbyPlaneSpec[] = [
@@ -150,6 +152,18 @@ function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMa
   );
 }
 
+/** Curved LED line across the ceiling (Lobby.B), facing down; shares the LED material. */
+function LobbyCeilingArc({ materials }: { materials: LobbyMaterials }) {
+  const geometry = useMemo(() => {
+    const { radius, width, thetaStart, thetaLength, center, y } = LOBBY_CEILING_ARC;
+    // Ring in XY, turned flat so +y becomes +z and the face looks down at the floor.
+    return new THREE.RingGeometry(radius - width / 2, radius + width / 2, 96, 1, thetaStart, thetaLength)
+      .rotateX(Math.PI / 2).translate(center[0], y, center[1]);
+  }, []);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return <mesh name="lobby-ceiling-arc" geometry={geometry} material={materials.led} raycast={() => {}} />;
+}
+
 /** Tier-gated transparent accents: the only lobby additions with mobile fill-rate cost. */
 function LobbyAccents({ quality, materials }: { quality: LobbyQualityProfile; materials: LobbyMaterials }) {
   const pools = useMemo(() => LOBBY_LIGHT_POOLS.slice(0, quality.poolCount), [quality.poolCount]);
@@ -170,11 +184,12 @@ export function HubShell({
 }) {
   return (
     <group>
-      <MergedLobbyBoxes boxes={HUB_STONE} surface="stone" material={materials.stone} />
+      <MergedLobbyBoxes boxes={HUB_STONE} surface="stone" material={materials.floor} />
       <MergedLobbyBoxes boxes={HUB_PLASTER} surface="plaster" material={materials.plaster} />
       <MergedLobbyBoxes boxes={HUB_DARK} surface="dark" material={materials.dark} />
       <MergedLobbyBoxes boxes={HUB_WOOD} surface="wood" material={materials.wood} />
       <MergedLobbyBoxes boxes={HUB_LED} surface="wood" material={materials.led} />
+      <LobbyCeilingArc materials={materials} />
       <MergedLobbyGlow planes={HUB_GLOW} material={materials.glow} />
       <LobbySignage signs={HUB_SIGNS} materials={materials} />
 
