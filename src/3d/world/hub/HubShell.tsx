@@ -11,7 +11,8 @@ import { LobbyEntry } from './LobbyEntry';
 import { LobbyFurniture } from './LobbyFurniture';
 import { LobbyWayfinding } from './LobbyWayfinding';
 import {
-  LOBBY_ACCENT_GLOW, LOBBY_ACCENT_LED, LOBBY_DOWNLIGHTS, LOBBY_LIGHT_POOLS, LOBBY_PLANTER_POSITIONS, RECEPTION_WOOD,
+  LOBBY_ACCENT_GLOW, LOBBY_ACCENT_LED, LOBBY_DOWNLIGHTS, LOBBY_LIGHT_POOLS, LOBBY_PLANTER_POSITIONS, LOBBY_PLANTER_POT,
+  RECEPTION_WOOD,
 } from './lobbyFurnitureLayout';
 import { LOBBY_CEILING_ARC, LOBBY_COVE_LED } from './lobbyLightLayout';
 
@@ -70,21 +71,68 @@ const HUB_SIGNS: LobbySign[] = [
   { tile: 1, position: [-7.15, 3.45, -9.48], size: [2.3, 1.15] },
 ];
 
-const WALL_SLATS: LobbyInstanceTransform[] = Array.from({ length: 45 }, (_, index) => ({
-  position: [-12.1 + index * 0.55, 2.45, -9.77],
+// Floor to the cove line, and only between the side walls (faces at x = ±9.82).
+const SLAT_TOP = 4.625;
+const SLAT_COUNT = 36;
+const SLAT_STEP = 0.55;
+const WALL_SLATS: LobbyInstanceTransform[] = Array.from({ length: SLAT_COUNT }, (_, index) => ({
+  position: [(index - (SLAT_COUNT - 1) / 2) * SLAT_STEP, SLAT_TOP / 2, -9.77],
 }));
 
 const CEILING_BAFFLES: LobbyInstanceTransform[] = Array.from({ length: 35 }, (_, index) => ({
   position: [-13.6 + index * 0.8, 4.7, 0],
 }));
 
-/** Three leaf clumps per planter read as a shrub rather than a single ball. */
-const FOLIAGE_CLUMPS: Array<{ offset: Vec3; scale: Vec3 }> = [
-  { offset: [0, 1.72, 0], scale: [0.78, 0.92, 0.74] },
-  { offset: [0.26, 1.34, 0.12], scale: [0.5, 0.56, 0.5] },
-  { offset: [-0.22, 1.42, -0.16], scale: [0.54, 0.6, 0.52] },
-];
 type Vec3 = [number, number, number];
+type PlantPart = { offset: Vec3; rotation: Vec3; scale: Vec3; shade?: number };
+
+/** Deterministic 0…1 noise, so every tree keeps its shape between visits. */
+const noise = (seed: number) => {
+  const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  return value - Math.floor(value);
+};
+
+const { radius: POT_RADIUS, height: POT_HEIGHT } = LOBBY_PLANTER_POT;
+const TRUNK_LENGTH = 1.15;
+
+/** Trunk plus three branches; all share one unit trunk geometry, scaled per part. */
+const WOOD_PARTS: PlantPart[] = [
+  { offset: [0, POT_HEIGHT + 0.6, 0], rotation: [0, 0, 0.04], scale: [1, 1.05, 1] },
+  ...[0, 2.1, 4.2].map((turn, index): PlantPart => ({
+    offset: [0.14 * Math.cos(turn), 1.85 + index * 0.1, 0.14 * Math.sin(turn)],
+    rotation: [Math.sin(turn) * 0.75, 0, -Math.cos(turn) * 0.75],
+    scale: [0.45, 0.42, 0.45],
+  })),
+];
+
+/**
+ * Lobby.B tree: a loose crown of leaf-cluster cards (cut-out texture) at random angles instead
+ * of solid balls, lighter on top (instance colour), and low greenery over the pot rim.
+ */
+const LEAF_PARTS: PlantPart[] = [
+  ...Array.from({ length: 44 }, (_, index): PlantPart => {
+    const turn = index * 2.399;
+    const height = noise(index + 1);
+    // Wider in the middle of the crown, narrower at the top and bottom.
+    const reach = (0.15 + 0.6 * Math.sqrt(noise(index + 31))) * (1 - Math.abs(height - 0.45) * 0.7);
+    const size = 0.42 + 0.22 * noise(index + 61);
+    return {
+      offset: [reach * Math.cos(turn), 1.75 + height * 1.05, reach * Math.sin(turn)],
+      rotation: [noise(index + 91) * Math.PI, turn, noise(index + 121) * Math.PI],
+      scale: [size, size, size],
+      shade: 0.7 + height * 0.55,
+    };
+  }),
+  ...Array.from({ length: 6 }, (_, index): PlantPart => {
+    const turn = index * 1.05;
+    return {
+      offset: [(POT_RADIUS - 0.18) * Math.cos(turn), POT_HEIGHT + 0.08, (POT_RADIUS - 0.18) * Math.sin(turn)],
+      rotation: [-0.9, turn, 0.4 * noise(index + 151)],
+      scale: [0.36, 0.36, 0.36],
+      shade: 0.85,
+    };
+  }),
+];
 
 function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMaterials }) {
   const visiblePositions = useMemo(() => LOBBY_PLANTER_POSITIONS.slice(0, count), [count]);
@@ -95,34 +143,37 @@ function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMa
 
   useLayoutEffect(() => {
     const helper = new THREE.Object3D();
+    const color = new THREE.Color();
+    const placePart = (mesh: THREE.InstancedMesh | null, slot: number, [x, z]: [number, number], turn: number, part: PlantPart) => {
+      const [ox, oy, oz] = part.offset;
+      helper.position.set(x + ox * Math.cos(turn) - oz * Math.sin(turn), oy, z + ox * Math.sin(turn) + oz * Math.cos(turn));
+      helper.rotation.set(part.rotation[0], part.rotation[1] + turn, part.rotation[2]);
+      helper.scale.set(...part.scale);
+      helper.updateMatrix();
+      mesh?.setMatrixAt(slot, helper.matrix);
+    };
+
     visiblePositions.forEach(([x, , z], index) => {
-      helper.position.set(x, 0.31, z);
+      const turn = index * 1.3;
+      helper.position.set(x, POT_HEIGHT / 2, z);
       helper.rotation.set(0, 0, 0);
       helper.scale.set(1, 1, 1);
       helper.updateMatrix();
       potRef.current?.setMatrixAt(index, helper.matrix);
 
-      helper.position.set(x, 0.98, z);
-      helper.rotation.set(0, 0, index % 2 ? 0.06 : -0.05);
-      helper.updateMatrix();
-      trunkRef.current?.setMatrixAt(index, helper.matrix);
-
-      FOLIAGE_CLUMPS.forEach((clump, clumpIndex) => {
-        const turn = index * 0.8 + clumpIndex * 2.1;
-        helper.position.set(
-          x + clump.offset[0] * Math.cos(turn) - clump.offset[2] * Math.sin(turn),
-          clump.offset[1],
-          z + clump.offset[0] * Math.sin(turn) + clump.offset[2] * Math.cos(turn),
-        );
-        helper.rotation.set(0, turn, 0);
-        helper.scale.set(...clump.scale);
-        helper.updateMatrix();
-        foliageRef.current?.setMatrixAt(index * FOLIAGE_CLUMPS.length + clumpIndex, helper.matrix);
+      WOOD_PARTS.forEach((part, partIndex) => placePart(trunkRef.current, index * WOOD_PARTS.length + partIndex, [x, z], turn, part));
+      LEAF_PARTS.forEach((part, partIndex) => {
+        const slot = index * LEAF_PARTS.length + partIndex;
+        placePart(foliageRef.current, slot, [x, z], turn, part);
+        const shade = (part.shade ?? 1) * (0.92 + 0.16 * noise(slot + 7));
+        // Sunlit clumps lean warm-yellow, the underside stays cool and dark.
+        color.setRGB(shade * (0.9 + 0.2 * noise(slot + 11)), shade, shade * 0.9);
+        foliageRef.current?.setColorAt(slot, color);
       });
 
       helper.position.set(x, 0.012, z);
       helper.rotation.set(-Math.PI / 2, 0, 0);
-      helper.scale.set(1.2, 1.2, 1);
+      helper.scale.set(1.5, 1.5, 1);
       helper.updateMatrix();
       shadowRef.current?.setMatrixAt(index, helper.matrix);
     });
@@ -130,6 +181,7 @@ function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMa
     for (const ref of [potRef, trunkRef, foliageRef, shadowRef]) {
       if (!ref.current) continue;
       ref.current.instanceMatrix.needsUpdate = true;
+      if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
       ref.current.computeBoundingSphere();
     }
   }, [visiblePositions]);
@@ -137,13 +189,13 @@ function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMa
   return (
     <>
       <instancedMesh ref={potRef} args={[undefined, undefined, count]} material={materials.counter} frustumCulled>
-        <cylinderGeometry args={[0.36, 0.3, 0.62, 18]} />
+        <cylinderGeometry args={[POT_RADIUS, POT_RADIUS - 0.06, POT_HEIGHT, 24]} />
       </instancedMesh>
-      <instancedMesh ref={trunkRef} args={[undefined, undefined, count]} material={materials.trunk} frustumCulled>
-        <cylinderGeometry args={[0.045, 0.07, 1.15, 7]} />
+      <instancedMesh ref={trunkRef} args={[undefined, undefined, count * WOOD_PARTS.length]} material={materials.trunk} frustumCulled>
+        <cylinderGeometry args={[0.035, 0.06, TRUNK_LENGTH, 7]} />
       </instancedMesh>
-      <instancedMesh ref={foliageRef} args={[undefined, undefined, count * FOLIAGE_CLUMPS.length]} material={materials.foliage} frustumCulled>
-        <icosahedronGeometry args={[0.66, 1]} />
+      <instancedMesh ref={foliageRef} args={[undefined, undefined, count * LEAF_PARTS.length]} material={materials.foliage} frustumCulled>
+        <planeGeometry args={[1, 1]} />
       </instancedMesh>
       <instancedMesh ref={shadowRef} args={[undefined, undefined, count]} material={materials.softShadow} frustumCulled renderOrder={-1}>
         <planeGeometry args={[1.1, 1.1]} />
@@ -194,7 +246,7 @@ export function HubShell({
       <LobbySignage signs={HUB_SIGNS} materials={materials} />
 
       <InstancedLobbyBoxes
-        size={[0.13, 4.35, 0.11]}
+        size={[0.13, SLAT_TOP, 0.11]}
         surface="wood"
         material={materials.wood}
         transforms={WALL_SLATS}

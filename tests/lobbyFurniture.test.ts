@@ -5,8 +5,8 @@ import path from 'node:path';
 import sharp from 'sharp';
 import {
   LOBBY_KEEP_CLEAR, LOBBY_SIGHTLINE, LOBBY_OBSTACLES, LOBBY_DOWNLIGHTS, LOBBY_DOWNLIGHT_X_GRID, LOBBY_LIGHT_POOLS,
-  LOBBY_PLANTER_POSITIONS, LOUNGE_FABRIC, LOUNGE_PLINTH, RECEPTION_COUNTER, RECEPTION_CAPS, LOUNGE_TABLE, LOUNGE_LAMP,
-  type LobbyFloorRect,
+  LOBBY_PLANTER_POSITIONS, LOBBY_PLANTER_POT, LOUNGE_FABRIC, LOUNGE_PLINTH, RECEPTION_COUNTER, RECEPTION_CAPS, LOUNGE_TABLE,
+  LOUNGE_LAMP, LOUNGE_ISLANDS, loungeModuleCenters, type LobbyFloorRect,
 } from '../src/3d/world/hub/lobbyFurnitureLayout.ts';
 import { constrainHubMovement, isHubPositionBlocked, HUB_CAMERA_RADIUS } from '../src/3d/navigation/hubCollision.ts';
 import { getInitialLobbyQuality, getDegradedLobbyQuality } from '../src/3d/world/hub/lobbyConfig.ts';
@@ -53,6 +53,10 @@ test('every visible solid piece is covered by a collider', () => {
     ...RECEPTION_CAPS.map(cap => footprint(cap.position, [cap.radius * 2, 0, cap.radius * 2])),
     footprint(LOUNGE_TABLE.position, [LOUNGE_TABLE.radius * 2, 0, LOUNGE_TABLE.radius * 2]),
     footprint(LOUNGE_LAMP.position, [0.36, 0, 0.36]),
+    ...LOUNGE_ISLANDS.flatMap(island => [
+      footprint([island.center[0], 0, island.center[1]], [island.tableRadius * 2, 0, island.tableRadius * 2]),
+      ...loungeModuleCenters(island).map(([x, z]) => footprint([x, 0, z], [0, 0, 0])),
+    ]),
   ];
   for (const solid of solids) {
     // Half-round caps only cover half of their square footprint; check the solid half.
@@ -107,9 +111,20 @@ test('quality tiers keep accents bounded and drop transparent fill on the lowest
 
 test('planters stay out of colliders and walking bands', () => {
   for (const [x, , z] of LOBBY_PLANTER_POSITIONS) {
-    const pot = { minX: x - 0.36, maxX: x + 0.36, minZ: z - 0.36, maxZ: z + 0.36 };
+    const r = LOBBY_PLANTER_POT.radius;
+    const pot = { minX: x - r, maxX: x + r, minZ: z - r, maxZ: z + r };
     for (const band of Object.values(LOBBY_KEEP_CLEAR)) assert.ok(!overlaps(pot, band));
     for (const obstacle of LOBBY_OBSTACLES) assert.ok(!overlaps(pot, obstacle));
+  }
+});
+
+test('lounge islands sit inside the hall and their rugs stay off the walking bands', () => {
+  for (const { center: [x, z], rugRadius, innerRadius, seatDepth, backDepth } of LOUNGE_ISLANDS) {
+    const outer = innerRadius + seatDepth + backDepth;
+    assert.ok(outer < rugRadius, 'the rug shows beyond the sofa back');
+    const rug = { minX: x - rugRadius, maxX: x + rugRadius, minZ: z - rugRadius, maxZ: z + rugRadius };
+    assert.ok(rug.minX > -9.82 && rug.maxX < 9.82 && rug.minZ > -9.82 && rug.maxZ < 9.82, 'rug inside the walls');
+    for (const [name, band] of Object.entries(LOBBY_KEEP_CLEAR)) assert.ok(!overlaps(rug, band), `rug intrudes on ${name}`);
   }
 });
 

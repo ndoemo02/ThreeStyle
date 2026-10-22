@@ -85,6 +85,37 @@ export function useLobbyMaterials(
     return texture;
   }, []);
 
+  // Leaf-cluster card for the lobby trees: grey leaves on transparent, tinted per instance.
+  const leafMap = useMemo(() => {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const context = canvas.getContext('2d');
+    if (context) {
+      const random = (seed: number) => {
+        const value = Math.sin(seed * 91.17 + 3.7) * 43758.5453;
+        return value - Math.floor(value);
+      };
+      context.translate(size / 2, size / 2);
+      for (let index = 0; index < 11; index++) {
+        const angle = index * 2.4 + random(index) * 0.6;
+        const reach = size * (0.14 + 0.2 * random(index + 20));
+        const light = Math.round(150 + 105 * random(index + 40));
+        context.save();
+        context.rotate(angle);
+        context.translate(reach, 0);
+        context.fillStyle = `rgb(${light},${light},${light})`;
+        context.beginPath();
+        context.ellipse(0, 0, size * 0.17, size * 0.065, 0, 0, Math.PI * 2);
+        context.fill();
+        context.restore();
+      }
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, []);
+
   const materials = useMemo<LobbyMaterials>(() => {
     const pbr = {
       map: albedo,
@@ -105,7 +136,8 @@ export function useLobbyMaterials(
       door: new THREE.MeshStandardMaterial({ color: '#41494d', roughness: 0.72, metalness: 0.06 }),
       brass: new THREE.MeshStandardMaterial({ color: '#c8a27b', roughness: 0.44, metalness: 0.6 }),
       trunk: new THREE.MeshStandardMaterial({ color: '#4b3424', roughness: 0.94, metalness: 0 }),
-      foliage: new THREE.MeshStandardMaterial({ color: '#4a634b', roughness: 0.96, metalness: 0 }),
+      // Opaque cut-out cards (alphaTest): no blending, so no transparent overdraw on phones.
+      foliage: new THREE.MeshStandardMaterial({ color: '#5d7a55', map: leafMap, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.9, metalness: 0 }),
       counter: new THREE.MeshStandardMaterial({ color: '#1f1b19', roughness: 0.34, metalness: 0.12 }),
       // Dark teal ties the upholstery to the mural and the cool LED accent.
       fabric: new THREE.MeshStandardMaterial({ color: '#29403f', roughness: 0.9, metalness: 0 }),
@@ -122,7 +154,7 @@ export function useLobbyMaterials(
         side: THREE.DoubleSide,
       }),
     };
-  }, [albedo, normal, orm, glowMap, poolMap, quality.useNormalMaps, quality.floorReflections]);
+  }, [albedo, normal, orm, glowMap, poolMap, leafMap, quality.useNormalMaps, quality.floorReflections]);
 
   useEffect(() => () => {
     Object.values(materials).forEach(material => material.dispose());
@@ -136,6 +168,7 @@ export function useLobbyMaterials(
 
   useEffect(() => () => glowMap.dispose(), [glowMap]);
   useEffect(() => () => poolMap.dispose(), [poolMap]);
+  useEffect(() => () => leafMap.dispose(), [leafMap]);
 
   return materials;
 }

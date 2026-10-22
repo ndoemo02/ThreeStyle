@@ -74,12 +74,78 @@ export const LOUNGE_LED: LobbyBoxSpec[] = [
   { position: [6.7, 0.47, -7.6], size: [0.09, 0.12, 0.09] },
 ];
 
+// ── Round lounge islands (Lobby.B): curved modular sofa on a round rug with an LED edge ──
+/**
+ * Angles are world directions (cos a, sin a) in the x/z plane. The sofa runs from `arcStart`
+ * over `arcLength`; the open side faces the room, so the seats read from the intro camera.
+ */
+export type LoungeIsland = {
+  center: [number, number];
+  /** Front edge of the seat; the back sits on the outer edge. */
+  innerRadius: number;
+  seatDepth: number;
+  backDepth: number;
+  arcStart: number;
+  arcLength: number;
+  segments: number;
+  rugRadius: number;
+  tableRadius: number;
+};
+
+const deg = (value: number) => value * Math.PI / 180;
+
+export const LOUNGE_ISLANDS: LoungeIsland[] = [
+  // Left of the hall, between the reception desk and the intro sightline; opens towards the entry.
+  {
+    center: [-4.6, 0.6], innerRadius: 1.3, seatDepth: 0.75, backDepth: 0.22,
+    arcStart: deg(103), arcLength: deg(220), segments: 4, rugRadius: 2.45, tableRadius: 0.55,
+  },
+  // In front of the mural; opens towards the hall centre.
+  {
+    center: [7.05, 0.4], innerRadius: 1, seatDepth: 0.7, backDepth: 0.2,
+    arcStart: deg(250), arcLength: deg(200), segments: 3, rugRadius: 1.95, tableRadius: 0.45,
+  },
+];
+
+/** Gap between sofa modules, radians. */
+export const LOUNGE_MODULE_GAP = 0.03;
+
+export function loungeIslandPoint(island: LoungeIsland, radius: number, angle: number): [number, number] {
+  return [island.center[0] + radius * Math.cos(angle), island.center[1] + radius * Math.sin(angle)];
+}
+
+/** Centre of each sofa module's seat, for the collider check. */
+export function loungeModuleCenters(island: LoungeIsland): Array<[number, number]> {
+  const step = island.arcLength / island.segments;
+  const radius = island.innerRadius + island.seatDepth / 2;
+  return Array.from({ length: island.segments }, (_, index) =>
+    loungeIslandPoint(island, radius, island.arcStart + step * (index + 0.5)));
+}
+
+/** One rect around the sofa arc and the table: the island is solid as a whole. */
+function loungeIslandFootprint(island: LoungeIsland): LobbyFloorRect {
+  const [cx, cz] = island.center;
+  const outer = island.innerRadius + island.seatDepth + island.backDepth;
+  const points: Array<[number, number]> = [
+    [cx - island.tableRadius, cz - island.tableRadius], [cx + island.tableRadius, cz + island.tableRadius],
+  ];
+  for (let step = 0; step <= 48; step++) {
+    const angle = island.arcStart + island.arcLength * step / 48;
+    points.push(loungeIslandPoint(island, island.innerRadius, angle), loungeIslandPoint(island, outer, angle));
+  }
+  const xs = points.map(([x]) => x);
+  const zs = points.map(([, z]) => z);
+  return { minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs) };
+}
+
 /** Contact shadows ground the new furniture without shadow maps. */
 export const FURNITURE_SHADOWS: LobbyPlaneSpec[] = [
   { position: [DESK_X, 0.008, DESK_MID], size: [1.5, DESK_LENGTH + 1.2], rotation: [-Math.PI / 2, 0, 0] },
   { position: [7.1, 0.024, -9.1], size: [5.4, 1.3], rotation: [-Math.PI / 2, 0, 0] },
   { position: [9.1, 0.024, -7.7], size: [1.3, 2.4], rotation: [-Math.PI / 2, 0, 0] },
   { position: [6.7, 0.025, -7.6], size: [1.6, 1.6], rotation: [-Math.PI / 2, 0, 0] },
+  ...LOUNGE_ISLANDS.map(({ center: [x, z], tableRadius }): LobbyPlaneSpec => (
+    { position: [x, 0.025, z], size: [tableRadius * 3, tableRadius * 3], rotation: [-Math.PI / 2, 0, 0] })),
 ];
 
 /**
@@ -92,6 +158,7 @@ export const LOBBY_OBSTACLES: LobbyFloorRect[] = [
   { minX: 8.65, maxX: 9.82, minZ: -8.75, maxZ: -6.7 },
   { minX: 6.1, maxX: 7.3, minZ: -8.2, maxZ: -7 },
   { minX: 3.95, maxX: 4.35, minZ: -9.55, maxZ: -9.15 },
+  ...LOUNGE_ISLANDS.map(loungeIslandFootprint),
 ];
 
 // ── Light accents ────────────────────────────────────────────────────────────
@@ -113,6 +180,7 @@ export const LOBBY_DOWNLIGHTS: LobbyBoxSpec[] = DOWNLIGHT_SPOTS.map(([x, z]) => 
 export const LOBBY_ACCENT_LED: LobbyBoxSpec[] = [
   ...RECEPTION_LED,
   ...LOUNGE_LED,
+  ...LOUNGE_ISLANDS.map(({ center: [x, z] }): LobbyBoxSpec => ({ position: [x, 0.47, z], size: [0.09, 0.12, 0.09] })),
   // Under the welcome screen and along the foot of the slat wall.
   { position: [0, 0.9, -9.42], size: [6.4, 0.03, 0.04] },
   { position: [0, 0.035, -9.66], size: [19.2, 0.03, 0.04] },
@@ -136,12 +204,16 @@ export const LOBBY_LIGHT_POOLS: LobbyPlaneSpec[] = [
   { position: [8.7, 0.03, 0], size: [2, 6], rotation: [-Math.PI / 2, 0, 0] },
 ];
 
-/** Planter spots in priority order (reception, lounge, then decoration). */
+/** Tall black planter (Lobby.B): pot radius at the rim and height. */
+export const LOBBY_PLANTER_POT = { radius: 0.42, height: 0.9 };
+
+/** Planter spots in priority order (beside the islands first: the phone tiers show only the first few). */
 export const LOBBY_PLANTER_POSITIONS: Array<[number, number, number]> = [
-  [-9, 0, 4.95],
+  [-4, 0, -2.4],
   [8.7, 0, -4.3],
-  [-7.2, 0, -8.8],
+  [-9, 0, 4.95],
   [8.7, 0, 5.4],
+  [-7.2, 0, -8.8],
 ];
 
 /** Wall-mounted wayfinding next to the corridor mouth and the backlit desk logo. */
