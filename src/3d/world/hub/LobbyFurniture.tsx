@@ -7,8 +7,8 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import type { LobbyMaterials } from './LobbyMaterials';
 import { MergedLobbyGlow, type LobbyBoxSpec } from './LobbyMeshes';
 import {
-  FURNITURE_SHADOWS, LOUNGE_FABRIC, LOUNGE_ISLANDS, LOUNGE_LAMP, LOUNGE_MODULE_GAP, LOUNGE_PILLOWS, LOUNGE_PLINTH,
-  LOUNGE_RUG, LOUNGE_TABLE, RECEPTION_BRASS, RECEPTION_CAPS, RECEPTION_COUNTER, loungeIslandPoint, type LoungeIsland,
+  FURNITURE_SHADOWS, LOUNGE_ISLANDS, LOUNGE_MODULE_GAP, RECEPTION_BRASS, RECEPTION_CAPS, RECEPTION_COUNTER,
+  loungeIslandPoint, type LoungeIsland,
 } from './lobbyFurnitureLayout';
 
 type Vec3 = [number, number, number];
@@ -124,42 +124,24 @@ function merge(parts: THREE.BufferGeometry[]) {
 }
 
 function buildFurniture() {
-  const [tableX, , tableZ] = LOUNGE_TABLE.position;
-  const [lampX, , lampZ] = LOUNGE_LAMP.position;
   const islands = LOUNGE_ISLANDS.map(buildIsland);
   const counter = merge([
     ...islands.flatMap(island => island.counter),
     ...RECEPTION_COUNTER.map(spec => box(spec)),
     ...RECEPTION_CAPS.map(cap => cylinder(cap.position, cap.radius, cap.height, 16, cap.thetaStart, Math.PI)),
-    ...LOUNGE_PLINTH.map(spec => box(spec)),
-    cylinder([tableX, 0.4, tableZ], LOUNGE_TABLE.radius, 0.05),
-    cylinder([tableX, 0.19, tableZ], 0.3, 0.34, 20),
   ]);
   const brass = merge([
     ...islands.flatMap(island => island.brass),
     ...RECEPTION_BRASS.map(spec => box(spec)),
-    cylinder([tableX, 0.37, tableZ], LOUNGE_TABLE.radius + 0.015, 0.03),
-    cylinder([lampX, 0.015, lampZ], 0.18, 0.03, 20),
-    cylinder([lampX, 0.76, lampZ], 0.018, 1.46, 8),
   ]);
-  const fabric = merge([
-    ...LOUNGE_FABRIC.map(spec => box(spec, 0.08)),
-    ...islands.flatMap(island => island.fabric),
-  ]);
-  const rug = merge([
-    cylinder(LOUNGE_RUG.position, LOUNGE_RUG.radius, 0.02, 48),
-    ...LOUNGE_PILLOWS.map(spec => box(spec, 0.06)),
-    ...islands.flatMap(island => island.rug),
-  ]);
-  // Lamp shade and the island LED lines share the unlit LED material.
-  const shade = merge([
-    cylinder([lampX, 1.62, lampZ], 0.2, 0.3, 20),
-    ...islands.flatMap(island => island.led),
-  ]);
+  const fabric = merge(islands.flatMap(island => island.fabric));
+  const rug = merge(islands.flatMap(island => island.rug));
+  // The island LED lines share the unlit LED material.
+  const shade = merge(islands.flatMap(island => island.led));
   return { counter, brass, fabric, rug, shade };
 }
 
-/** Reception desk, the corner lounge and the round islands. Decorative: never a ray target. */
+/** Reception desk and the round lounge islands. Decorative: never a ray target. */
 export function LobbyFurniture({ materials }: { materials: LobbyMaterials }) {
   const geometry = useMemo(() => buildFurniture(), []);
   useEffect(() => () => Object.values(geometry).forEach(part => part.dispose()), [geometry]);

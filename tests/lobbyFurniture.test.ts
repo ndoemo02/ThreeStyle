@@ -5,8 +5,8 @@ import path from 'node:path';
 import sharp from 'sharp';
 import {
   LOBBY_KEEP_CLEAR, LOBBY_SIGHTLINE, LOBBY_OBSTACLES, LOBBY_DOWNLIGHTS, LOBBY_DOWNLIGHT_X_GRID, LOBBY_LIGHT_POOLS,
-  LOBBY_PLANTER_POSITIONS, LOBBY_PLANTER_POT, LOUNGE_FABRIC, LOUNGE_PLINTH, RECEPTION_COUNTER, RECEPTION_CAPS, LOUNGE_TABLE,
-  LOUNGE_LAMP, LOUNGE_ISLANDS, LOBBY_SOLID_PLANTERS, loungeModuleCenters, type LobbyFloorRect,
+  LOBBY_PLANTER_POSITIONS, LOBBY_PLANTER_POT, RECEPTION_COUNTER, RECEPTION_CAPS, LOUNGE_ISLANDS, LOBBY_SOLID_PLANTERS,
+  loungeModuleCenters, type LobbyFloorRect,
 } from '../src/3d/world/hub/lobbyFurnitureLayout.ts';
 import { constrainHubMovement, isHubPositionBlocked, HUB_CAMERA_RADIUS } from '../src/3d/navigation/hubCollision.ts';
 import { getInitialLobbyQuality, getDegradedLobbyQuality } from '../src/3d/world/hub/lobbyConfig.ts';
@@ -49,10 +49,8 @@ test('spawn, intro end and route waypoints are never blocked', () => {
 
 test('every visible solid piece is covered by a collider', () => {
   const solids = [
-    ...[...RECEPTION_COUNTER, ...LOUNGE_FABRIC, ...LOUNGE_PLINTH].map(box => footprint(box.position, box.size)),
+    ...RECEPTION_COUNTER.map(box => footprint(box.position, box.size)),
     ...RECEPTION_CAPS.map(cap => footprint(cap.position, [cap.radius * 2, 0, cap.radius * 2])),
-    footprint(LOUNGE_TABLE.position, [LOUNGE_TABLE.radius * 2, 0, LOUNGE_TABLE.radius * 2]),
-    footprint(LOUNGE_LAMP.position, [0.36, 0, 0.36]),
     ...LOUNGE_ISLANDS.flatMap(island => [
       footprint([island.center[0], 0, island.center[1]], [island.tableRadius * 2, 0, island.tableRadius * 2]),
       ...loungeModuleCenters(island).map(([x, z]) => footprint([x, 0, z], [0, 0, 0])),
@@ -121,6 +119,7 @@ test('planters stay out of colliders and walking bands', () => {
 });
 
 test('lounge islands sit inside the hall and their rugs stay off the walking bands', () => {
+  assert.equal(LOUNGE_ISLANDS.length, 2);
   for (const { center: [x, z], rugRadius, innerRadius, seatDepth, backDepth } of LOUNGE_ISLANDS) {
     const outer = innerRadius + seatDepth + backDepth;
     assert.ok(outer < rugRadius, 'the rug shows beyond the sofa back');

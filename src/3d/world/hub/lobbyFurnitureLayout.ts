@@ -46,34 +46,6 @@ export const RECEPTION_LED: LobbyBoxSpec[] = [
   { position: [-8.69, 0.07, DESK_MID], size: [0.02, 0.02, DESK_LENGTH - 0.2] },
 ];
 
-// ── Lounge in the back-right corner, between the slat wall and the mural ─────
-const FABRIC_Y = 0.27;
-export const LOUNGE_FABRIC: LobbyBoxSpec[] = [
-  // Main run along the slat wall.
-  { position: [7.1, FABRIC_Y, -9.16], size: [5, 0.38, 0.92] },
-  { position: [7.1, 0.66, -9.52], size: [5, 0.42, 0.22] },
-  { position: [4.7, 0.5, -9.16], size: [0.2, 0.5, 0.92] },
-  // Return along the right wall, below the mural.
-  { position: [9.14, FABRIC_Y, -7.74], size: [0.92, 0.38, 2] },
-  { position: [9.5, 0.66, -7.74], size: [0.22, 0.42, 2] },
-  { position: [9.14, 0.5, -6.84], size: [0.92, 0.5, 0.2] },
-];
-export const LOUNGE_PLINTH: LobbyBoxSpec[] = [
-  { position: [7.1, 0.04, -9.16], size: [4.9, 0.08, 0.86] },
-  { position: [9.14, 0.04, -7.79], size: [0.86, 0.08, 1.9] },
-];
-export const LOUNGE_PILLOWS: LobbyBoxSpec[] = [
-  { position: [5.5, 0.62, -9.3], size: [0.46, 0.4, 0.14], rotation: [-0.2, 0.15, 0] },
-  { position: [8.85, 0.62, -9.3], size: [0.46, 0.4, 0.14], rotation: [-0.2, -0.5, 0] },
-];
-export const LOUNGE_TABLE = { position: [6.7, 0, -7.6] as [number, number, number], radius: 0.6 };
-export const LOUNGE_RUG = { position: [6.9, 0.01, -7.7] as [number, number, number], radius: 2 };
-export const LOUNGE_LAMP = { position: [4.15, 0, -9.35] as [number, number, number] };
-export const LOUNGE_LED: LobbyBoxSpec[] = [
-  // Candle on the coffee table.
-  { position: [6.7, 0.47, -7.6], size: [0.09, 0.12, 0.09] },
-];
-
 // ── Round lounge islands (Lobby.B): curved modular sofa on a round rug with an LED edge ──
 /**
  * Angles are world directions (cos a, sin a) in the x/z plane. The sofa runs from `arcStart`
@@ -95,15 +67,16 @@ export type LoungeIsland = {
 const deg = (value: number) => value * Math.PI / 180;
 
 export const LOUNGE_ISLANDS: LoungeIsland[] = [
-  // Left of the hall, between the reception desk and the intro sightline; opens towards the entry.
+  // Back right, in front of the slat wall: the hall's main accent, open towards the entry.
   {
-    center: [-4.6, 0.6], innerRadius: 1.3, seatDepth: 0.75, backDepth: 0.22,
-    arcStart: deg(103), arcLength: deg(220), segments: 4, rugRadius: 2.45, tableRadius: 0.55,
+    center: [7.1, -7.3], innerRadius: 1.2, seatDepth: 0.72, backDepth: 0.22,
+    arcStart: deg(190), arcLength: deg(200), segments: 4, rugRadius: 2.35, tableRadius: 0.5,
   },
-  // In front of the mural; opens towards the hall centre.
+  // Front left, its back against the left wall between the desk and the entry wall;
+  // the way into the hall stays on its right (Lobby.B foreground lounge).
   {
-    center: [7.05, 0.4], innerRadius: 1, seatDepth: 0.7, backDepth: 0.2,
-    arcStart: deg(250), arcLength: deg(200), segments: 3, rugRadius: 1.95, tableRadius: 0.45,
+    center: [-7.4, 7], innerRadius: 1.2, seatDepth: 0.72, backDepth: 0.22,
+    arcStart: deg(70), arcLength: deg(200), segments: 4, rugRadius: 2.35, tableRadius: 0.5,
   },
 ];
 
@@ -143,16 +116,18 @@ export const LOBBY_PLANTER_POT = { radius: 0.42, height: 0.9 };
 
 /** Planter spots in priority order (beside the islands first: the phone tiers show only the first few). */
 export const LOBBY_PLANTER_POSITIONS: Array<[number, number, number]> = [
-  [-4, 0, -2.4],
+  // Either side of the back-right island.
+  [4.45, 0, -7.6],
   [8.7, 0, -4.3],
-  [-9, 0, 4.95],
-  [8.7, 0, 5.4],
+  // Beside the front-left island, then decoration.
+  [-5.6, 0, 9.2],
   [-7.2, 0, -8.8],
-];
+  [8.7, 0, 5.4],
+]
 
 /**
  * Every quality tier shows at least this many planters, so the first ones can be solid without
- * an invisible blocker on a lower tier (the island tree stands in open floor).
+ * an invisible blocker on a lower tier (the island trees stand in open floor).
  */
 export const LOBBY_SOLID_PLANTERS = 2;
 
@@ -164,9 +139,6 @@ const planterFootprint = ([x, , z]: [number, number, number]): LobbyFloorRect =>
 /** Contact shadows ground the new furniture without shadow maps. */
 export const FURNITURE_SHADOWS: LobbyPlaneSpec[] = [
   { position: [DESK_X, 0.008, DESK_MID], size: [1.5, DESK_LENGTH + 1.2], rotation: [-Math.PI / 2, 0, 0] },
-  { position: [7.1, 0.024, -9.1], size: [5.4, 1.3], rotation: [-Math.PI / 2, 0, 0] },
-  { position: [9.1, 0.024, -7.7], size: [1.3, 2.4], rotation: [-Math.PI / 2, 0, 0] },
-  { position: [6.7, 0.025, -7.6], size: [1.6, 1.6], rotation: [-Math.PI / 2, 0, 0] },
   ...LOUNGE_ISLANDS.map(({ center: [x, z], tableRadius }): LobbyPlaneSpec => (
     { position: [x, 0.025, z], size: [tableRadius * 3, tableRadius * 3], rotation: [-Math.PI / 2, 0, 0] })),
 ];
@@ -177,10 +149,6 @@ export const FURNITURE_SHADOWS: LobbyPlaneSpec[] = [
  */
 export const LOBBY_OBSTACLES: LobbyFloorRect[] = [
   { minX: -9.82, maxX: -8.48, minZ: DESK_Z0 - 0.55, maxZ: DESK_Z1 + 0.55 },
-  { minX: 4.55, maxX: 9.82, minZ: -9.82, maxZ: -8.68 },
-  { minX: 8.65, maxX: 9.82, minZ: -8.75, maxZ: -6.7 },
-  { minX: 6.1, maxX: 7.3, minZ: -8.2, maxZ: -7 },
-  { minX: 3.95, maxX: 4.35, minZ: -9.55, maxZ: -9.15 },
   ...LOUNGE_ISLANDS.map(loungeIslandFootprint),
   ...LOBBY_PLANTER_POSITIONS.slice(0, LOBBY_SOLID_PLANTERS).map(planterFootprint),
 ];
@@ -194,6 +162,8 @@ const DOWNLIGHT_SPOTS: Array<[number, number]> = [
   [-6, -1.5], [-2, -1.5], [2, -1.5], [6, -1.5],
   [-6, 3.5], [-2, 3.5], [2, 3.5], [6, 3.5],
   [-8.4, -2.4], [8.4, -2], [8.4, 2],
+  // Over the front-left island.
+  [-7.6, 7],
 ];
 export const LOBBY_DOWNLIGHT_X_GRID = { origin: -13.2, step: 0.8 };
 export const LOBBY_DOWNLIGHTS: LobbyBoxSpec[] = DOWNLIGHT_SPOTS.map(([x, z]) => ({
@@ -203,7 +173,6 @@ export const LOBBY_DOWNLIGHTS: LobbyBoxSpec[] = DOWNLIGHT_SPOTS.map(([x, z]) => 
 /** Always-on LED trims that join the existing merged LED batch. */
 export const LOBBY_ACCENT_LED: LobbyBoxSpec[] = [
   ...RECEPTION_LED,
-  ...LOUNGE_LED,
   ...LOUNGE_ISLANDS.map(({ center: [x, z] }): LobbyBoxSpec => ({ position: [x, 0.47, z], size: [0.09, 0.12, 0.09] })),
   // Under the welcome screen and along the foot of the slat wall.
   { position: [0, 0.9, -9.42], size: [6.4, 0.03, 0.04] },
