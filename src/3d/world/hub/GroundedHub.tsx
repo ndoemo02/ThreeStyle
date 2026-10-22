@@ -8,6 +8,7 @@ import { getInitialLobbyQuality, getLobbyAreaLights, type LobbyQualityProfile } 
 import { useLobbyMaterials } from './LobbyMaterials';
 import { LobbyPerformanceGovernor } from './LobbyPerformanceGovernor';
 import { SceneReadySignal } from '../../systems/SceneReadySignal';
+import { useLobbyFxStore } from '../../../stores/useLobbyFxStore';
 import { useThree } from '@react-three/fiber';
 import type { WebGLRenderer } from 'three';
 
@@ -44,6 +45,11 @@ function LobbyScene({
 }) {
   const gl = useThree(s => s.gl);
   useEffect(() => lobbyExposure(gl), [gl]);
+  const setBloom = useLobbyFxStore(s => s.setBloom);
+  useEffect(() => {
+    setBloom(quality.bloom);
+    return () => setBloom(false);
+  }, [quality.bloom, setBloom]);
   const materials = useLobbyMaterials(isMobile, quality);
   const restoreDpr = useMemo(() => {
     if (typeof window === 'undefined') return isMobile ? 1 : 1.5;

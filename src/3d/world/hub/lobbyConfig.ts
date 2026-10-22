@@ -1,5 +1,12 @@
 export const LOBBY_CEILING_HEIGHT = 4.8;
 
+/**
+ * Lobby bloom: LED accents are pushed this far past white, and only values over the threshold
+ * (white, 1.0) bloom, so screens and signs, which never exceed white, stay sharp.
+ */
+export const LOBBY_LED_BLOOM_GAIN = 2.6;
+export const LOBBY_BLOOM_THRESHOLD = 1;
+
 export type LobbyDoorStatus = 'active' | 'locked' | 'offline';
 
 export type LobbyDoorConfig = {
@@ -33,6 +40,8 @@ export type LobbyQualityProfile = {
   useNormalMaps: boolean;
   /** Downlights mirrored in the floor shader; off with the other extras on the lowest mobile tier. */
   floorReflections: boolean;
+  /** Bloom on the over-white LED accents (WorldExperience composer); off on the lowest mobile tier. */
+  bloom: boolean;
 };
 
 const DESKTOP_QUALITY: LobbyQualityProfile = {
@@ -44,6 +53,7 @@ const DESKTOP_QUALITY: LobbyQualityProfile = {
   accentGlow: true,
   useNormalMaps: true,
   floorReflections: true,
+  bloom: true,
 };
 
 const DESKTOP_LOW_QUALITY: LobbyQualityProfile = {
@@ -55,6 +65,7 @@ const DESKTOP_LOW_QUALITY: LobbyQualityProfile = {
   accentGlow: true,
   useNormalMaps: true,
   floorReflections: true,
+  bloom: true,
 };
 
 const MOBILE_QUALITY: LobbyQualityProfile = {
@@ -66,6 +77,7 @@ const MOBILE_QUALITY: LobbyQualityProfile = {
   accentGlow: true,
   useNormalMaps: true,
   floorReflections: true,
+  bloom: true,
 };
 
 const MOBILE_LOW_QUALITY: LobbyQualityProfile = {
@@ -77,6 +89,7 @@ const MOBILE_LOW_QUALITY: LobbyQualityProfile = {
   accentGlow: false,
   useNormalMaps: false,
   floorReflections: false,
+  bloom: false,
 };
 
 export function getInitialLobbyQuality(isMobile: boolean): LobbyQualityProfile {

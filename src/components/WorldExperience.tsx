@@ -22,6 +22,8 @@ import { DestinationBoundary } from '@/3d/systems/DestinationBoundary';
 import { SceneDiagnostics } from '@/3d/systems/SceneDiagnostics';
 import { EntryCamera } from '@/3d/systems/EntryCamera';
 import { useEntryStore } from '@/stores/useEntryStore';
+import { useLobbyFxStore } from '@/stores/useLobbyFxStore';
+import { LOBBY_BLOOM_THRESHOLD } from '@/3d/world/hub/lobbyConfig';
 
 const loadGroundedHub = () => import('@/3d/world/hub/GroundedHub');
 const GroundedHub = dynamic(
@@ -73,6 +75,7 @@ function ZoneController({ activeZone }: { activeZone: string }) {
 
 export default function WorldExperience({ initialZone = ROOM_ZONE, entry = false, onReady, onFailure }: { initialZone?: string; entry?: boolean; onReady?: () => void; onFailure?: () => void }) {
   const entryPhase = useEntryStore(s => s.phase);
+  const lobbyBloom = useLobbyFxStore(s => s.bloom);
   const interactive = !entry || entryPhase === 'complete';
   const activeZone = useTransitionStore(s => s.activeZone);
   const setActiveZone = useTransitionStore(s => s.setActiveZone);
@@ -242,6 +245,17 @@ export default function WorldExperience({ initialZone = ROOM_ZONE, entry = false
         {!isEventRoomZone && (isMobile || !usesCreatorRoomPipeline) && (
           <EffectComposer multisampling={0}>
             <SMAA />
+            {/* Lobby: only the LED accents (pushed past white) cross the threshold; screens stay sharp. */}
+            {activeZone === HUB_ZONE && lobbyBloom ? (
+              <Bloom
+                intensity={0.8}
+                luminanceThreshold={LOBBY_BLOOM_THRESHOLD}
+                luminanceSmoothing={0.3}
+                mipmapBlur
+                radius={0.7}
+                levels={isMobile ? 5 : 7}
+              />
+            ) : <></>}
             <CreatorComposerResolution enabled={(usesCreatorRoomPipeline && isMobile) || activeZone === HUB_ZONE} />
           </EffectComposer>
         )}

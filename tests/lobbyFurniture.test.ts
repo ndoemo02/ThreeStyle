@@ -105,6 +105,7 @@ test('quality tiers keep accents bounded and drop transparent fill on the lowest
   const mobileLow = getDegradedLobbyQuality(getInitialLobbyQuality(true));
   assert.equal(mobileLow.poolCount, 0);
   assert.equal(mobileLow.accentGlow, false);
+  assert.equal(mobileLow.bloom, false, 'no bloom passes on the lowest phone tier');
   assert.ok(getInitialLobbyQuality(true).poolCount <= 3, 'mobile overdraw budget');
 });
 

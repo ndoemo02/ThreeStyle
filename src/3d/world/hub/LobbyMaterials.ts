@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from 'react';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
-import type { LobbyQualityProfile } from './lobbyConfig';
+import { LOBBY_LED_BLOOM_GAIN, type LobbyQualityProfile } from './lobbyConfig';
 import type { LobbySurface } from './lobbyGeometry';
 import { withLobbyFloor, withLobbyWalls } from './lobbySurfaceShader';
 
@@ -142,7 +142,9 @@ export function useLobbyMaterials(
       // Dark teal ties the upholstery to the mural and the cool LED accent.
       fabric: new THREE.MeshStandardMaterial({ color: '#29403f', roughness: 0.9, metalness: 0 }),
       rug: new THREE.MeshStandardMaterial({ color: '#3a2a2c', roughness: 1, metalness: 0 }),
-      led: new THREE.MeshBasicMaterial({ color: '#ffe0b8', toneMapped: false }),
+      // Pushed past white where bloom runs: only these accents cross the bloom threshold, so
+      // screens and signs (at most white) stay sharp.
+      led: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffe0b8').multiplyScalar(quality.bloom ? LOBBY_LED_BLOOM_GAIN : 1), toneMapped: false }),
       glow: new THREE.MeshBasicMaterial({ map: glowMap, color: '#ffc88d', transparent: true, opacity: 0.2, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }),
       pool: new THREE.MeshBasicMaterial({ map: poolMap, color: '#ffb36b', transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
       softShadow: new THREE.MeshBasicMaterial({ color: '#050302', alphaMap: poolMap, transparent: true, opacity: 0.6, depthWrite: false }),
@@ -154,7 +156,7 @@ export function useLobbyMaterials(
         side: THREE.DoubleSide,
       }),
     };
-  }, [albedo, normal, orm, glowMap, poolMap, leafMap, quality.useNormalMaps, quality.floorReflections]);
+  }, [albedo, normal, orm, glowMap, poolMap, leafMap, quality.useNormalMaps, quality.floorReflections, quality.bloom]);
 
   useEffect(() => () => {
     Object.values(materials).forEach(material => material.dispose());
