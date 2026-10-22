@@ -138,6 +138,29 @@ function loungeIslandFootprint(island: LoungeIsland): LobbyFloorRect {
   return { minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs) };
 }
 
+/** Tall black planter (Lobby.B): pot radius at the rim and height. */
+export const LOBBY_PLANTER_POT = { radius: 0.42, height: 0.9 };
+
+/** Planter spots in priority order (beside the islands first: the phone tiers show only the first few). */
+export const LOBBY_PLANTER_POSITIONS: Array<[number, number, number]> = [
+  [-4, 0, -2.4],
+  [8.7, 0, -4.3],
+  [-9, 0, 4.95],
+  [8.7, 0, 5.4],
+  [-7.2, 0, -8.8],
+];
+
+/**
+ * Every quality tier shows at least this many planters, so the first ones can be solid without
+ * an invisible blocker on a lower tier (the island tree stands in open floor).
+ */
+export const LOBBY_SOLID_PLANTERS = 2;
+
+const planterFootprint = ([x, , z]: [number, number, number]): LobbyFloorRect => ({
+  minX: x - LOBBY_PLANTER_POT.radius, maxX: x + LOBBY_PLANTER_POT.radius,
+  minZ: z - LOBBY_PLANTER_POT.radius, maxZ: z + LOBBY_PLANTER_POT.radius,
+});
+
 /** Contact shadows ground the new furniture without shadow maps. */
 export const FURNITURE_SHADOWS: LobbyPlaneSpec[] = [
   { position: [DESK_X, 0.008, DESK_MID], size: [1.5, DESK_LENGTH + 1.2], rotation: [-Math.PI / 2, 0, 0] },
@@ -149,8 +172,8 @@ export const FURNITURE_SHADOWS: LobbyPlaneSpec[] = [
 ];
 
 /**
- * Solid footprints for hub movement. Planters are deliberately absent: their
- * count changes with the quality tier and an invisible blocker would be worse.
+ * Solid footprints for hub movement. Only the planters every tier renders are solid:
+ * the count changes with the quality tier and an invisible blocker would be worse.
  */
 export const LOBBY_OBSTACLES: LobbyFloorRect[] = [
   { minX: -9.82, maxX: -8.48, minZ: DESK_Z0 - 0.55, maxZ: DESK_Z1 + 0.55 },
@@ -159,6 +182,7 @@ export const LOBBY_OBSTACLES: LobbyFloorRect[] = [
   { minX: 6.1, maxX: 7.3, minZ: -8.2, maxZ: -7 },
   { minX: 3.95, maxX: 4.35, minZ: -9.55, maxZ: -9.15 },
   ...LOUNGE_ISLANDS.map(loungeIslandFootprint),
+  ...LOBBY_PLANTER_POSITIONS.slice(0, LOBBY_SOLID_PLANTERS).map(planterFootprint),
 ];
 
 // ── Light accents ────────────────────────────────────────────────────────────
@@ -204,17 +228,6 @@ export const LOBBY_LIGHT_POOLS: LobbyPlaneSpec[] = [
   { position: [8.7, 0.03, 0], size: [2, 6], rotation: [-Math.PI / 2, 0, 0] },
 ];
 
-/** Tall black planter (Lobby.B): pot radius at the rim and height. */
-export const LOBBY_PLANTER_POT = { radius: 0.42, height: 0.9 };
-
-/** Planter spots in priority order (beside the islands first: the phone tiers show only the first few). */
-export const LOBBY_PLANTER_POSITIONS: Array<[number, number, number]> = [
-  [-4, 0, -2.4],
-  [8.7, 0, -4.3],
-  [-9, 0, 4.95],
-  [8.7, 0, 5.4],
-  [-7.2, 0, -8.8],
-];
 
 /** Wall-mounted wayfinding next to the corridor mouth and the backlit desk logo. */
 export const LOBBY_DIRECTORY = { position: [-9.76, 1.85, -2.4] as [number, number, number], size: [1.15, 2.1] as [number, number] };

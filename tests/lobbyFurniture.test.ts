@@ -6,7 +6,7 @@ import sharp from 'sharp';
 import {
   LOBBY_KEEP_CLEAR, LOBBY_SIGHTLINE, LOBBY_OBSTACLES, LOBBY_DOWNLIGHTS, LOBBY_DOWNLIGHT_X_GRID, LOBBY_LIGHT_POOLS,
   LOBBY_PLANTER_POSITIONS, LOBBY_PLANTER_POT, LOUNGE_FABRIC, LOUNGE_PLINTH, RECEPTION_COUNTER, RECEPTION_CAPS, LOUNGE_TABLE,
-  LOUNGE_LAMP, LOUNGE_ISLANDS, loungeModuleCenters, type LobbyFloorRect,
+  LOUNGE_LAMP, LOUNGE_ISLANDS, LOBBY_SOLID_PLANTERS, loungeModuleCenters, type LobbyFloorRect,
 } from '../src/3d/world/hub/lobbyFurnitureLayout.ts';
 import { constrainHubMovement, isHubPositionBlocked, HUB_CAMERA_RADIUS } from '../src/3d/navigation/hubCollision.ts';
 import { getInitialLobbyQuality, getDegradedLobbyQuality } from '../src/3d/world/hub/lobbyConfig.ts';
@@ -100,6 +100,7 @@ test('quality tiers keep accents bounded and drop transparent fill on the lowest
     for (const tier of [full, low]) {
       assert.ok(tier.poolCount <= LOBBY_LIGHT_POOLS.length);
       assert.ok(tier.planterCount <= LOBBY_PLANTER_POSITIONS.length);
+      assert.ok(tier.planterCount >= LOBBY_SOLID_PLANTERS, 'a solid planter is never invisible');
     }
     assert.ok(low.poolCount <= full.poolCount);
   }
@@ -114,7 +115,8 @@ test('planters stay out of colliders and walking bands', () => {
     const r = LOBBY_PLANTER_POT.radius;
     const pot = { minX: x - r, maxX: x + r, minZ: z - r, maxZ: z + r };
     for (const band of Object.values(LOBBY_KEEP_CLEAR)) assert.ok(!overlaps(pot, band));
-    for (const obstacle of LOBBY_OBSTACLES) assert.ok(!overlaps(pot, obstacle));
+    const others = LOBBY_OBSTACLES.filter(o => !(o.minX === pot.minX && o.maxX === pot.maxX && o.minZ === pot.minZ && o.maxZ === pot.maxZ));
+    for (const obstacle of others) assert.ok(!overlaps(pot, obstacle), `planter at ${x},${z} overlaps furniture`);
   }
 });
 
