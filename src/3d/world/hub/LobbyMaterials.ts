@@ -13,7 +13,6 @@ export type LobbyMaterials = Record<LobbySurface, THREE.MeshStandardMaterial> & 
   brass: THREE.MeshStandardMaterial;
   door: THREE.MeshStandardMaterial;
   counter: THREE.MeshStandardMaterial;
-  fabric: THREE.MeshStandardMaterial;
   rug: THREE.MeshStandardMaterial;
   led: THREE.MeshBasicMaterial;
   glow: THREE.MeshBasicMaterial;
@@ -103,8 +102,6 @@ export function useLobbyMaterials(
       door: new THREE.MeshStandardMaterial({ color: '#41494d', roughness: 0.72, metalness: 0.06 }),
       brass: new THREE.MeshStandardMaterial({ color: '#c8a27b', roughness: 0.44, metalness: 0.6 }),
       counter: new THREE.MeshStandardMaterial({ color: '#1f1b19', roughness: 0.34, metalness: 0.12 }),
-      // Dark teal ties the upholstery to the mural and the cool LED accent.
-      fabric: new THREE.MeshStandardMaterial({ color: '#29403f', roughness: 0.9, metalness: 0 }),
       rug: new THREE.MeshStandardMaterial({ color: '#3a2a2c', roughness: 1, metalness: 0 }),
       // Pushed past white where bloom runs: only these accents cross the bloom threshold, so
       // screens and signs (at most white) stay sharp.

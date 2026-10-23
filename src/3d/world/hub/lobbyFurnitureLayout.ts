@@ -82,6 +82,19 @@ export const LOUNGE_ISLANDS: LoungeIsland[] = [
 
 /** Gap between sofa modules, radians. */
 export const LOUNGE_MODULE_GAP = 0.03;
+/** Top of the recessed dark base the sofa modules sit on. */
+export const LOUNGE_BASE_TOP = 0.1;
+/** Sofa module GLB (scripts/build-lobby-sofa.mjs): centred on +x around the island centre. */
+export const LOUNGE_SOFA_URL = '/models/lobby/sofa_module.glb';
+
+/** Where each module goes: the island centre and the turn that brings its +x axis to the module middle. */
+export function loungeModulePlacements(island: LoungeIsland): Array<{ x: number; z: number; rotationY: number }> {
+  const step = island.arcLength / island.segments;
+  // Turning by θ about +y maps the direction (cos a, sin a) in x/z to angle a − θ.
+  return Array.from({ length: island.segments }, (_, index) => ({
+    x: island.center[0], z: island.center[1], rotationY: -(island.arcStart + step * (index + 0.5)),
+  }));
+}
 
 export function loungeIslandPoint(island: LoungeIsland, radius: number, angle: number): [number, number] {
   return [island.center[0] + radius * Math.cos(angle), island.center[1] + radius * Math.sin(angle)];

@@ -6,7 +6,7 @@ import sharp from 'sharp';
 import {
   LOBBY_KEEP_CLEAR, LOBBY_SIGHTLINE, LOBBY_OBSTACLES, LOBBY_DOWNLIGHTS, LOBBY_DOWNLIGHT_X_GRID, LOBBY_LIGHT_POOLS,
   LOBBY_PLANTER_POSITIONS, LOBBY_PLANTER_POT, RECEPTION_COUNTER, RECEPTION_CAPS, LOUNGE_ISLANDS, LOBBY_SOLID_PLANTERS,
-  loungeModuleCenters, type LobbyFloorRect,
+  loungeModuleCenters, loungeModulePlacements, type LobbyFloorRect,
 } from '../src/3d/world/hub/lobbyFurnitureLayout.ts';
 import { constrainHubMovement, isHubPositionBlocked, HUB_CAMERA_RADIUS } from '../src/3d/navigation/hubCollision.ts';
 import { getInitialLobbyQuality, getDegradedLobbyQuality } from '../src/3d/world/hub/lobbyConfig.ts';
@@ -127,6 +127,19 @@ test('lounge islands sit inside the hall and their rugs stay off the walking ban
     const rug = { minX: x - rugRadius, maxX: x + rugRadius, minZ: z - rugRadius, maxZ: z + rugRadius };
     assert.ok(rug.minX > -9.82 && rug.maxX < 9.82 && rug.minZ > -9.82 && rug.maxZ < 9.82, 'rug inside the walls');
     for (const [name, band] of Object.entries(LOBBY_KEEP_CLEAR)) assert.ok(!overlaps(rug, band), `rug intrudes on ${name}`);
+  }
+});
+
+test('sofa module placements turn the +x module onto each module centre', () => {
+  for (const island of LOUNGE_ISLANDS) {
+    const radius = island.innerRadius + island.seatDepth / 2;
+    const centers = loungeModuleCenters(island);
+    loungeModulePlacements(island).forEach(({ x, z, rotationY }, index) => {
+      // three.js makeRotationY(θ) maps local (r, 0, 0) to (r cos θ, 0, −r sin θ).
+      const px = x + radius * Math.cos(rotationY);
+      const pz = z - radius * Math.sin(rotationY);
+      assert.ok(Math.hypot(px - centers[index][0], pz - centers[index][1]) < 1e-9, `module ${index} misplaced`);
+    });
   }
 });
 

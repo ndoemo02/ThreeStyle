@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useMemo } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { LobbyMaterials } from './LobbyMaterials';
 import { MergedLobbyGlow, type LobbyBoxSpec } from './LobbyMeshes';
 import {
-  FURNITURE_SHADOWS, LOUNGE_ISLANDS, LOUNGE_MODULE_GAP, RECEPTION_BRASS, RECEPTION_CAPS, RECEPTION_COUNTER,
-  loungeIslandPoint, type LoungeIsland,
+  FURNITURE_SHADOWS, LOUNGE_BASE_TOP, LOUNGE_ISLANDS, LOUNGE_SOFA_URL, RECEPTION_BRASS, RECEPTION_CAPS, RECEPTION_COUNTER,
+  loungeModulePlacements, type LoungeIsland,
 } from './lobbyFurnitureLayout';
 
 type Vec3 = [number, number, number];
@@ -75,37 +76,23 @@ function sector(center: [number, number], inner: number, outer: number, angle: n
   return geometry;
 }
 
-/** Curved modular sofa, plinth, rug, table and LED edges of one Lobby.B island, by material. */
+/** Base, rug, table and LED edges of one Lobby.B island, by material; the sofa itself is a GLB. */
 function buildIsland(island: LoungeIsland) {
-  const { center, innerRadius, seatDepth, backDepth, arcStart, arcLength, segments, rugRadius, tableRadius } = island;
-  const seatOuter = innerRadius + seatDepth;
-  const outer = seatOuter + backDepth;
-  const step = arcLength / segments;
-  const fabric: THREE.BufferGeometry[] = [];
-  const rug: THREE.BufferGeometry[] = [];
-  for (let index = 0; index < segments; index++) {
-    const angle = arcStart + step * index + LOUNGE_MODULE_GAP / 2;
-    const length = step - LOUNGE_MODULE_GAP;
-    fabric.push(sector(center, innerRadius, seatOuter + 0.02, angle, length, 0.1, 0.36, 0.06));
-    fabric.push(sector(center, seatOuter, outer, angle, length, 0.1, 0.76, 0.06));
-    // One cushion against the back of each module, turned to face the table.
-    const middle = angle + length / 2;
-    const [px, pz] = loungeIslandPoint(island, seatOuter - 0.14, middle);
-    rug.push(box({ position: [px, 0.62, pz], size: [0.46, 0.4, 0.14], rotation: [0, Math.PI / 2 - middle, 0] }, 0.06));
-  }
+  const { center, innerRadius, seatDepth, backDepth, arcStart, arcLength, rugRadius, tableRadius } = island;
+  const outer = innerRadius + seatDepth + backDepth;
   const counter = [
-    // Recessed dark base, so the sofa floats on its LED line.
-    sector(center, innerRadius + 0.08, outer - 0.04, arcStart, arcLength, 0, 0.1),
+    // Recessed dark base: the Blender sofa modules (LoungeSofas) float on it over the LED line.
+    sector(center, innerRadius + 0.08, outer - 0.04, arcStart, arcLength, 0, LOUNGE_BASE_TOP),
     cylinder([center[0], 0.4, center[1]], tableRadius, 0.05, 32),
     cylinder([center[0], 0.19, center[1]], tableRadius * 0.5, 0.34, 20),
   ];
   const brass = [cylinder([center[0], 0.37, center[1]], tableRadius + 0.015, 0.03, 32)];
-  rug.push(cylinder([center[0], 0.01, center[1]], rugRadius, 0.02, 64));
+  const rug = [cylinder([center[0], 0.01, center[1]], rugRadius, 0.02, 64)];
   const led = [
     band(center, 0.03, innerRadius + 0.075, 0.03, arcStart, arcLength, true),
     band(center, 0.015, rugRadius + 0.004, 0.022),
   ];
-  return { fabric, rug, counter, brass, led };
+  return { rug, counter, brass, led };
 }
 
 /** One draw call per material: every part is flattened to non-indexed and merged. */
@@ -134,12 +121,61 @@ function buildFurniture() {
     ...islands.flatMap(island => island.brass),
     ...RECEPTION_BRASS.map(spec => box(spec)),
   ]);
-  const fabric = merge(islands.flatMap(island => island.fabric));
   const rug = merge(islands.flatMap(island => island.rug));
   // The island LED lines share the unlit LED material.
   const shade = merge(islands.flatMap(island => island.led));
-  return { counter, brass, fabric, rug, shade };
+  return { counter, brass, rug, shade };
 }
+
+/**
+ * Curved sofa modules built in Blender (scripts/build-lobby-sofa.mjs): one GLB, instanced once per
+ * module of every island. The node matrix (meshopt dequantisation) rides along, as for the trees.
+ */
+function LoungeSofas() {
+  const { scene } = useGLTF(LOUNGE_SOFA_URL);
+  const parts = useMemo(() => {
+    scene.updateMatrixWorld(true);
+    const found: Array<{ geometry: THREE.BufferGeometry; material: THREE.Material; matrix: THREE.Matrix4 }> = [];
+    scene.traverse(object => {
+      // GLTFLoader gives one single-material mesh per primitive (fabric, pillow).
+      if (object instanceof THREE.Mesh) found.push({ geometry: object.geometry, material: object.material as THREE.Material, matrix: object.matrixWorld.clone() });
+    });
+    return found;
+  }, [scene]);
+  const placements = useMemo(() => LOUNGE_ISLANDS.flatMap(loungeModulePlacements), []);
+  const meshes = useRef<Array<THREE.InstancedMesh | null>>([]);
+
+  useLayoutEffect(() => {
+    const placement = new THREE.Matrix4();
+    const matrix = new THREE.Matrix4();
+    parts.forEach((part, partIndex) => {
+      const mesh = meshes.current[partIndex];
+      if (!mesh) return;
+      placements.forEach(({ x, z, rotationY }, index) => {
+        placement.makeRotationY(rotationY).setPosition(x, 0, z);
+        mesh.setMatrixAt(index, matrix.multiplyMatrices(placement, part.matrix));
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+    });
+  }, [parts, placements]);
+
+  return (
+    <>
+      {parts.map((part, index) => (
+        <instancedMesh
+          key={index}
+          name={index === 0 ? 'lobby-lounge' : undefined}
+          ref={mesh => { meshes.current[index] = mesh; }}
+          args={[part.geometry, part.material, placements.length]}
+          frustumCulled
+          raycast={() => {}}
+        />
+      ))}
+    </>
+  );
+}
+useGLTF.preload(LOUNGE_SOFA_URL);
 
 /** Reception desk and the round lounge islands. Decorative: never a ray target. */
 export function LobbyFurniture({ materials }: { materials: LobbyMaterials }) {
@@ -151,7 +187,9 @@ export function LobbyFurniture({ materials }: { materials: LobbyMaterials }) {
       <MergedLobbyGlow planes={FURNITURE_SHADOWS} material={materials.softShadow} />
       <mesh name="lobby-reception" geometry={geometry.counter} material={materials.counter} raycast={noRaycast} />
       <mesh geometry={geometry.brass} material={materials.brass} raycast={noRaycast} />
-      <mesh name="lobby-lounge" geometry={geometry.fabric} material={materials.fabric} raycast={noRaycast} />
+      <Suspense fallback={null}>
+        <LoungeSofas />
+      </Suspense>
       <mesh geometry={geometry.rug} material={materials.rug} raycast={noRaycast} />
       <mesh geometry={geometry.shade} material={materials.led} raycast={noRaycast} />
     </group>
