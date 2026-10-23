@@ -4,7 +4,7 @@ export const LOBBY_CEILING_HEIGHT = 4.8;
  * Lobby bloom: LED accents are pushed this far past white, and only values over the threshold
  * (white, 1.0) bloom, so screens and signs, which never exceed white, stay sharp.
  */
-export const LOBBY_LED_BLOOM_GAIN = 2.6;
+export const LOBBY_LED_BLOOM_GAIN = 1.6;
 export const LOBBY_BLOOM_THRESHOLD = 1;
 
 export type LobbyDoorStatus = 'active' | 'locked' | 'offline';

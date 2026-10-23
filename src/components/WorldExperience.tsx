@@ -248,9 +248,9 @@ export default function WorldExperience({ initialZone = ROOM_ZONE, entry = false
             {/* Lobby: only the LED accents (pushed past white) cross the threshold; screens stay sharp. */}
             {activeZone === HUB_ZONE && lobbyBloom ? (
               <Bloom
-                intensity={0.8}
+                intensity={0.45}
                 luminanceThreshold={LOBBY_BLOOM_THRESHOLD}
-                luminanceSmoothing={0.3}
+                luminanceSmoothing={0.4}
                 mipmapBlur
                 radius={0.7}
                 levels={isMobile ? 5 : 7}
