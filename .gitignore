@@ -70,3 +70,7 @@ next-env.d.ts
 
 # Lucky host model: local preview only until model/face licences are confirmed (docs/lucky-licensing-2026-10-17.md).
 /public/models/lucky/
+
+# Brainstorm mockups (superpowers) and owner review shots
+.superpowers/
+assets/Review/
