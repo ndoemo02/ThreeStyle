@@ -21,6 +21,7 @@ export const EVENT_ROOM_LIGHT_CHANNELS = [
   'exitSafety',
   'bloom',
   'exposure',
+  'showColor',
 ] as const;
 
 export type EventRoomLightChannel = (typeof EVENT_ROOM_LIGHT_CHANNELS)[number];
@@ -37,7 +38,10 @@ export type EventRoomLightStateId = (typeof EVENT_ROOM_LIGHT_STATE_IDS)[number];
 
 export type EventRoomLightLevels = Record<EventRoomLightChannel, number>;
 
-/** §6 „Tabela stanów". `exposure` jest wartością absolutną, pozostałe kanały to mnożniki bazy. */
+/**
+ * §6 „Tabela stanów". `exposure` jest wartością absolutną, `showColor` udziałem barw motywu
+ * (0 = ciepła paleta `house`, 1 = pełny kolor pokazu), pozostałe kanały to mnożniki bazy.
+ */
 export const EVENT_ROOM_LIGHT_STATES: Record<EventRoomLightStateId, EventRoomLightLevels> = {
   house: {
     house: 1.0,
@@ -50,6 +54,7 @@ export const EVENT_ROOM_LIGHT_STATES: Record<EventRoomLightStateId, EventRoomLig
     exitSafety: 1.0,
     bloom: 0.32,
     exposure: 1.2,
+    showColor: 0,
   },
   focus: {
     house: 0.32,
@@ -62,6 +67,7 @@ export const EVENT_ROOM_LIGHT_STATES: Record<EventRoomLightStateId, EventRoomLig
     exitSafety: 0.85,
     bloom: 0.44,
     exposure: 1.05,
+    showColor: 0.6,
   },
   blackout: {
     house: 0.02,
@@ -74,6 +80,7 @@ export const EVENT_ROOM_LIGHT_STATES: Record<EventRoomLightStateId, EventRoomLig
     exitSafety: 0.7,
     bloom: 0.18,
     exposure: 0.82,
+    showColor: 0.35,
   },
   reveal: {
     house: 0.14,
@@ -86,6 +93,7 @@ export const EVENT_ROOM_LIGHT_STATES: Record<EventRoomLightStateId, EventRoomLig
     exitSafety: 0.85,
     bloom: 0.56,
     exposure: 1.15,
+    showColor: 1,
   },
   finale: {
     house: 0.5,
@@ -98,6 +106,7 @@ export const EVENT_ROOM_LIGHT_STATES: Record<EventRoomLightStateId, EventRoomLig
     exitSafety: 1.0,
     bloom: 0.74,
     exposure: 1.32,
+    showColor: 1,
   },
 };
 
@@ -113,6 +122,7 @@ export const EVENT_ROOM_LIGHT_TAU: Record<EventRoomLightChannel, number> = {
   ceilingRing: 0.6,
   loungeGlow: 0.6,
   exitSafety: 0.6,
+  showColor: 0.6,
 };
 
 /** Zbicie do dołu jest 1/0.6 = 1.67× szybsze niż podnoszenie — blackout „zapada się". */

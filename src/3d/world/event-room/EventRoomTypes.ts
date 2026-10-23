@@ -44,6 +44,20 @@ export type EventRoomShowState = {
 
 export const EVENT_ROOM_EXIT_ZONE = 'hub';
 
+/**
+ * Paleta „na co dzień" (stan `house`): ciepła i neutralna jak referencja EventSpace.B, wspólna
+ * dla wszystkich motywów. Barwy motywu (róż, fiolet) wchodzą dopiero z pokazem — kanał
+ * `showColor` w `eventRoomLightStates.ts` miesza je z tą paletą. Strojenie: tylko tutaj.
+ */
+export const EVENT_ROOM_HOUSE_PALETTE = {
+  /** Akcenty, które w motywie niosą `theme.led` (pierścień akcentowy, szczeliny, legacy `led`). */
+  led: '#ffb46e',
+  /** Akcenty, które w motywie niosą `theme.ledSoft` (pierścień główny, runway, lounge). */
+  ledSoft: '#f0bb84',
+  /** Wash ekranu na salę: ciepła biel zamiast barwy ekranu. */
+  screenWash: '#ffd6ae',
+} as const;
+
 export const EVENT_ROOM_THEMES: Record<EventRoomThemeId, EventRoomThemeTokens> = {
   rose: {
     id: 'rose',

@@ -25,7 +25,7 @@ import {
   type EventRoomLightStateId,
 } from './eventRoomLightStates';
 import { EVENT_ROOM_LEGACY_EMISSIVE_BASES, type EventRoomMaterials } from './EventRoomMaterials';
-import type { EventRoomShowPhase, EventRoomThemeTokens } from './EventRoomTypes';
+import { EVENT_ROOM_HOUSE_PALETTE, type EventRoomShowPhase, type EventRoomThemeTokens } from './EventRoomTypes';
 
 /**
  * `RectAreaLightUniformsLib.init()` musi wykonać się dokładnie raz przed pierwszym
@@ -94,6 +94,20 @@ type EmissiveBinding = {
   base: number;
   legacy?: true;
 };
+
+/**
+ * Materiały, których barwa przechodzi z ciepłej palety `house` w barwę motywu wraz z kanałem
+ * `showColor`. `exitLed` celowo poza listą — oznaczenie wyjścia nie zmienia koloru.
+ */
+const SHOW_COLOR_BINDINGS: ReadonlyArray<{ key: keyof EventRoomMaterials; tone: 'led' | 'ledSoft' }> = [
+  { key: 'ringNeon', tone: 'ledSoft' },
+  { key: 'ringAccent', tone: 'led' },
+  { key: 'wallSlit', tone: 'led' },
+  { key: 'runwayLed', tone: 'ledSoft' },
+  { key: 'loungeLed', tone: 'ledSoft' },
+  { key: 'led', tone: 'led' },
+  { key: 'warmLed', tone: 'ledSoft' },
+];
 
 const EMISSIVE_BINDINGS: readonly EmissiveBinding[] = [
   { channel: 'ceilingRing', key: 'ringNeon', base: EVENT_ROOM_LIGHT_BASES.emissive.ringNeon },
@@ -197,6 +211,15 @@ export function EventRoomLightRig({
     [theme],
   );
   const bloomThresholdBase = EVENT_ROOM_LIGHT_BASES.bloomThreshold[baseProfile];
+  // Pary barw (dzień → pokaz) dla kanału `showColor`; mieszane co klatkę bez alokacji.
+  const showColors = useMemo(() => ({
+    wash: { house: new THREE.Color(EVENT_ROOM_HOUSE_PALETTE.screenWash), show: screenWashColor },
+    materials: SHOW_COLOR_BINDINGS.map(binding => ({
+      key: binding.key,
+      house: new THREE.Color(EVENT_ROOM_HOUSE_PALETTE[binding.tone]),
+      show: new THREE.Color(theme[binding.tone]),
+    })),
+  }), [theme, screenWashColor]);
 
   // Przejęcie ekspozycji: zapamiętanie poprzedniej wartości na mount i
   // bezwarunkowe przywrócenie na unmount — bez tego Hub i Creator Room
@@ -340,6 +363,7 @@ export function EventRoomLightRig({
     // `screenKey`: jedyny RectAreaLight przed ekranem + mnożnik koloru ekranu.
     if (rectAreaRef.current) {
       rectAreaRef.current.intensity = rectAreaBase * levels.screenKey;
+      rectAreaRef.current.color.copy(showColors.wash.house).lerp(showColors.wash.show, levels.showColor);
     }
     const screenMultiplier = eventRoomScreenMultiplier(levels.screenKey);
     const screenMaterial = screenBinding?.material;
@@ -355,6 +379,13 @@ export function EventRoomLightRig({
     for (const binding of EMISSIVE_BINDINGS) {
       const material = materials[binding.key];
       material.emissiveIntensity = binding.base * levels[binding.channel];
+    }
+
+    // `showColor`: na co dzień ciepło, w pokazie barwy motywu (kolor i emisja razem).
+    for (const tint of showColors.materials) {
+      const material = materials[tint.key];
+      material.color.copy(tint.house).lerp(tint.show, levels.showColor);
+      material.emissive.copy(material.color);
     }
 
     bloom.intensity = levels.bloom;
