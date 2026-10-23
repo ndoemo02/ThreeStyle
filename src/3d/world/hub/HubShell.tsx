@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { InstancedLobbyBoxes, MergedLobbyBoxes, MergedLobbyGlow, type LobbyBoxSpec, type LobbyInstanceTransform, type LobbyPlaneSpec } from './LobbyMeshes';
 import type { LobbyMaterials } from './LobbyMaterials';
@@ -83,93 +84,80 @@ const CEILING_BAFFLES: LobbyInstanceTransform[] = Array.from({ length: 35 }, (_,
   position: [-13.6 + index * 0.8, 4.7, 0],
 }));
 
-type Vec3 = [number, number, number];
-type PlantPart = { offset: Vec3; rotation: Vec3; scale: Vec3; shade?: number };
-
-/** Deterministic 0…1 noise, so every tree keeps its shape between visits. */
-const noise = (seed: number) => {
-  const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
-  return value - Math.floor(value);
-};
-
 const { radius: POT_RADIUS, height: POT_HEIGHT } = LOBBY_PLANTER_POT;
-const TRUNK_LENGTH = 1.15;
+const UP = new THREE.Vector3(0, 1, 0);
 
-/** Trunk plus three branches; all share one unit trunk geometry, scaled per part. */
-const WOOD_PARTS: PlantPart[] = [
-  { offset: [0, POT_HEIGHT + 0.6, 0], rotation: [0, 0, 0.04], scale: [1, 1.05, 1] },
-  ...[0, 2.1, 4.2].map((turn, index): PlantPart => ({
-    offset: [0.14 * Math.cos(turn), 1.85 + index * 0.1, 0.14 * Math.sin(turn)],
-    rotation: [Math.sin(turn) * 0.75, 0, -Math.cos(turn) * 0.75],
-    scale: [0.45, 0.42, 0.45],
-  })),
-];
+/** Poly Haven "Pachira Aquatica 01", variant d (CC0; public/models/lobby/ASSETS.md, scripts/build-lobby-tree.mjs). */
+const TREE_URL = '/models/lobby/pachira_aquatica_01.glb';
+/** The plant is 1.9 m tall: scaled up and sunk a little into the pot, the crown tops out near 3.4 m. */
+const TREE_SCALE = 1.35;
+const TREE_BASE = POT_HEIGHT - 0.04;
 
-/**
- * Lobby.B tree: a loose crown of leaf-cluster cards (cut-out texture) at random angles instead
- * of solid balls, lighter on top (instance colour), and low greenery over the pot rim.
- */
-const LEAF_PARTS: PlantPart[] = [
-  ...Array.from({ length: 44 }, (_, index): PlantPart => {
-    const turn = index * 2.399;
-    const height = noise(index + 1);
-    // Wider in the middle of the crown, narrower at the top and bottom.
-    const reach = (0.15 + 0.6 * Math.sqrt(noise(index + 31))) * (1 - Math.abs(height - 0.45) * 0.7);
-    const size = 0.42 + 0.22 * noise(index + 61);
-    return {
-      offset: [reach * Math.cos(turn), 1.75 + height * 1.05, reach * Math.sin(turn)],
-      rotation: [noise(index + 91) * Math.PI, turn, noise(index + 121) * Math.PI],
-      scale: [size, size, size],
-      shade: 0.7 + height * 0.55,
-    };
-  }),
-  ...Array.from({ length: 6 }, (_, index): PlantPart => {
-    const turn = index * 1.05;
-    return {
-      offset: [(POT_RADIUS - 0.18) * Math.cos(turn), POT_HEIGHT + 0.08, (POT_RADIUS - 0.18) * Math.sin(turn)],
-      rotation: [-0.9, turn, 0.4 * noise(index + 151)],
-      scale: [0.36, 0.36, 0.36],
-      shade: 0.85,
-    };
-  }),
-];
+type TreePart = { geometry: THREE.BufferGeometry; material: THREE.Material; matrix: THREE.Matrix4 };
 
+/** Bark and leaves, one instanced mesh each; the node matrix (meshopt dequantisation) rides along. */
+function LobbyTrees({ positions }: { positions: Array<[number, number, number]> }) {
+  const { scene } = useGLTF(TREE_URL);
+  const parts = useMemo<TreePart[]>(() => {
+    scene.updateMatrixWorld(true);
+    const found: TreePart[] = [];
+    scene.traverse(object => {
+      if (object instanceof THREE.Mesh) {
+        found.push({ geometry: object.geometry, material: object.material as THREE.Material, matrix: object.matrixWorld.clone() });
+      }
+    });
+    return found;
+  }, [scene]);
+  const meshes = useRef<Array<THREE.InstancedMesh | null>>([]);
+
+  useLayoutEffect(() => {
+    const placement = new THREE.Matrix4();
+    const matrix = new THREE.Matrix4();
+    const turn = new THREE.Quaternion();
+    const scale = new THREE.Vector3(TREE_SCALE, TREE_SCALE, TREE_SCALE);
+    const at = new THREE.Vector3();
+    parts.forEach((part, partIndex) => {
+      const mesh = meshes.current[partIndex];
+      if (!mesh) return;
+      positions.forEach(([x, , z], index) => {
+        placement.compose(at.set(x, TREE_BASE, z), turn.setFromAxisAngle(UP, index * 1.3), scale);
+        mesh.setMatrixAt(index, matrix.multiplyMatrices(placement, part.matrix));
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+    });
+  }, [parts, positions]);
+
+  return (
+    <>
+      {parts.map((part, index) => (
+        <instancedMesh
+          key={`${index}:${positions.length}`}
+          ref={mesh => { meshes.current[index] = mesh; }}
+          args={[part.geometry, part.material, positions.length]}
+          frustumCulled
+          raycast={() => {}}
+        />
+      ))}
+    </>
+  );
+}
+useGLTF.preload(TREE_URL);
+
+/** Tall black pots (Lobby.B) with contact shadows; the trees load on their own, the pots never wait. */
 function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMaterials }) {
   const visiblePositions = useMemo(() => LOBBY_PLANTER_POSITIONS.slice(0, count), [count]);
   const potRef = useRef<THREE.InstancedMesh>(null);
-  const trunkRef = useRef<THREE.InstancedMesh>(null);
-  const foliageRef = useRef<THREE.InstancedMesh>(null);
   const shadowRef = useRef<THREE.InstancedMesh>(null);
 
   useLayoutEffect(() => {
     const helper = new THREE.Object3D();
-    const color = new THREE.Color();
-    const placePart = (mesh: THREE.InstancedMesh | null, slot: number, [x, z]: [number, number], turn: number, part: PlantPart) => {
-      const [ox, oy, oz] = part.offset;
-      helper.position.set(x + ox * Math.cos(turn) - oz * Math.sin(turn), oy, z + ox * Math.sin(turn) + oz * Math.cos(turn));
-      helper.rotation.set(part.rotation[0], part.rotation[1] + turn, part.rotation[2]);
-      helper.scale.set(...part.scale);
-      helper.updateMatrix();
-      mesh?.setMatrixAt(slot, helper.matrix);
-    };
-
     visiblePositions.forEach(([x, , z], index) => {
-      const turn = index * 1.3;
       helper.position.set(x, POT_HEIGHT / 2, z);
       helper.rotation.set(0, 0, 0);
       helper.scale.set(1, 1, 1);
       helper.updateMatrix();
       potRef.current?.setMatrixAt(index, helper.matrix);
-
-      WOOD_PARTS.forEach((part, partIndex) => placePart(trunkRef.current, index * WOOD_PARTS.length + partIndex, [x, z], turn, part));
-      LEAF_PARTS.forEach((part, partIndex) => {
-        const slot = index * LEAF_PARTS.length + partIndex;
-        placePart(foliageRef.current, slot, [x, z], turn, part);
-        const shade = (part.shade ?? 1) * (0.92 + 0.16 * noise(slot + 7));
-        // Sunlit clumps lean warm-yellow, the underside stays cool and dark.
-        color.setRGB(shade * (0.9 + 0.2 * noise(slot + 11)), shade, shade * 0.9);
-        foliageRef.current?.setColorAt(slot, color);
-      });
 
       helper.position.set(x, 0.012, z);
       helper.rotation.set(-Math.PI / 2, 0, 0);
@@ -178,10 +166,9 @@ function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMa
       shadowRef.current?.setMatrixAt(index, helper.matrix);
     });
 
-    for (const ref of [potRef, trunkRef, foliageRef, shadowRef]) {
+    for (const ref of [potRef, shadowRef]) {
       if (!ref.current) continue;
       ref.current.instanceMatrix.needsUpdate = true;
-      if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
       ref.current.computeBoundingSphere();
     }
   }, [visiblePositions]);
@@ -191,15 +178,12 @@ function LobbyPlanters({ count, materials }: { count: number; materials: LobbyMa
       <instancedMesh ref={potRef} args={[undefined, undefined, count]} material={materials.counter} frustumCulled>
         <cylinderGeometry args={[POT_RADIUS, POT_RADIUS - 0.06, POT_HEIGHT, 24]} />
       </instancedMesh>
-      <instancedMesh ref={trunkRef} args={[undefined, undefined, count * WOOD_PARTS.length]} material={materials.trunk} frustumCulled>
-        <cylinderGeometry args={[0.035, 0.06, TRUNK_LENGTH, 7]} />
-      </instancedMesh>
-      <instancedMesh ref={foliageRef} args={[undefined, undefined, count * LEAF_PARTS.length]} material={materials.foliage} frustumCulled>
-        <planeGeometry args={[1, 1]} />
-      </instancedMesh>
       <instancedMesh ref={shadowRef} args={[undefined, undefined, count]} material={materials.softShadow} frustumCulled renderOrder={-1}>
         <planeGeometry args={[1.1, 1.1]} />
       </instancedMesh>
+      <Suspense fallback={null}>
+        <LobbyTrees positions={visiblePositions} />
+      </Suspense>
     </>
   );
 }
