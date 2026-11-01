@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { LobbyMaterials } from './LobbyMaterials';
 import { MergedLobbyBoxes, MergedLobbyGlow } from './LobbyMeshes';
-import { CHARACTER_UV, LOBBY_PAINT, LOBBY_SEAT, LOBBY_SEAT_TRIM, LOBBY_COOL_LED, LOBBY_COOL_GLOW, LOBBY_SEAT_SHADOW } from './lobbyCharacterLayout';
+import { CHARACTER_UV, LOBBY_PAINT, LOBBY_COOL_LED, LOBBY_COOL_GLOW } from './lobbyCharacterLayout';
 
 export function LobbyCharacter({ materials, low }: { materials: LobbyMaterials; low: boolean }) {
   const started = useRef(-1);
@@ -44,9 +44,8 @@ export function LobbyCharacter({ materials, low }: { materials: LobbyMaterials; 
   const accent = useMemo(() => ({
     led: new THREE.MeshBasicMaterial({color:'#79ada8',toneMapped:false}),
     glow: new THREE.MeshBasicMaterial({map:materials.glow.map,color:'#65aaa3',transparent:true,opacity:.2,depthWrite:false,side:THREE.FrontSide,toneMapped:false}),
-    shadow: new THREE.MeshBasicMaterial({color:'#080604',transparent:true,opacity:.24,depthWrite:false,side:THREE.FrontSide}),
   }),[materials]);
-  useEffect(()=>()=>{accent.led.dispose();accent.glow.dispose();accent.shadow.dispose();},[accent]);
+  useEffect(()=>()=>{accent.led.dispose();accent.glow.dispose();},[accent]);
   useEffect(() => {
     glow.current = accent.glow;
     if (!low) useTexture.preload('/textures/runtime/lobby/low/character.webp');
@@ -65,9 +64,6 @@ export function LobbyCharacter({ materials, low }: { materials: LobbyMaterials; 
     material.opacity = .2+lift;
   });
   return <group name="lobby-character">
-    <MergedLobbyBoxes boxes={LOBBY_SEAT} surface="dark" material={materials.dark} decorative />
-    <MergedLobbyBoxes boxes={LOBBY_SEAT_TRIM} surface="wood" material={materials.brass} decorative />
-    <MergedLobbyGlow planes={LOBBY_SEAT_SHADOW} material={accent.shadow} />
     <mesh name="lobby-paint" geometry={geometry} raycast={()=>{}}>
       <meshStandardMaterial map={texture} roughness={.95} alphaTest={.16} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
     </mesh>

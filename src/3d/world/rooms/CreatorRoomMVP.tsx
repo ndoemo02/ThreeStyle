@@ -7,10 +7,16 @@ import * as THREE from 'three';
 import { EditingTable } from '../../modules/furniture/EditingTable';
 import { DistanceCulledModel } from '../../systems/DistanceCulledModel';
 import { VocalBooth } from './VocalBooth';
+import { CreatorOnAirSign } from './CreatorOnAirSign';
+import { CreatorAmbilight } from './CreatorAmbilight';
 import { useHudStore } from '../../../stores/useHudStore';
 import { CreatorRoomProfileContext, creatorModelUrl, creatorParameterMap, useCreatorRoomMobile } from './CreatorRoomProfile';
 import { CreatorLightingProvider, CreatorRoomLightingRig, CreatorLight } from './CreatorLighting';
 import { CreatorPerimeterLights } from './CreatorPerimeterLights';
+import { CreatorAccentLights } from './CreatorAccentLights';
+import { withBrickAccents } from './creatorAccentShader';
+import { CreatorCeiling, CreatorFloor } from './CreatorFloorCeiling';
+import { CreatorDecor } from './CreatorDecor';
 import { prepareCreatorRoomMaterial, disposeCreatorRoomMaterials } from './creatorRoomMaterials';
 import { useCreatorScreenTexture } from './useCreatorScreenTexture';
 import { CreatorMediaSurface } from './CreatorMediaSurface';
@@ -154,11 +160,12 @@ function BrickWall({ args, position }: { args: [number, number, number], positio
     <mesh position={position} castShadow receiveShadow>
       <boxGeometry args={args} />
       <meshStandardMaterial 
+        ref={material => { if (material) withBrickAccents(material); }}
         map={maps[0]} 
         aoMap={maps[1]} 
         normalMap={maps[2]} 
         roughnessMap={maps[3]} 
-        color="#929292"
+        color="#7c7c7c"
       />
     </mesh>
   );
@@ -208,53 +215,6 @@ export function AcousticFoamWall({ args, position, rotation = [0, 0, 0], repeat,
         color="#2f2a25"
         normalScale={new THREE.Vector2(2.0, 2.0)}
         roughness={0.9}
-      />
-    </mesh>
-  );
-}
-
-function DiamondPlateFloor({ args, position }: { args: [number, number], position: [number, number, number] }) {
-  const mobile = useCreatorRoomMobile();
-  const { gl } = useThree();
-  const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl]);
-  const textures = useTexture([
-    '/textures/runtime/diamond/color.webp',
-    '/textures/runtime/diamond/normal.webp',
-    creatorParameterMap('diamond', 'roughness', mobile),
-    creatorParameterMap('diamond', 'metalness', mobile),
-    '/textures/runtime/diamond/ao.webp',
-  ]);
-
-  const maps = useMemo(() => {
-    return textures.map(tex => {
-      const clone = tex.clone();
-      clone.wrapS = clone.wrapT = THREE.RepeatWrapping;
-      clone.repeat.set(args[0] / 1.5, args[1] / 1.5);
-      clone.anisotropy = anisotropy;
-      clone.needsUpdate = true;
-      return clone;
-    });
-  }, [textures, args, anisotropy]);
-
-  useEffect(() => {
-    return () => {
-      maps.forEach(m => m.dispose());
-    };
-  }, [maps]);
-
-  return (
-    <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-      <planeGeometry args={args} />
-      <meshStandardMaterial 
-        map={maps[0]} 
-        normalMap={maps[1]} 
-        roughnessMap={maps[2]} 
-        metalnessMap={maps[3]} 
-        aoMap={maps[4]}
-        color="#4a3329"
-        normalScale={new THREE.Vector2(1.15, 1.15)}
-        roughness={0.9}
-        metalness={0.08}
       />
     </mesh>
   );
@@ -581,6 +541,39 @@ function StudioDisplayWall({
   );
 }
 
+// Screen and casing sizes match StudioDisplayWall; the glow plane hangs lower, as the screen sits close under the ceiling.
+const AMBILIGHT_SCREEN = { width: 3.2, height: 1.8 };
+const AMBILIGHT_CASING = { width: 3.98, height: 2.44 };
+const AMBILIGHT_PLANE = { width: 5.6, height: 3.4 };
+const AMBILIGHT_CENTER = { x: 0, y: -0.35 };
+
+/** Focal screen: always rendered, texture swapped imperatively; inside the lighting provider for the visualizer. */
+function CreatorFocalScreen() {
+  const mobile = useCreatorRoomMobile();
+  const screenRef = useRef<THREE.Group>(null);
+  const screenTex = useCreatorScreenTexture(screenRef, mobile);
+  return (
+    <group
+       ref={screenRef}
+       position={[hudControls.hudPosX, hudControls.hudPosY, hudControls.hudPosZ]}
+       rotation={[
+         THREE.MathUtils.degToRad(hudControls.hudRotX),
+         THREE.MathUtils.degToRad(hudControls.hudRotY),
+         THREE.MathUtils.degToRad(hudControls.hudRotZ)
+       ]}
+       scale={[hudControls.hudScale, hudControls.hudScale, hudControls.hudScale]}
+    >
+       <CreatorLight name="screen-fill" channel="screen" position={[0, 0, 0.34]} intensity={2.4} distance={4.2} decay={2} />
+       {/* Just in front of the back wall (z -5.75), inside the casing's depth so only the spill shows. */}
+       <CreatorAmbilight texture={screenTex} screen={AMBILIGHT_SCREEN} casing={AMBILIGHT_CASING} plane={AMBILIGHT_PLANE} center={AMBILIGHT_CENTER} z={-0.087} mobile={mobile} />
+       <StudioDisplayWall
+         videoTexture={screenTex}
+         fallbackVisible={!screenTex}
+       />
+    </group>
+  );
+}
+
 function CreatorScreenFallback({ screenWidth, screenHeight }: { screenWidth: number; screenHeight: number }) {
   return (
     <group position={[0, 0, 0.012]}>
@@ -697,6 +690,15 @@ function SofaRaw() {
     const clone = scene.clone(true);
 
     prepareImportedRoomModel(clone);
+    // Room.B: dark leather cushions on a walnut base (room-local material clones).
+    clone.traverse(node => {
+      if (!(node instanceof THREE.Mesh)) return;
+      for (const material of [node.material].flat()) {
+        if (!(material instanceof THREE.MeshStandardMaterial)) continue;
+        if (material.name === 'coussin') { material.color.set('#8c6a56'); material.roughness = 0.5; }
+        if (material.name === 'pieds') { material.color.set('#4a3020'); material.roughness = 0.6; }
+      }
+    });
 
     // updateMatrixWorld so bbox includes full hierarchy transforms
     clone.updateMatrixWorld(true);
@@ -735,7 +737,6 @@ export function CreatorRoomMVP({
 
   const plaqueRef = useRef<THREE.Group>(null);
   const deviceRef = useRef<THREE.Group>(null);
-  const screenRef = useRef<THREE.Group>(null);
   const devicePointerStart = useRef<{ pointerId: number; clientX: number; clientY: number } | null>(null);
   const hudCooldownRef = useRef(0);
 
@@ -770,8 +771,6 @@ export function CreatorRoomMVP({
   });
   const deviceScreenHovered = plaqueInteraction.isTargeted || deviceInteraction.isTargeted;
 
-  const screenTex = useCreatorScreenTexture(screenRef, mobile);
-
   const roomBackZ = -6;
   const roomFrontZ = 7;
   const leftWallX = -7;
@@ -791,10 +790,9 @@ export function CreatorRoomMVP({
 
       {/* STAGE 1: Static Architecture (Fastest Load) */}
       <Suspense fallback={<RoomArchitectureFallback />}>
-        {/* Floor - Diamond Plate */}
-        <DiamondPlateFloor args={[14.2, 15.2]} position={[0, 0, -0.5]} />
-        {/* Ceiling */}
-        <AcousticFoamWall position={[0, 5.1, -0.5]} args={[14.2, 0.2, 15.2]} repeat={[14.2 / 2, 15.2 / 2]} />
+        {/* Procedural slate floor with a burgundy rug; slatted ceiling with downlights (Room.B). */}
+        <CreatorFloor />
+        <CreatorCeiling />
 
         {/* Entrance Area -> Front Wall + Elevator Hole */}
         <group position={[0, 0, 7]}> {/* Z=7 is the front wall */}
@@ -889,6 +887,8 @@ export function CreatorRoomMVP({
         <group position={[leftWallX - 0.06, 0, boothControls.posZ]} rotation={[0, Math.PI / 2, 0]}>
           <VocalBooth />
         </group>
+        {/* ON AIR on the room side of the wall, above the booth window. */}
+        <CreatorOnAirSign position={[leftWallX + 0.27, boothWindowTop + 0.4, boothControls.posZ]} rotation={[0, Math.PI / 2, 0]} />
 
         {/* RTV Cabinet — heavy 4K model, distance-culled */}
         <group position={[decorControls.rtvPosX, decorControls.rtvPosY, decorControls.rtvPosZ]} rotation={[0, THREE.MathUtils.degToRad(decorControls.rtvRotY), 0]} scale={decorControls.rtvScale}>
@@ -1030,25 +1030,15 @@ export function CreatorRoomMVP({
             <boxGeometry args={[0.08, boothControls.height + 0.32, 0.24]} />
             <meshStandardMaterial color="#030303" roughness={0.88} metalness={0.18} />
           </mesh>
-          <mesh renderOrder={2}>
-            <boxGeometry args={[0.06, boothControls.height, boothControls.width]} />
-            <meshStandardMaterial
-              color="#cfefff"
-              transparent
-              opacity={0.055}
-              roughness={0.02}
-              metalness={0}
-              side={THREE.DoubleSide}
-              depthWrite={false}
-            />
+          {/* Unlit, near-clear pane: a lit box picked up room highlights on all six faces and read as fog over the host.
+              One streak above eye height keeps it reading as glass; the one at eye height crossed the host. */}
+          <mesh position={[0.03, 0, 0]} rotation={[0, Math.PI / 2, 0]} renderOrder={2}>
+            <planeGeometry args={[boothControls.width, boothControls.height]} />
+            <meshBasicMaterial color="#d8f1ff" transparent opacity={0.025} side={THREE.DoubleSide} depthWrite={false} />
           </mesh>
           <mesh position={[0.045, boothControls.height * 0.23, 0]} rotation={[0, Math.PI / 2, 0]} renderOrder={3}>
             <planeGeometry args={[boothControls.width * 0.82, 0.035]} />
-            <meshBasicMaterial color="#ffffff" transparent opacity={0.12} depthWrite={false} side={THREE.DoubleSide} />
-          </mesh>
-          <mesh position={[0.047, -boothControls.height * 0.18, 0]} rotation={[0, Math.PI / 2, 0]} renderOrder={3}>
-            <planeGeometry args={[boothControls.width * 0.64, 0.024]} />
-            <meshBasicMaterial color="#bfefff" transparent opacity={0.08} depthWrite={false} side={THREE.DoubleSide} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.07} depthWrite={false} side={THREE.DoubleSide} />
           </mesh>
           <TechnicalTrim position={[0.08, boothControls.height / 2 + 0.12, 0]} args={[0.16, 0.16, boothControls.width + 0.64]} />
           <TechnicalTrim position={[0.08, -boothControls.height / 2 - 0.12, 0]} args={[0.16, 0.16, boothControls.width + 0.64]} />
@@ -1056,26 +1046,12 @@ export function CreatorRoomMVP({
           <TechnicalTrim position={[0.08, 0, boothControls.width / 2 + 0.12]} args={[0.16, boothControls.height + 0.32, 0.16]} />
         </group>
 
-        {/* Focal screen: always rendered, texture swapped imperatively. */}
-        <group
-           ref={screenRef}
-           position={[hudControls.hudPosX, hudControls.hudPosY, hudControls.hudPosZ]}
-           rotation={[
-             THREE.MathUtils.degToRad(hudControls.hudRotX),
-             THREE.MathUtils.degToRad(hudControls.hudRotY),
-             THREE.MathUtils.degToRad(hudControls.hudRotZ)
-           ]}
-           scale={[hudControls.hudScale, hudControls.hudScale, hudControls.hudScale]}
-        >
-           <CreatorLight name="screen-fill" channel="screen" position={[0, 0, 0.34]} intensity={2.4} distance={4.2} decay={2} />
-           <StudioDisplayWall
-             videoTexture={screenTex}
-             fallbackVisible={!screenTex}
-           />
-        </group>
+        <CreatorFocalScreen />
 
         {/* ── AUDIO REACTIVE CEILING NEON ── */}
         <CreatorPerimeterLights />
+        <CreatorAccentLights />
+        <CreatorDecor />
 
         {/* ── LAPTOP INTERACTIVE ZONE – otwiera HUD panel ── */}
         <group

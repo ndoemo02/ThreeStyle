@@ -124,7 +124,7 @@ export function LeftWingCorridor({
 }) {
   return (
     <group>
-      <MergedLobbyBoxes boxes={CORRIDOR_STONE} surface="stone" material={materials.stone} />
+      <MergedLobbyBoxes boxes={CORRIDOR_STONE} surface="stone" material={materials.floor} />
       <MergedLobbyBoxes boxes={CORRIDOR_DARK} surface="dark" material={materials.dark} />
       <MergedLobbyBoxes boxes={CORRIDOR_PLASTER} surface="plaster" material={materials.plaster} />
       <MergedLobbyBoxes boxes={CORRIDOR_WOOD} surface="wood" material={materials.wood} />

@@ -5,9 +5,21 @@ import path from 'node:path';
 import sharp from 'sharp';
 import {
   getInitialLobbyQuality, createLobbyPerformanceSample, sampleLobbyPerformance, getLobbyAreaLights,
+  nextLobbyDpr, getDegradedLobbyQuality,
 } from '../src/3d/world/hub/lobbyConfig.ts';
 import { createLobbyFloorGeometry } from '../src/3d/world/hub/lobbyGeometry.ts';
 import { lobbySignUv } from '../src/3d/world/hub/lobbySignAtlas.ts';
+
+test('lobby quality recovers clarity and retains lighting on a slower phone', () => {
+  const low = getDegradedLobbyQuality(getInitialLobbyQuality(true));
+  assert.equal(low.dpr, 1);
+  assert.equal(low.lightCount, getInitialLobbyQuality(true).lightCount);
+  assert.equal(nextLobbyDpr(1, 3, 16, false), 1.25);
+  assert.equal(nextLobbyDpr(1.25, 3, 16, false), 1.5);
+  assert.equal(nextLobbyDpr(1.5, 3, 16, true), 1.25);
+  assert.equal(nextLobbyDpr(1, 3, 45, false), 1);
+  assert.equal(nextLobbyDpr(1.25, 1, 16, false), 1);
+});
 
 test('ignores asset warm-up and degrades only after a sustained slow visible visit', () => {
   const profile = getInitialLobbyQuality(true);
@@ -100,7 +112,7 @@ test('ships one bounded static signage atlas for each device profile', async () 
 });
 
 test('large welcome screen has its own resolution without inflating the mobile door atlas', async () => {
-  for (const [variant, width] of [['mobile', 1024], ['desktop', 2048]] as const) {
+  for (const [variant, width] of [['mobile', 1536], ['desktop', 2048]] as const) {
     const file = path.resolve(import.meta.dirname, '..', 'public', 'textures', 'runtime', 'lobby', variant, 'welcome.webp');
     const [metadata, fileStat] = await Promise.all([sharp(file).metadata(), stat(file)]);
     assert.equal(metadata.width, width);

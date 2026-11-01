@@ -3,6 +3,10 @@ import { useEffect, useRef } from 'react';
 import { useThree } from '@react-three/fiber';
 import { useTransitionStore } from '../../store/useTransitionStore';
 import { useElevatorUiStore } from '../../stores/useElevatorUiStore';
+import { useEntryStore } from '../../stores/useEntryStore';
+import * as THREE from 'three';
+import { ENTRY } from '../../lib/entryTransition';
+import { useCreatorFaceStore } from '../../stores/useCreatorFaceStore';
 
 export function SceneDiagnostics({ ready }: { ready: boolean }) {
   const get = useThree(s => s.get);
@@ -10,10 +14,38 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     // Development-only fixture: actual ride input still goes through the visible UI.
-    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
+    const fixture = ready && !fixtureApplied.current && ['elevator', 'elevator-approach', 'signage', 'corridor', 'bench', 'mural', 'face', 'face-close', 'face-side', 'lucky', 'lucky-close', 'booth', 'screen', 'room', 'room-back', 'elevator-door', 'elevator-open'].includes(query.get('qa') ?? '') ? window.setTimeout(() => {
       fixtureApplied.current = true;
       const state = get();
-      if (query.get('qa') === 'signage') {
+      if (query.get('qa') === 'face-close' || query.get('qa') === 'face-side') {
+        state.camera.position.set(query.get('qa') === 'face-side' ? -9.3 : -8.2, 2.15, query.get('qa') === 'face-side' ? -5.2 : -3.8);
+        state.camera.lookAt(-9.66, 2.15, -3.8);
+      } else if (query.get('qa') === 'lucky-close') {
+        state.camera.position.set(-7.6, 2.08, -4.1); state.camera.lookAt(-8.46, 2.02, -4.25);
+      } else if (query.get('qa') === 'lucky') {
+        state.camera.position.set(-6.4, 2.05, -3.4); state.camera.lookAt(-8.46, 1.85, -4.25);
+      } else if (query.get('qa') === 'booth') {
+        // The booth window and the wall above it (ON AIR) as seen from the middle of the room.
+        state.camera.position.set(0.5, 2.3, -2.5); state.camera.lookAt(-7, 2.6, -2.5);
+      } else if (query.get('qa') === 'elevator-door') {
+        // The closed elevator front as approached: from the corridor in the hub, from the sofa side in the room.
+        if (useTransitionStore.getState().activeZone === 'hub') { state.camera.position.set(-24, 2.05, -8.4); state.camera.lookAt(-24, 2.3, 1.5); }
+        else { state.camera.position.set(0, 2.05, 2.4); state.camera.lookAt(0, 2.2, 9.65); }
+      } else if (query.get('qa') === 'elevator-open') {
+        // Close enough for the doors to open, at an angle that shows where the leaves go.
+        if (useTransitionStore.getState().activeZone === 'hub') { state.camera.position.set(-22.9, 2.0, -3.6); state.camera.lookAt(-24, 1.9, -1.2); }
+        else { state.camera.position.set(1.2, 2.0, 4.5); state.camera.lookAt(0, 1.9, 7); }
+      } else if (query.get('qa') === 'screen') {
+        // The focal screen (visualizer) and its ambilight on the back wall.
+        state.camera.position.set(0.8, 2.2, 1.8); state.camera.lookAt(3.6, 2.6, -5.6);
+      } else if (query.get('qa') === 'room') {
+        // Creator Room framing of the Room.A/B references: elevator wall ahead, sofa left, cabinet right.
+        state.camera.position.set(0, 2.05, -3); state.camera.lookAt(0, 1.9, 7);
+      } else if (query.get('qa') === 'room-back') {
+        state.camera.position.set(-1, 2.05, 5.6); state.camera.lookAt(0.5, 1.9, -6);
+      } else if (query.get('qa') === 'face') {
+        state.camera.position.set(-4.8, 2.2, -2.5); state.camera.lookAt(-9.66, 2.15, -3.8);
+      } else if (query.get('qa') === 'signage') {
         state.camera.position.set(4, 2.05, 6); state.camera.lookAt(-2, 2.55, -9.5);
       } else if (query.get('qa') === 'bench') {
         state.camera.position.set(-4, 2.05, 6); state.camera.lookAt(-10.3, 1.6, 1);
@@ -35,14 +67,48 @@ export function SceneDiagnostics({ ready }: { ready: boolean }) {
       const scene = get();
       const navigation = useTransitionStore.getState();
       const cabin = scene.scene.getObjectByName('creator-elevator-cabin');
+      const face = scene.scene.getObjectByName('creator-audio-face');
+      const faceHead = scene.scene.getObjectByName('creator-audio-face-head') as THREE.Mesh | undefined;
+      const lucky = scene.scene.getObjectByName('creator-lucky');
+      const luckyFaces: THREE.Mesh[] = [];
+      lucky?.traverse(node => { if (node instanceof THREE.Mesh && node.morphTargetDictionary?.jawOpen !== undefined) luckyFaces.push(node); });
+      const luckyHead = luckyFaces[0];
+      const faceParts: unknown[] = [];
+      if (query.get('qa')?.startsWith('face')) face?.traverse(node => {
+        if (!(node instanceof THREE.Mesh)) return;
+        const box = new THREE.Box3(), vertex = new THREE.Vector3();
+        for (let i = 0; i < node.geometry.attributes.position.count; i++) box.expandByPoint(node.getVertexPosition(i, vertex).applyMatrix4(node.matrixWorld));
+        faceParts.push({ name: node.name, center: box.getCenter(vertex).toArray(), size: box.getSize(new THREE.Vector3()).toArray(), screen: box.getCenter(vertex).project(scene.camera).toArray() });
+      });
+      const lighting = scene.scene.userData.creatorLighting as { session: unknown; onAir: number; booth: number; screenColor: THREE.Color; music: { playing: boolean; spectrum: ArrayLike<number> } } | undefined;
+      const seam = new THREE.Vector3(ENTRY.x, 2.325, ENTRY.z + 0.087).project(scene.camera);
       return JSON.stringify({
         coordinateSystem: 'Y up; camera forward follows view, metres',
         zone: navigation.activeZone, origin: navigation.originZone, target: navigation.targetZone,
         elevator: navigation.elevatorState, rideStatus: useElevatorUiStore.getState().rideStatus,
         canRide: useElevatorUiStore.getState().available,
         camera: scene.camera.position.toArray(), dpr: scene.gl.getPixelRatio(),
+        exposure: scene.gl.toneMappingExposure,
+        ready,
+        session: lighting?.session ?? null,
+        onAir: lighting ? { level: +lighting.onAir.toFixed(3), booth: +lighting.booth.toFixed(3) } : null,
+        screen: lighting ? { light: lighting.screenColor.getHexString(), playing: lighting.music.playing, bins: lighting.music.spectrum.length,
+          peakDb: lighting.music.spectrum.length ? +Math.max(...Array.from(lighting.music.spectrum).slice(1)).toFixed(1) : null } : null,
+        render: { calls: scene.gl.info.render.calls, triangles: scene.gl.info.render.triangles, textures: scene.gl.info.memory.textures, geometries: scene.gl.info.memory.geometries },
+        face: { enabled: useCreatorFaceStore.getState().enabled, status: useCreatorFaceStore.getState().status, revision: useCreatorFaceStore.getState().revision,
+          disposed: scene.scene.userData.creatorFaceLastDisposal ?? null,
+          visible: face?.visible ?? false, mounted: Boolean(face), morphCount: faceHead?.geometry.morphAttributes.position?.length ?? 0,
+          pose: faceHead?.morphTargetInfluences ?? [], parts: faceParts },
+        lucky: { mounted: Boolean(lucky?.children.length), visible: lucky?.visible ?? false, disposed: scene.scene.userData.creatorLuckyDisposed ?? null,
+          morphs: luckyHead ? Object.fromEntries(Object.entries(luckyHead.morphTargetDictionary!).map(([name, index]) => [name, +(luckyHead!.morphTargetInfluences![index]).toFixed(3)])) : null,
+          faceMeshes: luckyFaces.length,
+          facesInSync: luckyFaces.every(mesh => mesh.morphTargetInfluences!.every((value, i) => Math.abs(value - luckyHead!.morphTargetInfluences![i]) < 1e-6)),
+          headPitch: lucky?.getObjectByName('head')?.rotation.x ?? null },
+        entry: { phase: useEntryStore.getState().phase,
+          seam: [(seam.x + 1) * scene.size.width / 2, (1 - seam.y) * scene.size.height / 2],
+          doors: ['landing-door-left', 'landing-door-right'].map(name => scene.scene.getObjectByName(name)?.position.x) },
         canvas: [scene.gl.domElement.width, scene.gl.domElement.height],
-        cabin: cabin ? { visible: cabin.visible, doors: cabin.children.filter(o => o.type === 'Group').map(o => o.position.x),
+        cabin: cabin ? { visible: cabin.visible, doors: cabin.children.filter(o => o.name === 'creator-elevator-door').map(o => o.position.x),
           shaftVisible: scene.scene.getObjectByName('creator-elevator-shaft')?.visible } : null,
       });
     };

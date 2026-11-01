@@ -1,5 +1,12 @@
 export const LOBBY_CEILING_HEIGHT = 4.8;
 
+/**
+ * Lobby bloom: LED accents are pushed this far past white, and only values over the threshold
+ * (white, 1.0) bloom, so screens and signs, which never exceed white, stay sharp.
+ */
+export const LOBBY_LED_BLOOM_GAIN = 1.6;
+export const LOBBY_BLOOM_THRESHOLD = 1;
+
 export type LobbyDoorStatus = 'active' | 'locked' | 'offline';
 
 export type LobbyDoorConfig = {
@@ -27,39 +34,62 @@ export type LobbyQualityProfile = {
   dpr: number;
   lightCount: number;
   planterCount: number;
+  /** Additive floor light pools; transparent fill is the main mobile cost of the accents. */
+  poolCount: number;
+  accentGlow: boolean;
   useNormalMaps: boolean;
+  /** Downlights mirrored in the floor shader; off with the other extras on the lowest mobile tier. */
+  floorReflections: boolean;
+  /** Bloom on the over-white LED accents (WorldExperience composer); off on the lowest mobile tier. */
+  bloom: boolean;
 };
 
 const DESKTOP_QUALITY: LobbyQualityProfile = {
   id: 'desktop',
   dpr: 1.25,
   lightCount: 3,
-  planterCount: 3,
+  planterCount: 5,
+  poolCount: 5,
+  accentGlow: true,
   useNormalMaps: true,
+  floorReflections: true,
+  bloom: true,
 };
 
 const DESKTOP_LOW_QUALITY: LobbyQualityProfile = {
   id: 'desktop-low',
   dpr: 1,
   lightCount: 2,
-  planterCount: 2,
+  planterCount: 3,
+  poolCount: 3,
+  accentGlow: true,
   useNormalMaps: true,
+  floorReflections: true,
+  bloom: true,
 };
 
 const MOBILE_QUALITY: LobbyQualityProfile = {
   id: 'mobile',
-  dpr: 1,
+  dpr: 1.25,
   lightCount: 2,
-  planterCount: 2,
+  planterCount: 3,
+  poolCount: 3,
+  accentGlow: true,
   useNormalMaps: true,
+  floorReflections: true,
+  bloom: true,
 };
 
 const MOBILE_LOW_QUALITY: LobbyQualityProfile = {
   id: 'mobile-low',
-  dpr: 0.75,
-  lightCount: 1,
-  planterCount: 1,
+  dpr: 1,
+  lightCount: 2,
+  planterCount: 2,
+  poolCount: 0,
+  accentGlow: false,
   useNormalMaps: false,
+  floorReflections: false,
+  bloom: false,
 };
 
 export function getInitialLobbyQuality(isMobile: boolean): LobbyQualityProfile {
@@ -70,6 +100,14 @@ export function getDegradedLobbyQuality(profile: LobbyQualityProfile): LobbyQual
   if (profile.id === 'mobile') return MOBILE_LOW_QUALITY;
   if (profile.id === 'desktop') return DESKTOP_LOW_QUALITY;
   return profile;
+}
+
+/** Recover clarity after a sustained healthy window; never supersample at native phone DPR. */
+export function nextLobbyDpr(current: number, max: number, frameMs: number, moving: boolean) {
+  const ceiling = Math.min(max, moving ? 1.25 : 1.5);
+  if (frameMs > 36) return Math.min(max, Math.max(1, current - 0.25));
+  if (frameMs < 20) return Math.min(ceiling, current + 0.25);
+  return Math.min(current, ceiling);
 }
 
 export function shouldDegradeLobbyQuality(
