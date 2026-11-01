@@ -29,21 +29,23 @@ test('selects deterministic desktop and mobile quality profiles', () => {
     id: 'desktop',
     dpr: 1.25,
     lightCount: 3,
-    planterCount: 3,
+    planterCount: 5,
     poolCount: 5,
     accentGlow: true,
     useNormalMaps: true,
     floorReflections: true,
+    bloom: true,
   });
   assert.deepEqual(getInitialLobbyQuality(true), {
     id: 'mobile',
     dpr: 1.25,
     lightCount: 2,
-    planterCount: 2,
+    planterCount: 3,
     poolCount: 3,
     accentGlow: true,
     useNormalMaps: true,
     floorReflections: true,
+    bloom: true,
   });
 });
 
@@ -53,11 +55,12 @@ test('degrades each quality profile at most once per lobby visit', () => {
     id: 'mobile-low',
     dpr: 1,
     lightCount: 2,
-    planterCount: 1,
+    planterCount: 2,
     poolCount: 0,
     accentGlow: false,
     useNormalMaps: false,
     floorReflections: false,
+    bloom: false,
   });
   assert.equal(getDegradedLobbyQuality(mobileLow), mobileLow);
 
@@ -66,11 +69,12 @@ test('degrades each quality profile at most once per lobby visit', () => {
     id: 'desktop-low',
     dpr: 1,
     lightCount: 2,
-    planterCount: 2,
+    planterCount: 3,
     poolCount: 3,
     accentGlow: true,
     useNormalMaps: true,
     floorReflections: true,
+    bloom: true,
   });
   assert.equal(getDegradedLobbyQuality(desktopLow), desktopLow);
 });
