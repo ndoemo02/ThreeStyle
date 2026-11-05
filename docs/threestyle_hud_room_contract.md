@@ -33,6 +33,7 @@ Tych decyzji nie zmieniamy bez osobnej decyzji projektowej:
 * Nie robimy Gaussian Splatting.
 * Nie robimy pelnej spolecznosciowki.
 * Nie robimy komentarzy, DM, followow, ekip ani multiplayer rooms w MVP.
+  *(2026-11-05: wlasciciel uznal czesc o multiplayerze za nieaktualna. Etap 1 pokoi kont — zapis i podglad cudzego pokoju bez zmian, bez synchronizacji na zywo — opisuje `docs/rooms-stage-1-2026-11-05.md`; plan obecnosci na zywo: `docs/rooms-stage-2-realtime-plan-2026-11-05.md`.)*
 * Nie ma kupowanych glosow ani pay-to-win voting.
 * Najpierw dziala MVP: upload -> listen -> vote -> weekly ranking.
 
