@@ -25,6 +25,7 @@ type VisitState =
  * so the link does not reveal whether a private room exists.
  */
 export function VisitorRoom({ slug }: { slug: string }) {
+  const hudOpen = useHudStore(s => s.isOpen);
   const [state, setState] = useState<VisitState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
 
@@ -62,12 +63,12 @@ export function VisitorRoom({ slug }: { slug: string }) {
 
   return <>
     <World initialZone={ROOM_ZONE} roomMode="visitor" visitorRoom={state.room} />
-    <aside className="room-visit-banner" aria-label="Informacja o pokoju">
-      <p><strong>Pokój <span translate="no">{state.room.slug}</span></strong> · {state.own ? 'tak widzą go goście' : 'tylko podgląd'}</p>
+    {!hudOpen && <aside className="room-visit-banner" aria-label="Informacja o pokoju">
+      <p><strong>Pokój <span translate="no">{state.room.slug}</span></strong> · {!state.own ? 'tylko podgląd' : state.room.visibility === 'public' ? 'tak widzą go goście' : 'prywatny — goście go nie widzą'}</p>
       <p><Lock size={13} aria-hidden="true" /> {state.own
         ? 'To Twój pokój. Zmieniasz go po zalogowaniu na stronie głównej, w panelu „Pokój”.'
         : 'Pliki właściciela są prywatne i tu niedostępne. Układu nie można zmienić.'}</p>
       <div><button type="button" onClick={() => useHudStore.getState().openHud('master_catalog')}>Szczegóły</button><Link href="/">Wyjdź</Link></div>
-    </aside>
+    </aside>}
   </>;
 }

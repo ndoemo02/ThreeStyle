@@ -35,7 +35,7 @@ Migracja `supabase/migrations/20261105090000_account_rooms.sql`:
   - edycja tylko gdy `owner_id = auth.uid()` (`using` i `with check`).
 - **Storage bez zmian.** Migracja nie dodaje ani nie zmienia żadnej polityki `storage.objects`, a bucket `creator-media` pozostaje prywatny. Publiczny pokój nie daje dostępu do `media_assets` ani do plików.
 
-Testy (PGlite, prawdziwy silnik Postgresa): `tests/accountRooms.test.mjs`, 12 testów. Obejmują:
+Testy (PGlite, prawdziwy silnik Postgresa): `tests/accountRooms.test.mjs`, 13 testów. Obejmują:
 
 - **Gość:** nie widzi prywatnego pokoju. Publiczny czyta, ale nie może go zmienić, utworzyć ani usunąć (`permission denied`).
 - **Obce konto:** nie widzi prywatnego pokoju. Edycja publicznego pokoju zmienia 0 wierszy, a usunięcie kończy się odmową. Nie może przejąć zajętej nazwy (`unique`).
@@ -44,7 +44,7 @@ Testy (PGlite, prawdziwy silnik Postgresa): `tests/accountRooms.test.mjs`, 12 te
 - **Pliki:** przy publicznym pokoju gość i obce konto nadal dostają 0 wierszy z `storage.objects` i `media_assets` właściciela. Bucket ma `public = false`.
 - **Walidacja i cykl życia:** błędne nazwy i wartości odrzuca CHECK. Powrót do „prywatny” ukrywa pokój. Usunięcie konta usuwa pokój.
 
-Testy uruchamiają też skrypty do chmury: `supabase/rooms-rls-smoke.sql` (dwa tymczasowe konta, wszystko wycofywane) i `supabase/rooms-verify.sql` (jeden wiersz z faktami o uprawnieniach i bucketcie).
+Testy uruchamiają też skrypty do chmury na schemacie z obiema migracjami: `supabase/rooms-rls-smoke.sql` (dwa tymczasowe konta, wszystko wycofywane), `supabase/rooms-verify.sql` (jeden wiersz z faktami o uprawnieniach i bucketcie) oraz istniejące `account-rls-smoke.sql` i `verify.sql`.
 
 ## Przepływy w aplikacji
 
@@ -73,13 +73,13 @@ Zmiana na „Prywatny” sprawia, że link przestaje działać dla innych od nas
    - Wygląd właściciela trafia do sklepu HUD z blokadą (`lightingLocked`). Wszystkie setery światła są wtedy ignorowane, a `restorePreferences` nie nadpisuje wyglądu.
    - Nic nie trafia do `localStorage` gościa. Zapis głośności zachowuje jego własny wygląd.
    - Po wyjściu wraca własny wygląd gościa.
-4. Baner na dole mówi wprost: „Pliki właściciela są prywatne i tu niedostępne. Układu nie można zmienić.” Ma przyciski „Szczegóły” (otwiera HUD) i „Wyjdź”.
+4. Baner (lewy górny róg, pod przyciskami sceny, bo lewy dolny zajmuje joystick na telefonie; chowa się przy otwartym HUD) mówi wprost: „Pliki właściciela są prywatne i tu niedostępne. Układu nie można zmienić.” Ma przyciski „Szczegóły” (otwiera HUD) i „Wyjdź”.
 5. HUD gościa ma tylko dwie zakładki:
    - „Pokój”: nazwa, komunikat o niedostępnych plikach, nastrój, data ostatniej zmiany i informacja, że pokój nie odświeża się na żywo.
    - „Światło”: wszystkie kontrolki wyłączone, nagłówek „Nastrój właściciela”.
 
    Nie ma zakładki „Media”, uploadu, kamery ani odtwarzacza.
-6. Właściciel, który otworzy własny link, widzi go tak jak goście. Baner mówi wtedy: „To Twój pokój. Zmieniasz go po zalogowaniu na stronie głównej, w panelu „Pokój”.”
+6. Właściciel, który otworzy własny link, widzi go tak jak goście. Jeśli pokój jest prywatny, baner mówi „prywatny — goście go nie widzą”. W obu przypadkach dodaje: „To Twój pokój. Zmieniasz go po zalogowaniu na stronie głównej, w panelu „Pokój”.”
 
 ### Demo (bez konta)
 
@@ -120,8 +120,8 @@ Next.js: katalog `node_modules/next/dist/docs/` nie istnieje w zainstalowanym `n
 | --- | --- |
 | `npx tsc --noEmit` | PASS |
 | `node --experimental-strip-types --test tests/*.test.ts` | 141 pass, 2 skipped (testy assetu Lucky'ego bez modelu), 0 fail |
-| `node --test tests/*.test.mjs` | 25/25 PASS |
-| `npm run test:accounts` | 43/43 PASS |
+| `node --test tests/*.test.mjs` | 26/26 PASS |
+| `npm run test:accounts` | 44/44 PASS |
 | `npm run build` | PASS |
 | `npm run lint` | 82 problemy (28 błędów, 54 ostrzeżenia). Na czystym `origin/main` jest **dokładnie tyle samo**: wszystkie istniały wcześniej, w plikach spoza tej zmiany. ESLint na plikach tej zmiany daje 0 problemów. |
 
@@ -133,7 +133,9 @@ Przeglądarka (Playwright z Chromium, produkcyjny build z **fałszywym** URL Sup
 - Gość nie wysłał żadnego zapisu do Supabase, a jego `localStorage` został nietknięty.
 - Na szerokości 390 px nie ma poziomego przewijania.
 
-Scena 3D w headless Chromium renderowała się na czarno, więc wygląd światła w pokoju nie był oceniany.
+- Emulacja iPhone 13 (390 × 664, dotyk): baner gościa nie nachodzi na joystick ani na górne przyciski, a jego przyciski są klikalne. Pierwsza wersja leżała pod płótnem sceny (`.b3p-fullscreen` ma `z-index: 50`) i została poprawiona. HUD otwiera się jako dolny arkusz, baner chowa się przy otwartym HUD i wraca po zamknięciu.
+
+Scena 3D w headless Chromium (SwiftShader) renderuje się tylko częściowo, więc nie oceniałem wyglądu światła w pokoju ani niczego na prawdziwym telefonie.
 
 ## Czego nie sprawdzono
 
@@ -174,7 +176,7 @@ npm.cmd run supabase -- db query --linked --project-ref dqefgvjzgpfuartuydmv --f
 npm.cmd run supabase -- db query --linked --project-ref dqefgvjzgpfuartuydmv --file supabase/account-rls-smoke.sql
 npm.cmd run supabase -- db advisors --linked --project-ref dqefgvjzgpfuartuydmv --type all --level warn
 npm.cmd run supabase -- migration list --linked --project-ref dqefgvjzgpfuartuydmv
-npm.cmd run supabase -- gen types typescript --linked --project-ref dqefgvjzgpfuartuydmv --schema public | Out-File -Encoding utf8 src/lib/supabase/database.generated.ts
+npm.cmd run supabase -- gen types --linked --lang typescript --schema public | Out-File -Encoding utf8 src/lib/supabase/database.generated.ts
 ```
 
 Oczekiwane w `rooms-verify.sql`:

@@ -11,7 +11,8 @@
 .room-finder input { min-height: 44px; padding: 0 12px; border: 1px solid #ffffff2e; border-radius: 12px; background: #ffffff08; color: inherit; font: 15px var(--font-geist-mono), monospace; }
 .room-finder input[aria-invalid=true] { border-color: #f3a05d; }
 .room-finder p { color: #ffc8a2; font-size: 13px; margin: 0; }
-.room-visit-banner { position: fixed; z-index: 40; left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); max-width: min(380px, calc(100vw - 24px)); padding: 12px 14px; border: 1px solid #f3a05d55; border-radius: 14px; background: #151310eb; color: #f4ede4; font-size: 12px; line-height: 1.45; }
+/* Top-left under the scene buttons: the mobile joystick owns the bottom-left corner. */
+.room-visit-banner { position: fixed; z-index: 60; /* above .b3p-fullscreen (50); hidden while the HUD is open */ left: max(12px, env(safe-area-inset-left)); top: calc(max(12px, env(safe-area-inset-top)) + 56px); max-width: min(380px, calc(100vw - 24px)); padding: 12px 14px; border: 1px solid #f3a05d55; border-radius: 14px; background: #151310eb; color: #f4ede4; font-size: 12px; line-height: 1.45; }
 .room-visit-banner p { margin: 0 0 6px; } .room-visit-banner svg { vertical-align: -2px; }
 .room-visit-banner div { display: flex; gap: 8px; }
 .room-visit-banner button, .room-visit-banner a { min-height: 44px; display: inline-flex; align-items: center; padding: 0 12px; border: 1px solid #ffffff30; border-radius: 10px; background: transparent; color: #f3a05d; font: inherit; cursor: pointer; text-decoration: none; }

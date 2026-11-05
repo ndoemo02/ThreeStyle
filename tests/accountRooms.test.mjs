@@ -156,3 +156,18 @@ test('hosted room scripts run and the smoke rolls back all fixtures',async()=>{
   assert.match(row.visibility_default,/private/);
   assert.equal(row.room_trigger_callable,false);
 });
+
+test('the existing account scripts still pass with both migrations applied',async()=>{
+  // Order of the manual hosted run: these follow db push of the room migration.
+  const smoke=await fs.readFile(new URL('../supabase/account-rls-smoke.sql',import.meta.url),'utf8');
+  const users=(await db.query('select count(*)::int as n from auth.users')).rows[0].n;
+  await db.exec(smoke);
+  assert.equal((await db.query('select count(*)::int as n from auth.users')).rows[0].n,users);
+  const verify=await fs.readFile(new URL('../supabase/verify.sql',import.meta.url),'utf8');
+  const row=(await db.query(verify)).rows[0];
+  assert.equal(row.anon_can_list,false);
+  assert.equal(row.can_change_owner,false);
+  assert.equal(row.can_access_internal_schema,false);
+  assert.ok(row.internal_functions.every(f=>!f.account_execute && !f.guest_execute));
+  assert.ok(row.internal_functions.some(f=>f.function==='create_account_room'));
+});
