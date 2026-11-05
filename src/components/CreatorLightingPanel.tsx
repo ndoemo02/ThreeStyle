@@ -18,7 +18,8 @@ function LightingSlider({ name, label, value, disabled, onChange }: { name: Slid
   </label>;
 }
 
-export function CreatorLightingPanel() {
+/** `readOnly`: someone else's room. Every control is disabled; the store also refuses edits. */
+export function CreatorLightingPanel({ readOnly = false }: { readOnly?: boolean }) {
   const mood = useHudStore(s => s.roomMood);
   const settings = useHudStore(s => s.lighting);
   const setMood = useHudStore(s => s.setRoomMood);
@@ -27,7 +28,8 @@ export function CreatorLightingPanel() {
   const face = useCreatorFaceStore();
   const inRoom = useTransitionStore(s => s.activeZone === 'room1');
   return <div className="creator-lighting-panel">
-    <div className="creator-lighting-intro"><h2>Twój nastrój</h2><p>Ustaw światło. Posłuchaj, jak zmienia się pokój.</p></div>
+    <div className="creator-lighting-intro"><h2>{readOnly ? 'Nastrój właściciela' : 'Twój nastrój'}</h2><p className={readOnly ? 'is-kept' : undefined}>{readOnly ? 'Światło ustawił właściciel pokoju. Możesz je oglądać, ale nie zmienisz go tutaj.' : 'Ustaw światło. Posłuchaj, jak zmienia się pokój.'}</p></div>
+    <fieldset className="creator-lighting-lock" disabled={readOnly}>
     <fieldset className="creator-moods"><legend>Wybierz nastrój</legend>{moods.map(item => <button type="button" key={item.id} aria-pressed={mood === item.id} onClick={() => setMood(item.id)}>{item.label}</button>)}</fieldset>
     <div className="creator-lighting-controls">
       <LightingSlider name="roomBrightness" label="Jasność pokoju" value={settings.roomBrightness} onChange={setLighting} />
@@ -43,5 +45,6 @@ export function CreatorLightingPanel() {
     {inRoom && face.enabled && <p className="creator-session-note" role="status">{face.status === 'loading' ? 'Przygotowujemy gospodarza…' : face.status === 'error' ? 'Gospodarz nie został wczytany. Pozostałe funkcje pokoju działają.' : 'Gospodarz jest gotowy. Odtwórz muzykę i spójrz do kabiny.'}</p>}
     {inRoom && face.enabled && face.status === 'error' && <button type="button" className="creator-secondary-button" onClick={face.retry}>Ponów wczytanie gospodarza</button>}
     <button type="button" className="creator-secondary-button creator-light-reset" onClick={reset}><RotateCcw size={15} />Przywróć ustawienia</button>
+    </fieldset>
   </div>;
 }

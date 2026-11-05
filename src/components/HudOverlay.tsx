@@ -7,13 +7,23 @@ import { useAudioStore } from '../stores/useAudioStore';
 import { useCreatorMedia } from '../hooks/useCreatorMedia';
 import { formatMediaTime } from '../lib/creatorMedia';
 import { CreatorLightingPanel } from './CreatorLightingPanel';
+import { OwnerRoomPanel, VisitorRoomPanel } from './room/RoomPanel';
+import { useRoomStore } from '../stores/useRoomStore';
 
+type DeckTab = 'media' | 'light' | 'room';
+const TAB_LABELS: Record<DeckTab, string> = { media: 'Media', light: 'Światło', room: 'Pokój' };
 const statusLabels = { idle: 'Wybierz materiał', loading: 'Ładowanie…', playing: 'Odtwarzanie', paused: 'Gotowe do odsłuchu', error: 'Problem z odtwarzaniem' };
 
 export function HudOverlay() {
   const isOpen = useHudStore(s => s.isOpen);
   const closeHud = useHudStore(s => s.closeHud);
-  const [tab, setTab] = useState<'media' | 'light'>('media');
+  const roomMode = useRoomStore(s => s.mode);
+  const visitedSlug = useRoomStore(s => s.room?.slug);
+  const visitor = roomMode === 'visitor';
+  // A visitor gets no media actions: the owner's files are private and the room is read-only.
+  const tabs: DeckTab[] = visitor ? ['room', 'light'] : roomMode === 'owner' ? ['media', 'light', 'room'] : ['media', 'light'];
+  const [chosenTab, setTab] = useState<DeckTab>('media');
+  const tab = tabs.includes(chosenTab) ? chosenTab : tabs[0];
   const bodyRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -58,19 +68,21 @@ export function HudOverlay() {
         <section ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="creator-deck-title" className={`creator-deck ${tab === 'light' ? 'is-light-page' : ''}`}>
           <header className="creator-deck-header">
             <div className="creator-deck-wordmark">3<span>S</span></div>
-            <div className="creator-deck-heading"><p>TWÓJ POKÓJ · TWOJE MEDIA</p><h1 id="creator-deck-title">Creator Room</h1></div>
+            <div className="creator-deck-heading"><p>{visitor ? 'CUDZY POKÓJ · TYLKO PODGLĄD' : 'TWÓJ POKÓJ · TWOJE MEDIA'}</p><h1 id="creator-deck-title">{visitor && visitedSlug ? <>Pokój <span translate="no">{visitedSlug}</span></> : 'Creator Room'}</h1></div>
             <button ref={closeRef} type="button" className="creator-icon-button" onClick={closeHud} aria-label="Zamknij panel" title="Zamknij · Escape"><X size={20} /></button>
           </header>
           <div className="creator-deck-tabs" role="tablist" aria-label="Panel Creator Room">
-            {([{ id: 'media', label: 'Media' }, { id: 'light', label: 'Światło' }] as const).map(item => <button type="button" key={item.id} id={`creator-tab-${item.id}`} role="tab" aria-controls={`creator-panel-${item.id}`} aria-selected={tab === item.id} tabIndex={tab === item.id ? 0 : -1} onClick={() => setTab(item.id)} onKeyDown={event => {
+            {tabs.map(id => <button type="button" key={id} id={`creator-tab-${id}`} role="tab" aria-controls={`creator-panel-${id}`} aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)} onKeyDown={event => {
               if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
               event.preventDefault();
-              const next = event.key === 'Home' ? 'media' : event.key === 'End' ? 'light' : tab === 'media' ? 'light' : 'media';
+              const index = tabs.indexOf(tab);
+              const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[tabs.length - 1]
+                : tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
               setTab(next); document.getElementById(`creator-tab-${next}`)?.focus();
-            }}>{item.label}</button>)}
+            }}>{TAB_LABELS[id]}</button>)}
           </div>
           <div ref={bodyRef} className="creator-deck-body">
-            <div id="creator-panel-media" className="creator-tab-panel" role="tabpanel" aria-labelledby="creator-tab-media" hidden={tab !== 'media'}>
+            {!visitor && <div id="creator-panel-media" className="creator-tab-panel" role="tabpanel" aria-labelledby="creator-tab-media" hidden={tab !== 'media'}>
             <div className="creator-deck-actions">
               <button type="button" className="creator-add-button" onClick={() => fileRef.current?.click()}><Upload size={17} />Dodaj plik</button>
               <button type="button" className="creator-secondary-button" onClick={() => libraryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}><FolderOpen size={17} />Biblioteka</button>
@@ -116,10 +128,11 @@ export function HudOverlay() {
             </div>
             {media.cameraError && <p className="creator-message error" role="alert">{media.cameraError}</p>}
             {media.camEnabled && <p className="creator-session-note">Kamera pozostaje włączona po zamknięciu panelu. Wyłączysz ją tutaj; wyjście z pokoju ją zatrzymuje.</p>}
-            </div>
-            <div id="creator-panel-light" className="creator-tab-panel" role="tabpanel" aria-labelledby="creator-tab-light" hidden={tab !== 'light'}><CreatorLightingPanel /></div>
+            </div>}
+            <div id="creator-panel-light" className="creator-tab-panel" role="tabpanel" aria-labelledby="creator-tab-light" hidden={tab !== 'light'}><CreatorLightingPanel readOnly={visitor} /></div>
+            {tabs.includes('room') && <div id="creator-panel-room" className="creator-tab-panel" role="tabpanel" aria-labelledby="creator-tab-room" hidden={tab !== 'room'}>{visitor ? <VisitorRoomPanel /> : <OwnerRoomPanel />}</div>}
           </div>
-          <footer className="creator-player">
+          {!visitor && <footer className="creator-player">
             <div className="creator-player-top">
               <div className="creator-player-art">{(media.activeMedia?.kind === 'video' || media.camEnabled) ? <MediaPreview videoRef={media.camEnabled ? cameraRef : videoRef} active={isOpen && tab === 'media'} mediaId={media.camEnabled ? 'camera' : media.activeMedia?.id} /> : <Headphones size={23} />}</div>
               <div className="creator-player-info"><p role="status">{statusLabels[media.status]}</p><h2 title={media.activeMedia?.title}>{media.activeMedia?.title ?? 'Twój pierwszy odsłuch'}</h2></div>
@@ -128,7 +141,7 @@ export function HudOverlay() {
             <input className="creator-seek" type="range" aria-label="Pozycja odtwarzania" min={0} max={media.duration || 1} step={0.1} value={Math.min(media.time, media.duration || 1)} disabled={!media.duration} onChange={event => media.seek(Number(event.target.value))} />
             <div className="creator-player-bottom"><span>{formatMediaTime(media.time)} / {formatMediaTime(media.duration)}</span><label><Volume2 size={15} /><input type="range" aria-label="Głośność" min={0} max={1} step={0.01} value={media.volume} onChange={event => media.setVolume(Number(event.target.value))} /></label></div>
             <AudioMeter active={isOpen && tab === 'media' && media.status === 'playing'} />
-          </footer>
+          </footer>}
           <button type="button" className="creator-return" onClick={closeHud}>Wróć do pokoju <span>ESC</span></button>
         </section>
       </div>

@@ -23,4 +23,4 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ['/', '/auth/callback', '/auth/recovery'] };
+export const config = { matcher: ['/', '/auth/callback', '/auth/recovery', '/pokoj', '/pokoj/:slug'] };

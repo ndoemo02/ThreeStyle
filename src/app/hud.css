@@ -101,6 +101,23 @@
 .creator-light-reactive input { accent-color: var(--deck-accent); width: 22px; height: 22px; margin: 11px; flex-shrink: 0; }
 .creator-light-reset { width: 100%; }
 .is-light-page .creator-audio-meter { display: none; }
+/* Rooms stage 1: read-only look for visitors and the owner's sharing panel. */
+.creator-lighting-lock { margin: 0; padding: 0; border: 0; min-width: 0; }
+.creator-lighting-lock:disabled { opacity: .6; }
+.creator-lighting-lock:disabled .creator-moods button[aria-pressed=true] { opacity: 1; }
+.creator-room-panel .creator-message { display: flex; gap: 8px; align-items: flex-start; }
+.creator-room-panel .creator-message svg { flex-shrink: 0; margin-top: 2px; }
+.creator-room-facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 4px 0 14px; font-size: 12px; }
+.creator-room-facts dt { color: var(--deck-muted); } .creator-room-facts dd { margin: 0; }
+.creator-room-share { display: grid; gap: 8px; margin: 14px 0; }
+.creator-room-share .creator-moods { margin: 6px 0 0; }
+.creator-room-share .creator-moods button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.creator-room-field { display: grid; gap: 6px; font-size: 11px; color: var(--deck-muted); }
+.creator-room-field input { min-height: 44px; padding: 0 12px; border: 1px solid var(--deck-line); border-radius: 10px; background: #ffffff06; color: inherit; font: 13px var(--font-geist-mono), monospace; }
+.creator-room-field input[aria-invalid=true] { border-color: #f3a05d; }
+.creator-session-note.is-error { color: #ffc8a2; }
+.creator-room-link { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--deck-line); }
+.creator-room-link output { font: 12px var(--font-geist-mono), monospace; overflow-wrap: anywhere; user-select: all; }
 @media (max-width: 600px) {
   .creator-deck-layer { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); align-items: flex-end; }
   .creator-deck { width: 100%; max-height: calc(100dvh - 56px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); border-radius: 20px; }
@@ -117,7 +134,7 @@
   .creator-deck-tabs { padding: 0 14px; }
   .is-light-page .creator-player-art { display: none; }
   .is-light-page .creator-player-top { min-height: 44px; margin-bottom: 0; }
-  .creator-lighting-intro p { display: none; }
+  .creator-lighting-intro p:not(.is-kept) { display: none; }
   .creator-media-cover { aspect-ratio: 1.5; }
 }
 @media (prefers-reduced-motion: reduce) { .creator-deck-layer { transition: none; } }

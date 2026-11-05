@@ -10,7 +10,7 @@
     "lint": "eslint",
     "assets:creator-room": "node scripts/build-creator-room-mobile-assets.mjs",
     "assets:lobby": "node scripts/build-lobby-atlases.mjs",
-    "test:accounts": "node --experimental-strip-types --test tests/accountDatabase.test.mjs tests/accountMedia.test.ts tests/accountLibrary.test.ts",
+    "test:accounts": "node --experimental-strip-types --test tests/accountDatabase.test.mjs tests/accountRooms.test.mjs tests/accountMedia.test.ts tests/accountLibrary.test.ts tests/accountRoom.test.ts tests/roomLock.test.ts",
     "supabase": "node scripts/supabase-cli.mjs"
   },
   "dependencies": {

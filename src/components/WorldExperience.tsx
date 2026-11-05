@@ -24,6 +24,9 @@ import { EntryCamera } from '@/3d/systems/EntryCamera';
 import { useEntryStore } from '@/stores/useEntryStore';
 import { useLobbyFxStore } from '@/stores/useLobbyFxStore';
 import { LOBBY_BLOOM_THRESHOLD } from '@/3d/world/hub/lobbyConfig';
+import { RoomSession } from '@/components/room/RoomSession';
+import type { RoomMode } from '@/stores/useRoomStore';
+import type { AccountRoomRow } from '@/lib/accountRoom';
 
 const loadGroundedHub = () => import('@/3d/world/hub/GroundedHub');
 const GroundedHub = dynamic(
@@ -73,7 +76,7 @@ function ZoneController({ activeZone }: { activeZone: string }) {
   return null;
 }
 
-export default function WorldExperience({ initialZone = ROOM_ZONE, entry = false, onReady, onFailure }: { initialZone?: string; entry?: boolean; onReady?: () => void; onFailure?: () => void }) {
+export default function WorldExperience({ initialZone = ROOM_ZONE, entry = false, onReady, onFailure, roomMode = 'demo', visitorRoom = null }: { initialZone?: string; entry?: boolean; onReady?: () => void; onFailure?: () => void; roomMode?: RoomMode; visitorRoom?: AccountRoomRow | null }) {
   const entryPhase = useEntryStore(s => s.phase);
   const lobbyBloom = useLobbyFxStore(s => s.bloom);
   const interactive = !entry || entryPhase === 'complete';
@@ -142,6 +145,7 @@ export default function WorldExperience({ initialZone = ROOM_ZONE, entry = false
 
   return (
     <div className="b3p-fullscreen" data-entry-interactive={interactive}>
+      <RoomSession mode={roomMode} visitorRoom={visitorRoom} />
       {/* UI Overlay Help */}
       <div className="absolute top-4 left-4 z-10 p-4 font-mono text-xs text-white/50 pointer-events-none drop-shadow-md">
         <div>B3P (Blok Trzech Pięter)</div>

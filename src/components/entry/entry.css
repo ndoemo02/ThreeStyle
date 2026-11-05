@@ -72,3 +72,4 @@
 }
 @media(max-height:600px) and (orientation:landscape) { .entry-header { min-height:72px; } .entry-layout { padding:25px 0; } .entry-story h1 { font-size:45px; } .entry-story-mark { display:none; } .entry-card { padding:22px; } .entry-footer { min-height:50px; } }
 @media(prefers-reduced-motion:reduce) { .entry-photo { transition:opacity 200ms ease-out; transform:none!important; } .entry-shade { transition:none; } }
+.entry-demo a.entry-text { display: flex; align-items: center; justify-content: center; text-decoration: underline; text-underline-offset: 3px; }

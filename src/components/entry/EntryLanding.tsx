@@ -95,7 +95,7 @@ export function EntryLanding() {
   const signOut = async () => { setBusy(true); try { const result = await client?.auth.signOut({ scope: 'local' }); if (result?.error) { setError('Nie udało się wylogować. Spróbuj ponownie.'); return; } setUser(null); back(); } catch { setError('Sprawdź połączenie i ponów wylogowanie.'); } finally { setBusy(false); } };
   const changing = ['preparing', 'approaching', 'opening', 'entering'].includes(phase);
   return <>
-    {scene && <World key={sceneKey} initialZone="hub" entry onReady={readyScene} onFailure={failScene} />}
+    {scene && <World key={sceneKey} initialZone="hub" entry onReady={readyScene} onFailure={failScene} roomMode={demo ? 'demo' : 'owner'} />}
     {phase !== 'complete' && <main className={`entry-stage entry-${phase}`} aria-label="Wejście do ThreeStyle" data-entry-phase={phase}>
       <div className="entry-photo" aria-hidden="true" style={{ transformOrigin: framing.origin, transform: ['approaching', 'opening', 'entering'].includes(phase) && !reducedMotion ? framing.transform : 'none', opacity: ['opening', 'entering'].includes(phase) ? 0 : 1 }} /><div className="entry-shade" aria-hidden="true" />
       <div className="entry-content" inert={changing} style={{ opacity: changing ? 0 : 1, pointerEvents: changing ? 'none' : undefined }}>
@@ -115,7 +115,7 @@ export function EntryLanding() {
             </>}
             {error && <p className="entry-error" role="alert">{error}</p>}{notice && <p className="entry-notice" role="status">{notice}</p>}
             {phase === 'error' && <button className="entry-primary" disabled={busy} onClick={() => void enter(demo)}>Ponów wejście <ArrowRight size={18} /></button>}
-            <div className="entry-demo"><button id="entry-demo-button" disabled={busy} onClick={() => void enter(true)}>Zobacz demo <ArrowRight size={17} /></button><small>Bez konta · pliki tylko w tej sesji</small></div>
+            <div className="entry-demo"><button id="entry-demo-button" disabled={busy} onClick={() => void enter(true)}>Zobacz demo <ArrowRight size={17} /></button><small>Bez konta · pliki tylko w tej sesji</small><Link className="entry-text" href="/pokoj" prefetch={false}>Odwiedź czyjś pokój po nazwie</Link></div>
           </section></div><footer className="entry-footer"><span>THREESTYLE · TWÓJ RYTM, TWOJA PRZESTRZEŃ</span><span>Creator Room / Lobby / Muzyka</span></footer>
       </div>
       {changing && <div className="entry-loading" role="status" aria-live="polite"><span className="entry-loading-light" /><span>{phase === 'preparing' ? 'Przygotowujemy lobby…' : 'Witaj w ThreeStyle'}</span><button onClick={back} aria-label="Anuluj wejście"><X size={18} /></button></div>}
